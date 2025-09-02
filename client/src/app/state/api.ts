@@ -1,93 +1,151 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
+// ----------------------
+// Interfaces
+// ----------------------
 
 export interface Product {
-    productId: string;
-    name: string;
-    price: number;
-    rating?: number;
-    stockQuantity: number;
+  productId: string;
+  name: string;
+  price: number;
+  rating?: number;
+  stockQuantity: number;
 }
 
 export interface NewProduct {
-    name: string;
-    price: number;
-    rating?: number;
-    stockQuantity: number; 
+  name: string;
+  price: number;
+  rating?: number;
+  stockQuantity: number;
 }
 
 export interface SalesSummary {
-    salesSummaryId: string;
-    totalValue: number;
-    changePercentage?: number;
-    date: string;
+  salesSummaryId: string;
+  totalValue: number;
+  changePercentage?: number;
+  date: string;
 }
 
 export interface PurchaseSummary {
-    purchaseSummaryId: string; 
-    totalPurchased: number;
-    changePercentage?: number;
-    date: string;
-
+  purchaseSummaryId: string;
+  totalPurchased: number;
+  changePercentage?: number;
+  date: string;
 }
 
-
 export interface ExpenseSummary {
-    expenseSummaryId: string;
-    totalExpenses: number;
-    date: string;
+  expenseSummaryId: string;
+  totalExpenses: number;
+  date: string;
 }
 
 export interface ExpenseByCategorySummary {
-    expenseByCategorySummaryId: string;
-    category: string;
-    amount: string;
-    date: string;
+  expenseByCategorySummaryId: string;
+  category: string;
+  amount: string;
+  date: string;
 }
 
 export interface DashboardMetrics {
-    popularProducts: Product[];
-    salesSummary: SalesSummary[];
-    purchaseSummary: PurchaseSummary[];
-    expenseSummary: ExpenseSummary[];
-    expenseByCategorySummary: ExpenseByCategorySummary[];
+  popularProducts: Product[];
+  salesSummary: SalesSummary[];
+  purchaseSummary: PurchaseSummary[];
+  expenseSummary: ExpenseSummary[];
+  expenseByCategorySummary: ExpenseByCategorySummary[];
 }
 
+export interface User {
+  userId: string;
+  name: string;
+  email: string;
+  role: string;
+  location: string;
+  createdAt: string;
+  lastLogin: string;
+}
+
+export interface Expense {
+  expenseId: string;
+  category: string;
+  amount: number;
+  date: string;
+  status: string;
+  description?: string; // <-- Add this
+};
+
+// ----------------------
+// API Setup
+// ----------------------
 
 export const api = createApi({
-    reducerPath: "api",
-    baseQuery: fetchBaseQuery({
-        baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL,
+  reducerPath: "api",
+  baseQuery: fetchBaseQuery({
+    baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL,
+  }),
+  tagTypes: ["DashboardMetrics", "Products", "Users", "Expenses"],
+  endpoints: (build) => ({
+    // Dashboard Metrics
+    getDashboardMetrics: build.query<DashboardMetrics, void>({
+      query: () => "/dashboard",
+      providesTags: ["DashboardMetrics"],
     }),
-    tagTypes: ["DashboardMetrics", "Products"], //this is the data in our overall app that we want to track 
-    endpoints: (build) => ({
-        getDashboardMetrics: build.query<DashboardMetrics, void>({
-            query: () => "/dashboard",
-            providesTags: ["DashboardMetrics"] // this is the data listed from tagtypes but related to a specific endpoint that we would like to track 
-        }),
-        getProducts: build.query<Product[], string | void>({
-            // our product query has a posible parameter called searc define in the productController
-            query: (search)=> ({
-                url: "/products",
-                params: search ? { search }: {}
-            }),
-            providesTags: ["Products"]
-        }),
-        createProduct: build.mutation<Product,NewProduct>({
-             query: (newProduct)=> ({
-                url: "/products",
-                method: "POST",
-                body: newProduct
-        }),
-        invalidatesTags: ["Products"]
-        })
+
+    // Products
+    getProducts: build.query<Product[], string | void>({
+      query: (search) => ({
+        url: "/products",
+        params: search ? { search } : {},
+      }),
+      providesTags: ["Products"],
     }),
+    createProduct: build.mutation<Product, NewProduct>({
+      query: (newProduct) => ({
+        url: "/products",
+        method: "POST",
+        body: newProduct,
+      }),
+      invalidatesTags: ["Products"],
+    }),
+
+    // Users
+    getUsers: build.query<User[], void>({
+      query: () => "/users",
+      providesTags: ["Users"],
+    }),
+
+    // Expenses
+   getExpenses: build.query<Expense[], { category?: string; from?: string; to?: string } | void>({
+    query: (params) => {
+        return {
+        url: "/expenses",
+        params: params ?? undefined, // explicitly ensures correct type
+        };
+    },
+  providesTags: ["Expenses"],
+}),
+
+    createExpense: build.mutation<Expense, Partial<Expense>>({
+      query: (expense) => ({
+        url: "/expenses",
+        method: "POST",
+        body: expense,
+      }),
+      invalidatesTags: ["Expenses", "DashboardMetrics"],
+    }),
+  }),
 });
 
+// ----------------------
+// Hooks
+// ----------------------
+
 export const {
-    useGetDashboardMetricsQuery,
-    useGetProductsQuery,
-    useCreateProductMutation
+  useGetDashboardMetricsQuery,
+  useGetProductsQuery,
+  useCreateProductMutation,
+  useGetUsersQuery,
+  useGetExpensesQuery,
+  useCreateExpenseMutation,
 } = api;
 
 

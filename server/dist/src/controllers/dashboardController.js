@@ -1,5 +1,5 @@
 "use strict";
-//controller defines the logic of what happens when a route  requested
+//controller defines the logic of what happens when a route requested
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {

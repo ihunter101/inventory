@@ -14,6 +14,7 @@ exports.createProduct = exports.getProducts = void 0;
 // Request is a type that represent the incoming HTTP request (URL, Header, body, query parameters)
 // Response is a type that represents the data that is sent back from the database 
 const client_1 = require("@prisma/client");
+const stock_1 = require("../utils/stock");
 const prisma = new client_1.PrismaClient();
 // define a function called get products
 // 1.) when the /products URL is reached, it checks the URL for the search terms (e.g. /products?search=gloves)
@@ -23,32 +24,44 @@ const getProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
     var _a;
     try {
         const search = (_a = req.query.search) === null || _a === void 0 ? void 0 : _a.toString();
-        const products = yield prisma.products.findMany({
-            where: {
-                name: {
-                    contains: search,
-                },
-            },
-        });
-        res.json(products);
+        const where = search
+            ? { name: { contains: search, mode: "insensitive" } }
+            : {};
+        const products = yield prisma.products.findMany({ where });
+        const result = products.map((p) => (Object.assign(Object.assign({}, p), { stauts: (0, stock_1.getStatus)(p.stockQuantity, p.minQuantity, p.reorderPoint) })));
+        res.json(result);
     }
     catch (error) {
-        res.status(500).json({ message: "Error retrieving products" });
+        res.status(500).json({ message: "Error retrieving items" });
     }
 });
 exports.getProducts = getProducts;
 const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { productId, name, price, rating, stockQuantity } = req.body;
-        const product = yield prisma.products.create({
+        const { productId, name, price, stockQuantity, rating, supplier, minQuantity, unit, category, expiryDate, } = req.body;
+        // Validation (you can extend this)
+        if (!name || price === undefined || stockQuantity === undefined) {
+            return res.status(400).json({ error: "Missing required fields" });
+        }
+        const newProduct = yield prisma.products.create({
             data: {
-                productId, name, price, rating, stockQuantity
+                productId,
+                name,
+                price: parseFloat(price),
+                stockQuantity: parseInt(stockQuantity),
+                rating: rating ? parseFloat(rating) : undefined,
+                supplier,
+                minQuantity: minQuantity ? parseInt(minQuantity) : undefined,
+                unit,
+                category,
+                expiryDate: expiryDate ? new Date(expiryDate) : undefined,
             },
         });
-        res.status(201).json(product);
+        return res.status(201).json(newProduct);
     }
     catch (error) {
-        res.status(500).json({ message: "Error, unable to create product" });
+        console.error("Create product error:", error);
+        return res.status(500).json({ error: "Failed to create product" });
     }
 });
 exports.createProduct = createProduct;

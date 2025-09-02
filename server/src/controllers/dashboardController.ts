@@ -1,4 +1,4 @@
-//controller defines the logic of what happens when a route  requested
+//controller defines the logic of what happens when a route requested
 
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";

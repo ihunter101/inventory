@@ -14,9 +14,34 @@ datasource db {
 }
 
 model Users {
-  userId String @id
+  userId Int @id @default(autoincrement())
   name String 
-  email String
+  email String @unique
+  role Role @default(viewer)
+  location Location @default(Tapion)
+  createdAt DateTime @default(now())
+  lastLogin DateTime? @default(now())
+}
+
+enum Role {
+  admin 
+  inventoryClerk
+  labStaff
+  orderAgent
+  viewer
+}
+
+enum Location {
+  Tapion
+  blueCoral
+  manoelStreet
+  sunnyAcres
+  emCare
+  RodneyBay
+  memberCare
+  vieuxFort
+  soufriere
+  other
 }
 
 model Products {
@@ -25,6 +50,12 @@ model Products {
   price Float
   rating Float?
   stockQuantity Int
+  minQuantity Int? @default(0)
+  reorderPoint Int?
+  category String?
+  unit String?
+  supplier String?
+  expiryDate DateTime? 
   Sales Sales[]
   Purchases Purchases[]
 }
@@ -49,12 +80,16 @@ model Purchases {
    product Products @relation(fields: [productId], references: [productId])
 }
 
+
 model Expenses {
-  expenseId String @id
-  category String
-  amount Float
-  timestamp DateTime
+  expenseId  String @id @default(uuid())
+  category   String
+  amount     Float
+  date  DateTime @default(now())
+  description String?
+  status     String   @default("pending")
 }
+
 
 model SalesSummary {
   salesSummaryId String @id

@@ -20,78 +20,48 @@
 // export default config;
 // 
 
-import type { Config } from "tailwindcss";
+import { type Config } from "tailwindcss";
 import { createThemes } from "tw-colors";
-import colors from "tailwindcss/colors";
 
-const baseColors = [
-  "gray",
-  "red",
-  "yellow",
-  "green",
-  "blue",
-  "indigo",
-  "purple",
-  "pink",
-];
-
-const shadeMapping = {
-  "50": "900",
-  "100": "800",
-  "200": "700",
-  "300": "600",
-  "400": "500",
-  "500": "400",
-  "600": "300",
-  "700": "200",
-  "800": "100",
-  "900": "50",
-};
-
-const generateThemeObject = (colors: any, mapping: any, invert = false) => {
-  const theme: any = {};
-  baseColors.forEach((color) => {
-    theme[color] = {};
-    Object.entries(mapping).forEach(([key, value]: any) => {
-      const shadeKey = invert ? value : key;
-      theme[color][key] = colors[color][shadeKey];
-    });
-  });
-  return theme;
-};
-
-const lightTheme = generateThemeObject(colors, shadeMapping);
-const darkTheme = generateThemeObject(colors, shadeMapping, true);
-
-const themes = {
+const themes = createThemes({
   light: {
-    ...lightTheme,
-    white: "#ffffff",
+    background: "0 0% 100%",
+    foreground: "0 0% 3.9%",
+    // add more custom tokens if needed
   },
   dark: {
-    ...darkTheme,
-    white: colors.gray["950"],
-    black: colors.gray["50"],
+    background: "0 0% 3.9%",
+    foreground: "0 0% 98%",
+    // add more custom tokens if needed
   },
-};
+});
 
 const config: Config = {
-  darkMode: "class",
+  darkMode: "class", // <- this is critical!
   content: [
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/**/*.{ts,tsx,js,jsx,mdx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
   ],
   theme: {
     extend: {
-      backgroundImage: {
-        "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
-        "gradient-conic":
-          "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
+      borderRadius: {
+        lg: "var(--radius)",
+      },
+      colors: {
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        // add other color layers if needed
       },
     },
   },
-  plugins: [createThemes(themes)],
+  plugins: [],
 };
 
 export default config;
