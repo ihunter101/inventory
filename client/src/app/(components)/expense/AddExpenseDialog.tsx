@@ -13,6 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useCreateExpenseMutation } from "../../state/api";
+import { useDispatch } from "react-redux"
+import { addExpense } from "@/app/state";
 
 const AddExpenseDialog = () => {
   const [open, setOpen] = React.useState(false);
@@ -20,6 +22,7 @@ const AddExpenseDialog = () => {
   const [category, setCategory] = React.useState("");
   const [date, setDate] = React.useState("");
 
+  const dispatch = useDispatch();
   const [createExpense, { isLoading }] = useCreateExpenseMutation();
 
   const handleSubmit = async () => {
@@ -29,7 +32,8 @@ const AddExpenseDialog = () => {
     }
 
     try {
-      await createExpense({ amount, category, date }).unwrap();
+      const newExpense = await createExpense({ amount, category, date }).unwrap();
+      dispatch(addExpense(newExpense));
       toast.success("Expense added successfully");
       setOpen(false);
       setAmount(0);

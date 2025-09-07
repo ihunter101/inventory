@@ -79,7 +79,7 @@ export default function InventoryPage() {
             variant="caption"
             sx={{ color: '#6b7280', fontSize: '0.75rem', display: 'block', mt: 0.5 }}
           >
-            ID: {params.row.productId} • Supplier: {params.row.supplier}
+            Supplier: {params.row.supplier}  •  ID: {params.row.productId}
           </Typography>
         </Box>
       ),

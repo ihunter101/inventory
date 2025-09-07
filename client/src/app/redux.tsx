@@ -6,7 +6,7 @@ import {
   useSelector,
   Provider,
 } from "react-redux";
-import globalReducer from "@/app/state";
+import { globalReducer, expensesReducer } from "@/app/state/index";
 import { api } from "@/app/state/api";
 import { setupListeners } from "@reduxjs/toolkit/query";
 
@@ -46,10 +46,11 @@ const storage =
 const persistConfig = {
   key: "root",
   storage,
-  whitelist: ["global"],
+  whitelist: ["global", "expenses"],
 };
 const rootReducer = combineReducers({
   global: globalReducer,
+  expenses: expensesReducer,
   [api.reducerPath]: api.reducer,
 });
 const persistedReducer = persistReducer(persistConfig, rootReducer);
