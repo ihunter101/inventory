@@ -1,0 +1,53 @@
+[
+  {
+    "id": "sii-0001",
+    "invoiceId": "inv-2025-0001",
+    "productId": "prod-edta-4ml",
+    "description": "EDTA tubes",
+    "uom": "each",
+    "quantity": 300,
+    "unitPrice": "1.35",
+    "lineTotal": "405.00"
+  },
+  {
+    "id": "sii-0002",
+    "invoiceId": "inv-2025-0001",
+    "productId": "prod-sst-5ml",
+    "description": "SST tubes",
+    "uom": "each",
+    "quantity": 270,
+    "unitPrice": "1.50",
+    "lineTotal": "405.00"
+  },
+
+  {
+    "id": "sii-0003",
+    "invoiceId": "inv-2025-0002",
+    "productId": "prod-micro-swab",
+    "description": "VTM swabs",
+    "uom": "each",
+    "quantity": 200,
+    "unitPrice": "1.20",
+    "lineTotal": "240.00"
+  },
+  {
+    "id": "sii-0004",
+    "invoiceId": "inv-2025-0002",
+    "productId": "prod-petri-90",
+    "description": "Petri dishes",
+    "uom": "pack",
+    "quantity": 50,
+    "unitPrice": "4.80",
+    "lineTotal": "240.00"
+  },
+  {
+    "id": "sii-0005",
+    "invoiceId": "inv-2025-0002",
+    "productId": "prod-pipette-200",
+    "description": "200uL tips",
+    "uom": "rack",
+    "quantity": 50,
+    "unitPrice": "4.20",
+    "lineTotal": "210.00"
+  }
+]

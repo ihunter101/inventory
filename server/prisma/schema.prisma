@@ -14,17 +14,17 @@ datasource db {
 }
 
 model Users {
-  userId Int @id @default(autoincrement())
-  name String 
-  email String @unique
-  role Role @default(viewer)
-  location Location @default(Tapion)
-  createdAt DateTime @default(now())
+  userId    Int       @id @default(autoincrement())
+  name      String
+  email     String    @unique
+  role      Role      @default(viewer)
+  location  Location  @default(Tapion)
+  createdAt DateTime  @default(now())
   lastLogin DateTime? @default(now())
 }
 
 enum Role {
-  admin 
+  admin
   inventoryClerk
   labStaff
   orderAgent
@@ -45,78 +45,242 @@ enum Location {
 }
 
 model Products {
-  productId String @id 
-  name String
-  price Float
-  rating Float?
+  productId     String    @id
+  name          String
+  price         Float
+  rating        Float?
   stockQuantity Int
-  minQuantity Int? @default(0)
-  reorderPoint Int?
-  category String?
-  unit String?
-  supplier String?
-  expiryDate DateTime? 
-  Sales Sales[]
+  minQuantity   Int?      @default(0)
+  reorderPoint  Int?
+  category      String?
+  unit          String?
+  supplier      String?
+  expiryDate    DateTime?
+
+  sku String? @unique 
+
+  Sales     Sales[]
   Purchases Purchases[]
+
+  poItems      PurchaseOrderItem[]
+  invoiceItems SupplierInvoiceItem[]
+  grnItems     GoodsReceiptItem[]
+  stockMoves   StockLedger[]
+  createdAt    DateTime? @default(now())             
+  updatedAt    DateTime              @updatedAt @default(now())
 }
 
 model Sales {
-  saleId String @id
-  productId String
-  timestamp DateTime
-  quantity Int
-  unitPrice Float
+  saleId      String   @id
+  productId   String
+  timestamp   DateTime
+  quantity    Int
+  unitPrice   Float
   totalAmount Float
-  product Products @relation(fields: [productId], references: [productId])
+  product     Products @relation(fields: [productId], references: [productId])
 }
 
 model Purchases {
-  purchaseId String @id
-  productId String 
-  timestamp DateTime
-  quantity Int
-  unitCost Float 
-  totalCost Float
-   product Products @relation(fields: [productId], references: [productId])
+  purchaseId String   @id
+  productId  String
+  timestamp  DateTime
+  quantity   Int
+  unitCost   Float
+  totalCost  Float
+  product    Products @relation(fields: [productId], references: [productId])
 }
-
 
 model Expenses {
-  expenseId  String @id @default(uuid())
-  category   String
-  amount     Float
-  date  DateTime @default(now())
+  expenseId   String   @id @default(uuid())
+  category    String
+  amount      Float
+  date        DateTime @default(now())
   description String?
-  status     String   @default("pending")
+  status      String   @default("pending")
 }
 
-
 model SalesSummary {
-  salesSummaryId String @id
-  totalValue Float
+  salesSummaryId   String   @id
+  totalValue       Float
   changePercentage Float?
-  date DateTime
+  date             DateTime
 }
 
 model PurchaseSummary {
-  purchaseSummaryId String @id
-  totalPurchased Float
-  changePercentage Float?
-  date DateTime
+  purchaseSummaryId String   @id
+  totalPurchased    Float
+  changePercentage  Float?
+  date              DateTime
 }
 
 model ExpenseSummary {
-  expenseSummaryId String @id
-  totalExpenses Float
-  date DateTime
+  expenseSummaryId  String              @id
+  totalExpenses     Float
+  date              DateTime
   ExpenseByCategory ExpenseByCategory[]
 }
 
-model ExpenseByCategory{
-  expenseByCategoryId String @id
-  expenseSummaryId String
-  category String
-  amount BigInt
-  date DateTime 
-  expenseSummary ExpenseSummary @relation(fields: [expenseSummaryId], references: [expenseSummaryId])
+model ExpenseByCategory {
+  expenseByCategoryId String         @id
+  expenseSummaryId    String
+  category            String
+  amount              BigInt
+  date                DateTime
+  expenseSummary      ExpenseSummary @relation(fields: [expenseSummaryId], references: [expenseSummaryId])
+}
+
+// Purchases Page Data
+
+// -- ENUMS --//
+enum POStatus {
+  DRAFT
+  APPROVED
+  SENT
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CLOSED
+}
+
+enum GRNStatus {
+  DRAFT
+  POSTED
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+model Supplier {
+  supplierId String @id @default(cuid())
+  name       String
+  email      String
+  phone      String
+  address    String
+
+  purchaseOrders PurchaseOrder[]
+  invoices       SupplierInvoice[]
+}
+
+model PurchaseOrder {
+  id         String    @id @default(cuid())
+  poNumber   String    @unique
+  supplierId String
+  supplier   Supplier  @relation(fields: [supplierId], references: [supplierId])
+  status     POStatus  @default(DRAFT)
+  orderDate  DateTime  @default(now())
+  dueDate    DateTime?
+  notes      String?
+
+  items    PurchaseOrderItem[]
+  invoices SupplierInvoice[] // convenience if you want reverse nav
+  grns     GoodsReceipt[]
+
+  subtotal Decimal @db.Decimal(14, 2)
+  tax      Decimal @db.Decimal(14, 2)
+  total    Decimal @db.Decimal(14, 2)
+
+  @@index([supplierId])
+  @@index([poNumber])
+}
+
+model PurchaseOrderItem {
+  id        String        @id @default(cuid())
+  poId      String
+  po        PurchaseOrder @relation(fields: [poId], references: [id]) //why?
+  productId String
+  product   Products      @relation(fields: [productId], references: [productId])
+
+  description String?
+  unit        String?
+  quantity    Int
+  unitPrice   Decimal @db.Decimal(12, 2)
+  lineTotal   Decimal @db.Decimal(14, 2)
+
+  @@index([poId])
+  @@index([productId])
+}
+
+model SupplierInvoice {
+  id            String   @id @default(cuid())
+  invoiceNumber String
+  supplierId    String
+  supplier      Supplier @relation(fields: [supplierId], references: [supplierId])
+
+  poId String?
+  po   PurchaseOrder? @relation(fields: [poId], references: [id]) //optional revamp
+
+  status  InvoiceStatus @default(PENDING)
+  date    DateTime      @default(now())
+  dueDate DateTime?
+
+  items        SupplierInvoiceItem[]
+  amount       Decimal               @db.Decimal(14, 2)
+  GoodsReceipt GoodsReceipt[]
+
+  @@unique([invoiceNumber, supplierId]) // avoid duplicates per supplier
+  @@index([poId])
+}
+
+model SupplierInvoiceItem {
+  id        String          @id @default(cuid())
+  invoiceId String
+  invoice   SupplierInvoice @relation(fields: [invoiceId], references: [id])
+  productId String
+  product   Products        @relation(fields: [productId], references: [productId])
+
+  description String?
+  uom         String?
+  quantity    Int
+  unitPrice   Decimal @db.Decimal(12, 2)
+  lineTotal   Decimal @db.Decimal(14, 2)
+
+  @@index([invoiceId])
+  @@index([productId])
+}
+
+model GoodsReceipt {
+  id        String           @id @default(cuid())
+  grnNumber String           @unique
+  poId      String
+  po        PurchaseOrder    @relation(fields: [poId], references: [id]) //why?
+  invoiceId String?
+  invoice   SupplierInvoice? @relation(fields: [invoiceId], references: [id]) //why?
+  date      DateTime         @default(now())
+  status    GRNStatus        @default(DRAFT)
+
+  lines GoodsReceiptItem[]
+
+  @@index([poId])
+  @@index([invoiceId])
+}
+
+model GoodsReceiptItem {
+  id        String       @id @default(cuid())
+  grnId     String
+  Grn       GoodsReceipt @relation(fields: [grnId], references: [id]) //why?
+  productId String
+  product   Products     @relation(fields: [productId], references: [productId])
+
+  unit        String?
+  receivedQty Int
+  unitPrice   Decimal @db.Decimal(12, 2)
+
+  @@index([grnId])
+  @@index([productId])
+}
+
+model StockLedger {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Products @relation(fields: [productId], references: [productId])
+  sourceType String //"GRN" "ADJUSTMENT"
+  SourceId   String
+  qtyChange  Int
+  memo       String?
+  createdAt  DateTime @default(now())
+
+  @@index([productId])
+  @@index([SourceId, sourceType])
 }

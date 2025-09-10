@@ -1,0 +1,22 @@
+[
+  {
+    "id": "inv-2025-0001",
+    "invoiceNumber": "SI-2025-0001",
+    "supplierId": "sup-bd",
+    "poId": "po-2025-0001",
+    "status": "PENDING",
+    "date": "2025-09-06T00:00:00.000Z",
+    "dueDate": "2025-09-30T00:00:00.000Z",
+    "amount": "874.80"
+  },
+  {
+    "id": "inv-2025-0002",
+    "invoiceNumber": "SI-2025-0002",
+    "supplierId": "sup-thermo",
+    "poId": "po-2025-0002",
+    "status": "PENDING",
+    "date": "2025-09-10T00:00:00.000Z",
+    "dueDate": "2025-10-02T00:00:00.000Z",
+    "amount": "745.20"
+  }
+]

@@ -1,0 +1,66 @@
+[
+  {
+    "id": "sl-0001",
+    "productId": "prod-edta-4ml",
+    "sourceType": "GRN",
+    "SourceId": "grn-2025-0001",
+    "qtyChange": 300,
+    "memo": "Received via GRN-2025-0001",
+    "createdAt": "2025-09-05T00:00:00.000Z"
+  },
+  {
+    "id": "sl-0002",
+    "productId": "prod-sst-5ml",
+    "sourceType": "GRN",
+    "SourceId": "grn-2025-0001",
+    "qtyChange": 270,
+    "memo": "Received via GRN-2025-0001",
+    "createdAt": "2025-09-05T00:00:00.000Z"
+  },
+  {
+    "id": "sl-0003",
+    "productId": "prod-micro-swab",
+    "sourceType": "GRN",
+    "SourceId": "grn-2025-0002",
+    "qtyChange": 200,
+    "memo": "Received via GRN-2025-0002",
+    "createdAt": "2025-09-09T00:00:00.000Z"
+  },
+  {
+    "id": "sl-0004",
+    "productId": "prod-petri-90",
+    "sourceType": "GRN",
+    "SourceId": "grn-2025-0002",
+    "qtyChange": 50,
+    "memo": "Received via GRN-2025-0002",
+    "createdAt": "2025-09-09T00:00:00.000Z"
+  },
+  {
+    "id": "sl-0005",
+    "productId": "prod-pipette-200",
+    "sourceType": "GRN",
+    "SourceId": "grn-2025-0002",
+    "qtyChange": 50,
+    "memo": "Received via GRN-2025-0002",
+    "createdAt": "2025-09-09T00:00:00.000Z"
+  },
+
+  {
+    "id": "sl-0006",
+    "productId": "prod-edta-4ml",
+    "sourceType": "USAGE",
+    "SourceId": "ward-hematology-0907",
+    "qtyChange": -40,
+    "memo": "Daily hematology draws",
+    "createdAt": "2025-09-07T10:00:00.000Z"
+  },
+  {
+    "id": "sl-0007",
+    "productId": "prod-sst-5ml",
+    "sourceType": "USAGE",
+    "SourceId": "lab-chemistry-0908",
+    "qtyChange": -35,
+    "memo": "Serum chemistry panel runs",
+    "createdAt": "2025-09-08T12:00:00.000Z"
+  }
+]

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "grni-0001",
+    "grnId": "grn-2025-0001",
+    "productId": "prod-edta-4ml",
+    "unit": "each",
+    "receivedQty": 300,
+    "unitPrice": "1.35"
+  },
+  {
+    "id": "grni-0002",
+    "grnId": "grn-2025-0001",
+    "productId": "prod-sst-5ml",
+    "unit": "each",
+    "receivedQty": 270,
+    "unitPrice": "1.50"
+  },
+  {
+    "id": "grni-0003",
+    "grnId": "grn-2025-0002",
+    "productId": "prod-micro-swab",
+    "unit": "each",
+    "receivedQty": 200,
+    "unitPrice": "1.20"
+  },
+  {
+    "id": "grni-0004",
+    "grnId": "grn-2025-0002",
+    "productId": "prod-petri-90",
+    "unit": "pack",
+    "receivedQty": 50,
+    "unitPrice": "4.80"
+  },
+  {
+    "id": "grni-0005",
+    "grnId": "grn-2025-0002",
+    "productId": "prod-pipette-200",
+    "unit": "rack",
+    "receivedQty": 50,
+    "unitPrice": "4.20"
+  }
+]

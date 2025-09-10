@@ -8,6 +8,10 @@ import dashboardRoutes from './routes/dashboardRoutes';
 import productRoutes from './routes/productRoutes';
 import userRoutes from "./routes/userRoutes"
 import expenseRoutes from "./routes/expenseRoute"
+import supplierRoutes from "./routes/supplierRoutes"
+import purchaseOrderRoutes from "./routes/purchaseOrderRoutes"
+import invoiceRoutes from "./routes/invoiceRoutes"
+import goodsReceiptRoutes from "./routes/goodsReceiptRoute";
 
 dotenv.config();
 const app = express();
@@ -25,8 +29,11 @@ app.use("/dashboard", dashboardRoutes); // http://localhost:8000/dashboard
 app.use("/products", productRoutes); // http://localhost:8000/products
 app.use('/users', userRoutes ); //http://localhost:8000/users
 app.use("/expenses", expenseRoutes); //http://localhost:8000/expenses
-
+app.use("/suppliers",supplierRoutes )
+app.use("/purchase-orders", purchaseOrderRoutes)
+app.use("/invoices", invoiceRoutes)
+app.use("/grns", goodsReceiptRoutes)
 
 // server
 const port = process.env.PORT || 3001;
-app.listen(port, () => console.log(`Server running on port ${port}`));
+app.listen(port, () => console.log(`Server running on port ${port}`))

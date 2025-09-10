@@ -1,0 +1,26 @@
+[
+  {
+    "id": "po-2025-0001",
+    "poNumber": "PO-2025-0001",
+    "supplierId": "sup-bd",
+    "status": "APPROVED",
+    "orderDate": "2025-09-01T00:00:00.000Z",
+    "dueDate": "2025-09-10T00:00:00.000Z",
+    "notes": "Phlebotomy restock for Q4",
+    "subtotal": "810.00",
+    "tax": "64.80",
+    "total": "874.80"
+  },
+  {
+    "id": "po-2025-0002",
+    "poNumber": "PO-2025-0002",
+    "supplierId": "sup-thermo",
+    "status": "APPROVED",
+    "orderDate": "2025-09-03T00:00:00.000Z",
+    "dueDate": "2025-09-12T00:00:00.000Z",
+    "notes": "Microbiology & pipetting",
+    "subtotal": "690.00",
+    "tax": "55.20",
+    "total": "745.20"
+  }
+]

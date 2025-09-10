@@ -10,6 +10,7 @@ export interface Product {
   price: number;
   rating?: number;
   stockQuantity: number;
+  unit?: string; //added only to assist in the CreatePruchasreOrderModal
 }
 
 export interface NewProduct {
@@ -70,8 +71,107 @@ export interface Expense {
   amount: number;
   date: string;
   status: string;
-  description?: string; // <-- Add this
+  description?: string; 
 };
+
+
+// ------------
+//purchases
+//-------------
+export interface Supplier {
+  supplierId: string 
+  name: string;
+  email?: string; 
+  phone?: string; 
+  number?: string;
+}
+
+// types
+export type POStatus =
+  | "DRAFT" | "APPROVED" | "SENT" | "PARTIALLY_RECEIVED" | "RECEIVED" | "CLOSED";
+export type InvoiceStatus = "PENDING" | "PAID" | "OVERDUE"
+export type GRNStatus = "DRAFT" | "POSTED";
+
+export interface POItem {
+  id?: string; 
+  productId: string; 
+  sku?: string; 
+  name: string; 
+  unit: string;
+  quantity: number; 
+  unitPrice: number; 
+  lineTotal: number; 
+}
+
+export interface PurchaseOrderDTO {
+  id: string;
+  poNumber: string; 
+  supplierId: string; 
+  supplier?: string;
+  status: POStatus; 
+  orderDate: string;
+  dueDate?: string;
+  notes?: string;
+  items: POItem[]
+  subtotal: number;
+  tax: number;
+  total: number;
+  category?: string;
+}
+
+export interface NewPurchaseOrderDTO extends Omit<PurchaseOrderDTO, "id"|"poNumber"> {
+  poNumber?: string //server can assign if ommitted
+}
+
+export interface InvoiceLine {
+  productId: string;
+  sku?: string;
+  name: string;
+  unit: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal?: number;
+}
+
+export interface SupplierInvoiceDTO {
+  id: string;
+  invoiceNumber: string;
+  supplierId: string;
+  supplier?: string;
+  poId?: string;
+  status: InvoiceStatus;
+  date: string;
+  dueDate?: string;
+  lines: InvoiceLine[];
+  amount: number;
+  category?: string;
+}
+
+export interface GoodsReceiptLine {
+  productId: string;
+  sku?: string;
+  name: string;
+  unit: string;
+  receivedQty: number;
+  unitPrice?: number;
+
+}
+
+export interface GoodsReceiptDTO {
+  id: string; 
+  grnNumber: string;
+  poId: string;
+  invoiceId?: string;
+  date: string;
+  status: GRNStatus;
+  lines: GoodsReceiptLine[];
+
+
+}
+
+
+
+
 
 // ----------------------
 // API Setup
@@ -82,7 +182,10 @@ export const api = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL,
   }),
-  tagTypes: ["DashboardMetrics", "Products", "Users", "Expenses"],
+  tagTypes: [
+    "DashboardMetrics", "Products", "Users", "Expenses",
+    "PurchaseOrders", "SupplierInvoices", "GoodsReceipts", "Suppliers"
+  ],
   endpoints: (build) => ({
     // Dashboard Metrics
     getDashboardMetrics: build.query<DashboardMetrics, void>({
@@ -122,8 +225,63 @@ export const api = createApi({
         };
     },
   providesTags: ["Expenses"],
+  }),
+  // Suppliers (basic)
+  getSuppliers: build.query<Supplier[], void>({
+    query: () => "/suppliers",
+    providesTags: ["Suppliers"],
+  }),
+   
+  // Purchases
+  getPurchaseOrders: build.query<PurchaseOrderDTO[], {status?: POStatus; q?: string} | void>({
+    query: (params) => ({url: "/purchase-orders", params: params ?? undefined}),
+    providesTags: ["PurchaseOrders"],
+  }), 
+  getPurchaseOrder: build.query<PurchaseOrderDTO, string>({
+    query: (poId) => `/purchase-orders/${poId}`,
+    providesTags: (_r, _e, id) => [{ type: "PurchaseOrders", id }],
+  }),
+  createPurchaseOrder: build.mutation<PurchaseOrderDTO, NewPurchaseOrderDTO>({
+    query: (body) => ({ url: "/purchase-orders", method: "POST", body }),
+    invalidatesTags: ["PurchaseOrders", "DashboardMetrics"]
+  }),
+  updatePurchaseOrderStatus: build.mutation<PurchaseOrderDTO, { id: string; status: POStatus }>({
+    query: ({ id, status }) => ({
+      url: `/purchase-orders/${id}/status`,
+      method: "PATCH",
+      body: { status },
+    }),
+    invalidatesTags: (_r, _e, { id }) => [{ type: "PurchaseOrders", id}],
+  }),
+
+  // SupplierInvoice
+  getSupplierInvoices: build.query<SupplierInvoiceDTO[], { status?: InvoiceStatus; q?: string } | void>({
+    query: (params) => ({ url: "/invoices", params: params ?? undefined}),
+    providesTags: ["SupplierInvoices"],
+  }),
+  createSupplierInvoice: build.mutation<SupplierInvoiceDTO, Partial<SupplierInvoiceDTO>>({
+    query: (body) => ({ url: "/invoices", method: "POST", body}),
+    invalidatesTags: ["SupplierInvoices", "PurchaseOrders", "DashboardMetrics"],
+  }),
+  markInvoicePaid: build.mutation<SupplierInvoiceDTO, { id: string }>({
+  query: ({ id }) => ({ url: `/invoices/${id}/status`, method: "PATCH" }),
+  invalidatesTags: (_r, _e, { id }) => [{ type: "SupplierInvoices", id }],
 }),
 
+  // Goods Receipt
+  getGoodsReceipts: build.query<GoodsReceiptDTO[], { q?: string } | void>({
+  query: (params) => ({ url: "/grns", params: params ?? undefined }),
+  providesTags: ["GoodsReceipts", "PurchaseOrders"],
+}),
+createGRN: build.mutation<GoodsReceiptDTO, Partial<GoodsReceiptDTO>>({
+  query: (body) => ({ url: "/grns", method: "POST", body }),
+  invalidatesTags: ["GoodsReceipts", "PurchaseOrders"],
+}),
+postGRN: build.mutation<{ ok: true }, { id: string }>({
+  query: ({ id }) => ({ url: `/grns/${id}/post`, method: "POST" }),
+  invalidatesTags: ["GoodsReceipts", "PurchaseOrders", "Products", "DashboardMetrics"],
+}),
+    // Expenses
     createExpense: build.mutation<Expense, Partial<Expense>>({
       query: (expense) => ({
         url: "/expenses",
@@ -144,8 +302,23 @@ export const {
   useGetProductsQuery,
   useCreateProductMutation,
   useGetUsersQuery,
+
   useGetExpensesQuery,
   useCreateExpenseMutation,
+
+  useGetSuppliersQuery,
+  useGetPurchaseOrderQuery,
+  useGetPurchaseOrdersQuery,
+  useCreatePurchaseOrderMutation,
+  useUpdatePurchaseOrderStatusMutation,
+
+  useGetSupplierInvoicesQuery,
+  useCreateSupplierInvoiceMutation,
+  useMarkInvoicePaidMutation,
+
+  useGetGoodsReceiptsQuery,
+  useCreateGRNMutation,
+  usePostGRNMutation,
 } = api;
 
 

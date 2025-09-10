@@ -13,6 +13,10 @@ const dashboardRoutes_1 = __importDefault(require("./routes/dashboardRoutes"));
 const productRoutes_1 = __importDefault(require("./routes/productRoutes"));
 const userRoutes_1 = __importDefault(require("./routes/userRoutes"));
 const expenseRoute_1 = __importDefault(require("./routes/expenseRoute"));
+const supplierRoutes_1 = __importDefault(require("./routes/supplierRoutes"));
+const purchaseOrderRoutes_1 = __importDefault(require("./routes/purchaseOrderRoutes"));
+const invoiceRoutes_1 = __importDefault(require("./routes/invoiceRoutes"));
+const goodsReceiptRoute_1 = __importDefault(require("./routes/goodsReceiptRoute"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
@@ -27,6 +31,10 @@ app.use("/dashboard", dashboardRoutes_1.default); // http://localhost:8000/dashb
 app.use("/products", productRoutes_1.default); // http://localhost:8000/products
 app.use('/users', userRoutes_1.default); //http://localhost:8000/users
 app.use("/expenses", expenseRoute_1.default); //http://localhost:8000/expenses
+app.use("/suppliers", supplierRoutes_1.default);
+app.use("/purchase-orders", purchaseOrderRoutes_1.default);
+app.use("/invoices", invoiceRoutes_1.default);
+app.use("/grns", goodsReceiptRoute_1.default);
 // server
 const port = process.env.PORT || 3001;
 app.listen(port, () => console.log(`Server running on port ${port}`));

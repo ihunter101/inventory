@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const invoiceController_1 = require("../controllers/invoiceController");
+const router = (0, express_1.Router)();
+router.get("/", invoiceController_1.listInvoices);
+// router.get("/:id", getInvoice);
+router.post("/", invoiceController_1.createInvoice);
+router.patch("/:id/status", invoiceController_1.markInvoicePaid);
+exports.default = router;

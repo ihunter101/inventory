@@ -1,7 +1,7 @@
 "use client"
 import { useAppDispatch, useAppSelector } from '@/app/redux'
 import { setIsSidebarCollapsed } from '@/app/state'
-import { Archive, CircleDollarSign, Clipboard, Layout, LucideIcon, Menu, SlidersHorizontal, User } from 'lucide-react'
+import { Archive, CircleDollarSign, Clipboard, Layout, LucideIcon, Menu, SlidersHorizontal, User, ClipboardList } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import React from 'react'
@@ -106,6 +106,12 @@ const Sidebar = () => {
                     href="/expenses" 
                     icon={CircleDollarSign} 
                     label="Expenses" 
+                    isCollapsed={isSideBarCollapsed}
+                />
+                <SidebarLinks 
+                    href="/purchases" 
+                    icon={ClipboardList} 
+                    label="Purchases" 
                     isCollapsed={isSideBarCollapsed}
                 />
             </div>

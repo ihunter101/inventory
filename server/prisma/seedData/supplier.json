@@ -1,0 +1,37 @@
+[
+  {
+    "supplierId": "sup-bd",
+    "name": "Becton Dickinson (BD)",
+    "email": "sales@bd.com",
+    "phone": "+1-201-555-0100",
+    "address": "1 Becton Dr, Franklin Lakes, NJ"
+  },
+  {
+    "supplierId": "sup-abbott",
+    "name": "Abbott Diagnostics",
+    "email": "orders@abbott.com",
+    "phone": "+1-312-555-0140",
+    "address": "100 Abbott Park Rd, Abbott Park, IL"
+  },
+  {
+    "supplierId": "sup-roche",
+    "name": "Roche Diagnostics",
+    "email": "orders@roche.com",
+    "phone": "+41-61-555-0123",
+    "address": "Rochestrasse 1, Basel, CH"
+  },
+  {
+    "supplierId": "sup-thermo",
+    "name": "Thermo Fisher",
+    "email": "orders@thermofisher.com",
+    "phone": "+1-781-555-0111",
+    "address": "168 Third Ave, Waltham, MA"
+  },
+  {
+    "supplierId": "sup-greiner",
+    "name": "Greiner Bio-One",
+    "email": "orders@greiner.com",
+    "phone": "+43-7442-555-0200",
+    "address": "Kremsmünster, AT"
+  }
+]

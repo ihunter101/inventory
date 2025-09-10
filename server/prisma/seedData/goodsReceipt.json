@@ -1,0 +1,18 @@
+[
+  {
+    "id": "grn-2025-0001",
+    "grnNumber": "GRN-2025-0001",
+    "poId": "po-2025-0001",
+    "invoiceId": null,
+    "date": "2025-09-05T00:00:00.000Z",
+    "status": "POSTED"
+  },
+  {
+    "id": "grn-2025-0002",
+    "grnNumber": "GRN-2025-0002",
+    "poId": "po-2025-0002",
+    "invoiceId": null,
+    "date": "2025-09-09T00:00:00.000Z",
+    "status": "POSTED"
+  }
+]
