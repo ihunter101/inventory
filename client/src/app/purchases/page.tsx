@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   Plus,
   Upload,
@@ -29,7 +30,6 @@ import InvoiceTable from "@/app/features/components/invoiceTable";
 import GRNTable from "@/app/features/components/GoodsReceiptTable";
 import MatchTable from "@/app/features/components/MatchTable";
 import CreateGRNModal from "@/app/features/components/createGRModal";
-import CreatePODialog from "../features/CreatePOModal";
 
 type Tab = "purchases" | "invoices" | "grns" | "match";
 
@@ -130,14 +130,16 @@ export default function PurchasesPage() {
       invoiceId: invoice.id,
       date: new Date().toISOString().slice(0, 10),
       status: "DRAFT",
-      lines: (invoice.lines?.length ? invoice.lines : po?.items ?? []).map((ln: any) => ({
-        productId: ln.productId,
-        sku: ln.sku,
-        name: ln.name,
-        unit: ln.unit ?? ln.uom ?? "",
-        receivedQty: ln.quantity ?? 0,
-        unitPrice: ln.unitPrice,
-      })),
+      lines: (invoice.lines?.length ? invoice.lines : po?.items ?? []).map(
+        (ln: any) => ({
+          productId: ln.productId,
+          sku: ln.sku,
+          name: ln.name,
+          unit: ln.unit ?? ln.uom ?? "",
+          receivedQty: ln.quantity ?? 0,
+          unitPrice: ln.unitPrice,
+        })
+      ),
     };
     setGrnDraft(draft);
     setShowGRNModal(true);
@@ -158,7 +160,9 @@ export default function PurchasesPage() {
     if (!poForMatch) return undefined;
     const byInvoice =
       invForMatch &&
-      goodsReceipts.find((g) => g.poId === poForMatch.id && g.invoiceId === invForMatch.id);
+      goodsReceipts.find(
+        (g) => g.poId === poForMatch.id && g.invoiceId === invForMatch.id
+      );
     return byInvoice ?? goodsReceipts.find((g) => g.poId === poForMatch.id);
   }, [poForMatch, invForMatch, goodsReceipts]);
 
@@ -178,13 +182,24 @@ export default function PurchasesPage() {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              {/* Create A Purchase Order */}
-              <CreatePODialog
-                triggerClassName="inline-flex items-center gap-2 rounded-xl2 bg-blue-600 px-4 py-2.5 text-white shadow-card hover:shadow-cardHover"
-              />
-              <button className="inline-flex items-center gap-2 rounded-xl2 bg-emerald-600 px-4 py-2.5 text-white shadow-card transition-shadow hover:shadow-cardHover">
-                <Upload className="h-4 w-4" /> Import Invoice
-              </button>
+              {/* Go to the dedicated Create PO page */}
+              <Link
+                href="/purchase-orders/new"
+                className="inline-flex items-center gap-2 rounded-xl2 bg-blue-600 px-4 py-2.5 text-white shadow-card hover:shadow-cardHover"
+              >
+                <Plus className="h-4 w-4" />
+                New Purchase Order
+              </Link>
+
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  href="/purchases/invoices/new"
+                  className="inline-flex items-center gap-2 rounded-xl2 bg-blue-600 px-4 py-2.5 text-white shadow-card hover:shadow-cardHover"
+                >
+                  <Plus className="h-4 w-4" /> New Invoice
+                </Link>
+                {/* keep your other buttons */}
+              </div>
               <button className="inline-flex items-center gap-2 rounded-xl2 border border-slate-200 bg-white px-4 py-2.5 text-ink-700 shadow-card transition-shadow hover:shadow-cardHover">
                 <Download className="h-4 w-4" /> Export
               </button>
@@ -212,7 +227,9 @@ export default function PurchasesPage() {
           <Stat
             icon={<CheckCircle className="h-6 w-6 text-emerald-600" />}
             label="Total PO Spend"
-            value={currency(purchaseOrders.reduce((s, p) => s + Number(p.total ?? 0), 0))}
+            value={currency(
+              purchaseOrders.reduce((s, p) => s + Number(p.total ?? 0), 0)
+            )}
           />
         </div>
 
@@ -269,8 +286,14 @@ export default function PurchasesPage() {
 
           {/* Tables */}
           <div className="overflow-x-auto">
-            {loading && <div className="p-6 text-slate-500">Loading {activeTab}…</div>}
-            {errored && <div className="p-6 text-rose-600">Error loading {activeTab}.</div>}
+            {loading && (
+              <div className="p-6 text-slate-500">Loading {activeTab}…</div>
+            )}
+            {errored && (
+              <div className="p-6 text-rose-600">
+                Error loading {activeTab}.
+              </div>
+            )}
 
             {!loading && !errored && activeTab === "purchases" && (
               <PurchaseTable data={filteredPOs} />
@@ -288,7 +311,11 @@ export default function PurchasesPage() {
             )}
 
             {!loading && !errored && activeTab === "grns" && (
-              <GRNTable data={filteredGRNs} orders={purchaseOrders} invoices={invoices} />
+              <GRNTable
+                data={filteredGRNs}
+                orders={purchaseOrders}
+                invoices={invoices}
+              />
             )}
 
             {!loading && !errored && activeTab === "match" && (
@@ -319,7 +346,15 @@ export default function PurchasesPage() {
 }
 
 /* --- small bits --- */
-const Stat = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) => (
+const Stat = ({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+}) => (
   <div className="flex items-center rounded-2xl bg-white/90 p-6 shadow-card ring-1 ring-black/5 backdrop-blur">
     <div className="rounded-2xl bg-slate-50 p-3">{icon}</div>
     <div className="ml-4">
