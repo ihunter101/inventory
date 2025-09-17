@@ -6,13 +6,15 @@ const toGRNDTO = (g: any) => ({
   id: g.id,
   grnNumber: g.grnNumber,
   poId: g.poId,
+  poNumber: g.po?.poNumber,                 // ⬅️ NEW
   invoiceId: g.invoiceId ?? undefined,
+  invoiceNumber: g.invoice?.invoiceNumber,   // ⬅️ NEW
   date: g.date instanceof Date ? g.date.toISOString() : g.date,
   status: g.status as GRNStatus,
   lines: (g.lines ?? []).map((ln: any) => ({
     productId: ln.productId,
-    sku: undefined,
-    name: ln.product?.name ?? "",          // optional: include product name if you want
+    sku: ln.product?.sku ?? undefined,
+    name: ln.product?.name ?? "",
     unit: ln.unit ?? "",
     receivedQty: Number(ln.receivedQty),
     unitPrice: ln.unitPrice == null ? undefined : Number(ln.unitPrice),
@@ -22,21 +24,33 @@ const toGRNDTO = (g: any) => ({
 export const listGoodsReceipts = async (req: Request, res: Response) => {
   try {
     const { q } = req.query as { q?: string };
-    const where: Prisma.GoodsReceiptWhereInput | undefined =
-      q ? { grnNumber: { contains: q, mode: "insensitive" } } : undefined;
+
+    const where: Prisma.GoodsReceiptWhereInput | undefined = q
+      ? {
+          OR: [
+            { grnNumber: { contains: q, mode: "insensitive" } },
+            { po: { poNumber: { contains: q, mode: "insensitive" } } },           // search by poNumber
+            { invoice: { invoiceNumber: { contains: q, mode: "insensitive" } } }, // search by invoiceNumber
+          ],
+        }
+      : undefined;
 
     const rows = await prisma.goodsReceipt.findMany({
       where,
-      include: { po: true, invoice: true, lines: { include: { product: true } } },
+      include: {
+        po: true,
+        invoice: true,
+        lines: { include: { product: true } },
+      },
       orderBy: { date: "desc" },
     });
+
     return res.json(rows.map(toGRNDTO));
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error retrieving goods receipts." });
   }
 };
-
 
 export const createGoodsReceipt = async (req: Request, res: Response) => {
   try {
@@ -54,19 +68,21 @@ export const createGoodsReceipt = async (req: Request, res: Response) => {
         poId,
         invoiceId: invoiceId ?? null,
         date: date ? new Date(date) : new Date(),
-        status: GRNStatus.DRAFT, // create as DRAFT; you POST it later
+        status: GRNStatus.DRAFT,
         lines: {
           create: lines.map((line: any) => ({
-            // ✅ checked create: connect the product relation
             product: { connect: { productId: String(line.productId) } },
             unit: String(line.unit ?? line.uom ?? ""),
             receivedQty: Number(line.receivedQty ?? 0),
-            // ✅ never null; schema is NOT NULL
             unitPrice: Number(line.unitPrice ?? 0),
           })),
         },
       },
-      include: { lines: { include: { product: true } } },
+      include: {
+        po: true,                            // ⬅️ include to expose poNumber
+        invoice: true,                       // ⬅️ include to expose invoiceNumber
+        lines: { include: { product: true } },
+      },
     });
 
     return res.status(201).json(toGRNDTO(created));
@@ -75,6 +91,10 @@ export const createGoodsReceipt = async (req: Request, res: Response) => {
     return res.status(500).json({ message: "Error creating goods receipt." });
   }
 };
+
+// postGoodsReceipt unchanged
+
+
 
 export const postGoodsReceipt = async (req: Request, res: Response) => {
   try {

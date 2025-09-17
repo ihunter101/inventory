@@ -1,8 +1,12 @@
+"use client"
 import { Suspense } from "react";
 import InvoiceFormSkeleton from "@/app/features/components/InvoiceFormSkeleton";
 import  InvoiceForm  from "../../../features/components/InvoiceForm";
+import { useRouter } from "next/navigation"
 
 export default function NewInvoicePage() {
+    const router = useRouter(); 
+
   return (
     <div className="mx-auto max-w-5xl px-6 py-8">
       <div className="mb-6">
@@ -16,7 +20,15 @@ export default function NewInvoicePage() {
       </div>
 
       <Suspense fallback={<InvoiceFormSkeleton />}>
-        <InvoiceForm />
+    
+            <div className="rounded-2xl bg-white p-6 shadow-card ring-1 ring-black/5">
+                      <InvoiceForm
+                        onSuccess={() => {
+                          router.push("/purchases"); // return to the tabbed list
+                        }}
+                      />
+                    </div>
+        
       </Suspense>
     </div>
   );

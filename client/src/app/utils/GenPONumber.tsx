@@ -4,3 +4,5 @@ export function genPONumber() {
     Math.floor(Math.random() * 900) + 100
   )}`;
 }
+
+// PO- 2025-07-001

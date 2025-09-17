@@ -1,56 +1,109 @@
-// /features/purchasing/components/InvoiceTable.tsx
-import { Download } from "lucide-react";
-import { SupplierInvoiceDTO } from "@/app/state/api";
+"use client";
+
+import Link from "next/link";
 import StatusBadge from "./StatusBadge";
-import { currency } from "../../../lib/currency";
+import { GoodsReceiptDTO, SupplierInvoiceDTO } from "@/app/state/api";
 
 type Props = {
   data: SupplierInvoiceDTO[];
-  onCreateGRN: (invoice: SupplierInvoiceDTO) => void;
-  onOpenMatch: (poId: string) => void;
+  goodsReceipts: GoodsReceiptDTO[];
+  onCreateGRN: (inv: SupplierInvoiceDTO) => void;
+  onOpenMatch?: (poId?: string) => void;
 };
 
-export default function InvoiceTable({ data, onCreateGRN, onOpenMatch }: Props) {
+const fmt = (iso?: string) => (iso ? iso.slice(0, 10) : "-");
+
+function shortId(id?: string) {
+  return id ? `${id.slice(0, 8)}…` : "-";
+}
+
+export default function InvoiceTable({
+  data,
+  goodsReceipts,
+  onCreateGRN,
+  onOpenMatch,
+}: Props) {
+  const hasGRNFor = (inv: SupplierInvoiceDTO) =>
+    goodsReceipts.some((g) => g.poId === inv.poId && g.invoiceId === inv.id);
+
   return (
     <table className="w-full">
       <thead className="bg-gray-50">
         <tr>
-          <Th>Invoice</Th><Th>Supplier</Th><Th>PO</Th><Th>Date</Th><Th>Amount</Th><Th>Status</Th><Th>Actions</Th>
+          <Th>Invoice</Th>
+          <Th>Supplier</Th>
+          <Th>PO</Th>
+          <Th>Date</Th>
+          <Th>Amount</Th>
+          <Th>Status</Th>
+          <Th className="text-right">Actions</Th>
         </tr>
       </thead>
-      <tbody className="bg-white divide-y">
-        {data.map((inv) => (
-          <tr key={inv.id} className="hover:bg-gray-50">
-            <Td>
-              <div className="font-medium">{inv.invoiceNumber}</div>
-              <div className="text-sm text-gray-500">{inv.category}</div>
-            </Td>
-            <Td>{inv.supplier}</Td>
-            <Td>
-              <button className="text-blue-600 hover:text-blue-800" onClick={() => onOpenMatch(inv.poId)}>
-                {inv.poId}
-              </button>
-            </Td>
-            <Td>
-              <div className="text-sm">{inv.date}</div>
-              <div className="text-xs text-gray-500">Due: {inv.dueDate ?? "-"}</div>
-            </Td>
-            <Td><div className="text-sm font-medium">{currency(inv.amount)}</div></Td>
-            <Td><StatusBadge status={inv.status} /></Td>
-            <Td className="text-right">
-              <div className="flex gap-2 justify-end">
-                <button className="text-blue-600 hover:text-blue-900" onClick={() => onCreateGRN(inv)}>
-                  Create GRN
-                </button>
-                <button className="text-gray-600 hover:text-gray-900"><Download className="w-4 h-4" /></button>
-              </div>
-            </Td>
-          </tr>
-        ))}
+      <tbody className="divide-y bg-white">
+        {data.map((inv) => {
+          const grnExists = hasGRNFor(inv);
+          const poLabel = inv.poNumber || shortId(inv.poId);
+          const hasPO = Boolean(inv.poId);
+          return (
+            <tr key={inv.id} className="hover:bg-gray-50">
+              <Td className="font-medium">{inv.invoiceNumber}</Td>
+              <Td>{inv.supplier}</Td>
+              <Td>
+                {hasPO ? (
+                  <Link
+                    href={`/purchases?tab=match&po=${encodeURIComponent(inv.poId!)}`}
+                    className="text-blue-600 hover:underline"
+                    title={`Open PO ${poLabel}`}
+                    onClick={() => onOpenMatch?.(inv.poId!)}
+                  >
+                    {poLabel}
+                  </Link>
+                ) : (
+                  "-"
+                )}
+              </Td>
+              <Td className="text-sm">{fmt(inv.date)}</Td>
+              <Td className="text-sm">
+                ${Number(inv.amount ?? 0).toFixed(2)}
+              </Td>
+              <Td className="text-sm">
+                <Link
+                  href={`/purchases?tab=invoices&status=${encodeURIComponent(
+                    inv.status.toLowerCase()
+                  )}`}
+                  title={`View ${inv.status.toLowerCase()} invoices`}
+                  className="inline-flex"
+                >
+                  <StatusBadge status={inv.status as any} />
+                </Link>
+              </Td>
+              <Td className="text-right">
+                {!grnExists && hasPO && (
+                  <button
+                    className="text-blue-600 hover:underline"
+                    onClick={() => onCreateGRN(inv)}
+                  >
+                    Create GRN
+                  </button>
+                )}
+              </Td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
 }
 
-const Th = (p: any) => <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{p.children}</th>;
-const Td = (p: any) => <td className="px-6 py-4">{p.children}</td>;
+const Th = (p: any) => (
+  <th
+    className={`px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 ${
+      p.className ?? ""
+    }`}
+  >
+    {p.children}
+  </th>
+);
+const Td = (p: any) => (
+  <td className={`px-6 py-4 ${p.className ?? ""}`}>{p.children}</td>
+);

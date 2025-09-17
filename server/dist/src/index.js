@@ -31,10 +31,10 @@ app.use("/dashboard", dashboardRoutes_1.default); // http://localhost:8000/dashb
 app.use("/products", productRoutes_1.default); // http://localhost:8000/products
 app.use('/users', userRoutes_1.default); //http://localhost:8000/users
 app.use("/expenses", expenseRoute_1.default); //http://localhost:8000/expenses
-app.use("/suppliers", supplierRoutes_1.default);
-app.use("/purchase-orders", purchaseOrderRoutes_1.default);
-app.use("/invoices", invoiceRoutes_1.default);
-app.use("/grns", goodsReceiptRoute_1.default);
+app.use("/suppliers", supplierRoutes_1.default); //http://localHost:8000/suppliers
+app.use("/purchase-orders", purchaseOrderRoutes_1.default); //http://localhost:8000/purhase-orders
+app.use("/invoices", invoiceRoutes_1.default); //http://localhost:8000/invoices
+app.use("/grns", goodsReceiptRoute_1.default); //http://localhost:8000/grns
 // server
 const port = process.env.PORT || 3001;
 app.listen(port, () => console.log(`Server running on port ${port}`));

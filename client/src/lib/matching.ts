@@ -1,63 +1,120 @@
-import { GoodsReceiptDTO, SupplierInvoiceDTO, PurchaseOrderDTO } from "@/app/state/api";
+import {
+  GoodsReceiptDTO,
+  SupplierInvoiceDTO,
+  PurchaseOrderDTO,
+} from "@/app/state/api";
 
-export  const PRICE_TOLERANCE = 0.01;
+export const PRICE_TOLERANCE = 0.01;
 
 export type MatchRow = {
-    key: string;
-    sku?: string;
-    name: string;
-    unit?: string;
-    poQty?: number;
-    invQty?: number; 
-    grQty?: number;
-    poPrice?: number;
-    invPrice?: number;
-    lineOk: boolean;
-    notes?: string;
-}
+  key: string;
+  productId?: string;
+  sku?: string;
+  name: string;
+  unit?: string;
+  poQty?: number;
+  invQty?: number;
+  grQty?: number;
+  poPrice?: number;
+  invPrice?: number;
+  lineOk: boolean;       // equality checks (ignores posted/not posted)
+  notes?: string;
+};
 
+const n = (v: any) => (v == null || v === "" ? undefined : Number(v));
+const s = (v: any) =>
+  (v == null ? "" : String(v)).trim();
 
- const buildMatchRows  = (po?: PurchaseOrderDTO, inv?: SupplierInvoiceDTO, grn? : GoodsReceiptDTO) : MatchRow[] => {
+// normalize a secondary key when productId missing
+const secondaryKey = (sku?: string, name?: string) =>
+  s(sku || name).toLowerCase();
 
-    if (!po) return [];
+/**
+ * Build rows for three-way match.
+ * - Prefer matching by productId (stable).
+ * - Fall back to (sku || name) case-insensitive.
+ * - A line is “lineOk” when units, quantities and price are consistent.
+ *   The *table* will additionally require GRN.status === POSTED to show overall OK.
+ */
+const buildMatchRows = (
+  po?: PurchaseOrderDTO,
+  inv?: SupplierInvoiceDTO,
+  grn?: GoodsReceiptDTO
+): MatchRow[] => {
+  if (!po) return [];
 
-    const invMap = new Map<string, any>();
-     inv?.lines.forEach((line) => invMap.set((line.sku ?? line.name).toLowerCase(), line));
+  // Build lookups by productId and secondary key
+  const invById = new Map<string, any>();
+  const invByKey = new Map<string, any>();
+  inv?.lines.forEach((ln) => {
+    if (ln.productId) invById.set(String(ln.productId), ln);
+    invByKey.set(secondaryKey(ln.sku, ln.name), ln);
+  });
 
-    const grnMap = new Map<string, any>();
-    grn?.lines.forEach((line) =>  grnMap.set((line.sku ?? line.name).toLowerCase(), line));
+  const grnById = new Map<string, any>();
+  const grnByKey = new Map<string, any>();
+  grn?.lines.forEach((ln) => {
+    if (ln.productId) grnById.set(String(ln.productId), ln);
+    grnByKey.set(secondaryKey(ln.sku, ln.name), ln);
+  });
 
-    return po.items.map((p) => {
-        const k = (p.sku ?? p.name).toLowerCase();
-        const invLn = invMap.get(k);
-        const grnLn = grnMap.get(k);
+  return po.items.map((p) => {
+    const pid = p.productId ? String(p.productId) : undefined;
 
-        const sameunit = !p.unit || !invLn?.unit ? true : String(p.unit).toLowerCase() === String(invLn?.unit).toLowerCase();
-        const priceOk = invLn ? Math.abs(invLn.unitPrice - p.unitPrice) <= PRICE_TOLERANCE : true;
-        const qtyOk = invLn ? invLn.quantity === p.quantity : true;
-        const grnOk = grnLn ? grnLn.receivedQty === ( invLn?.quantity ??p.quantity) : false;
-        const lineOk = sameunit && priceOk && qtyOk && grnOk;
+    const invLn =
+      (pid && invById.get(pid)) ||
+      invByKey.get(secondaryKey(p.sku as any, p.name));
 
-        return {
-            key: k,
-            sku: p.sku,
-            name: p.name,
-            unit: p.unit,
-            poQty: p.quantity,
-            invQty: invLn?.quantity,
-            grQry: grnLn?.receivedQty,
-            poPrice: p.unitPrice,
-            invPrice: invLn?.unitPrice,
-            lineOk,
-            notes: !lineOk ? 
-                `Mismatch: ${[sameunit ? null: "Unit", priceOk ? null : "Unit Price", qtyOk ? null : "Quantity", grnOk ? null : "Received Qty" ]
-                   .filter(Boolean)
-                   .join(", ")}` 
-                : undefined, 
-                };
-        }
-    );
+    const grnLn =
+      (pid && grnById.get(pid)) ||
+      grnByKey.get(secondaryKey(p.sku as any, p.name));
 
-}
+    const sameUnit =
+      !p.unit || !invLn?.unit
+        ? true
+        : s(p.unit).toLowerCase() === s(invLn.unit).toLowerCase();
 
-export default buildMatchRows
+    const poPrice = n(p.unitPrice);
+    const invPrice = n(invLn?.unitPrice);
+    const priceOk =
+      invLn && poPrice != null && invPrice != null
+        ? Math.abs(invPrice - poPrice) <= PRICE_TOLERANCE
+        : true;
+
+    const poQty = n(p.quantity);
+    const invQty = n(invLn?.quantity);
+    const qtyOk = invLn ? invQty === poQty : true;
+
+    const expectedQty = invQty ?? poQty;
+    const grQty = n(grnLn?.receivedQty);
+    const grnOk = grnLn ? grQty === expectedQty : false;
+
+    const lineOk = Boolean(sameUnit && priceOk && qtyOk && grnOk);
+
+    const mismatches = [
+      sameUnit ? null : "Unit",
+      priceOk ? null : "Unit Price",
+      qtyOk ? null : "Quantity",
+      grnOk ? null : "Received Qty",
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    return {
+      key: pid ?? secondaryKey(p.sku as any, p.name),
+      productId: pid,
+      sku: (p as any).sku,
+      name: p.name,
+      unit: p.unit,
+      poQty: poQty,
+      invQty: invQty,
+      grQty: grQty,
+      poPrice: poPrice,
+      invPrice: invPrice,
+      lineOk,
+      notes: !lineOk ? `Mismatch: ${mismatches}` : undefined,
+    };
+  });
+};
+
+export default buildMatchRows;

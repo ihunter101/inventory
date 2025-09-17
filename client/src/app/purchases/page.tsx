@@ -1,18 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import {
-  Plus,
-  Upload,
-  Download,
-  Filter,
-  Package,
-  FileText,
-  Boxes,
-  CheckCircle,
-  Search,
-} from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   GoodsReceiptDTO,
   SupplierInvoiceDTO,
@@ -30,6 +20,16 @@ import InvoiceTable from "@/app/features/components/invoiceTable";
 import GRNTable from "@/app/features/components/GoodsReceiptTable";
 import MatchTable from "@/app/features/components/MatchTable";
 import CreateGRNModal from "@/app/features/components/createGRModal";
+import {
+  Package,
+  FileText,
+  Boxes,
+  CheckCircle,
+  Search,
+  Download,
+  Filter,
+  Plus,
+} from "lucide-react";
 
 type Tab = "purchases" | "invoices" | "grns" | "match";
 
@@ -57,6 +57,9 @@ function mapInvoiceStatus(s?: string): InvoiceStatus | undefined {
 }
 
 export default function PurchasesPage() {
+  const router = useRouter();
+  const params = useSearchParams();
+
   const [activeTab, setActiveTab] = useState<Tab>("purchases");
   const [grnDraft, setGrnDraft] = useState<GoodsReceiptDTO | null>(null);
   const [showGRNModal, setShowGRNModal] = useState(false);
@@ -66,11 +69,23 @@ export default function PurchasesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
+  // Adopt URL query on first render (tab/status/po)
+  useEffect(() => {
+    const qTab = params.get("tab") as Tab | null;
+    const qStatus = params.get("status");
+    const qPO = params.get("po");
+    if (qTab) setActiveTab(qTab);
+    if (qStatus) setStatusFilter(qStatus);
+    if (qPO) setMatchPOId(qPO);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // data
   const {
     data: purchaseOrders = [],
     isLoading: poLoading,
     isError: poError,
+    refetch: refetchPOs,
   } = useGetPurchaseOrdersQuery(
     { q: searchTerm, status: mapPOStatus(statusFilter) },
     { refetchOnMountOrArgChange: true }
@@ -80,6 +95,7 @@ export default function PurchasesPage() {
     data: invoices = [],
     isLoading: invLoading,
     isError: invError,
+    refetch: refetchInvoices,
   } = useGetSupplierInvoicesQuery(
     { q: searchTerm, status: mapInvoiceStatus(statusFilter) },
     { refetchOnMountOrArgChange: true }
@@ -89,6 +105,7 @@ export default function PurchasesPage() {
     data: goodsReceipts = [],
     isLoading: grnLoading,
     isError: grnError,
+    refetch: refetchGRNs,
   } = useGetGoodsReceiptsQuery(
     { q: searchTerm },
     { refetchOnMountOrArgChange: true }
@@ -115,7 +132,7 @@ export default function PurchasesPage() {
     { search: searchTerm, status: statusFilter }
   );
 
-  // create GRN draft from invoice
+  // create GRN draft from invoice (opens modal)
   const openGRNFromInvoice = (invoice: SupplierInvoiceDTO) => {
     const po = purchaseOrders.find((p) => p.id === invoice.poId);
     const poId = invoice.poId ?? po?.id;
@@ -123,12 +140,15 @@ export default function PurchasesPage() {
       console.error("Cannot create GRN: invoice is not linked to a PO.");
       return;
     }
+
     const draft: GoodsReceiptDTO = {
       id: `GRN-DRAFT-${Date.now()}`,
       grnNumber: `GRN-DRAFT-${Date.now()}`,
       poId,
+      poNumber: po?.poNumber, // if present
       invoiceId: invoice.id,
-      date: new Date().toISOString().slice(0, 10),
+      invoiceNumber: invoice.invoiceNumber,
+      date: new Date().toISOString().slice(0, 10), // YYYY-MM-DD
       status: "DRAFT",
       lines: (invoice.lines?.length ? invoice.lines : po?.items ?? []).map(
         (ln: any) => ({
@@ -141,11 +161,12 @@ export default function PurchasesPage() {
         })
       ),
     };
+
     setGrnDraft(draft);
     setShowGRNModal(true);
   };
 
-  // context for Match tab
+  // context for Match tab (derived at component level)
   const poForMatch: PurchaseOrderDTO | undefined = useMemo(() => {
     const id = matchPOId ?? filteredPOs[0]?.id;
     return purchaseOrders.find((p) => p.id === id);
@@ -166,6 +187,14 @@ export default function PurchasesPage() {
     return byInvoice ?? goodsReceipts.find((g) => g.poId === poForMatch.id);
   }, [poForMatch, invForMatch, goodsReceipts]);
 
+  // after posting: refresh and jump to Match on that PO
+  async function handlePosted(poId: string) {
+    await Promise.all([refetchGRNs(), refetchPOs(), refetchInvoices()]);
+    setActiveTab("match");
+    setMatchPOId(poId);
+    router.push(`/purchases?tab=match&po=${encodeURIComponent(poId)}`);
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       <div className="mx-auto max-w-7xl px-6 py-8 lg:px-8">
@@ -182,7 +211,6 @@ export default function PurchasesPage() {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              {/* Go to the dedicated Create PO page */}
               <Link
                 href="/purchase-orders/new"
                 className="inline-flex items-center gap-2 rounded-xl2 bg-blue-600 px-4 py-2.5 text-white shadow-card hover:shadow-cardHover"
@@ -191,15 +219,13 @@ export default function PurchasesPage() {
                 New Purchase Order
               </Link>
 
-              <div className="flex flex-wrap gap-3">
-                <Link
-                  href="/purchases/invoices/new"
-                  className="inline-flex items-center gap-2 rounded-xl2 bg-blue-600 px-4 py-2.5 text-white shadow-card hover:shadow-cardHover"
-                >
-                  <Plus className="h-4 w-4" /> New Invoice
-                </Link>
-                {/* keep your other buttons */}
-              </div>
+              <Link
+                href="/purchases/invoices/new"
+                className="inline-flex items-center gap-2 rounded-xl2 bg-blue-600 px-4 py-2.5 text-white shadow-card hover:shadow-cardHover"
+              >
+                <Plus className="h-4 w-4" /> New Invoice
+              </Link>
+
               <button className="inline-flex items-center gap-2 rounded-xl2 border border-slate-200 bg-white px-4 py-2.5 text-ink-700 shadow-card transition-shadow hover:shadow-cardHover">
                 <Download className="h-4 w-4" /> Export
               </button>
@@ -302,10 +328,16 @@ export default function PurchasesPage() {
             {!loading && !errored && activeTab === "invoices" && (
               <InvoiceTable
                 data={filteredInvoices}
+                goodsReceipts={goodsReceipts}
                 onCreateGRN={openGRNFromInvoice}
                 onOpenMatch={(poId) => {
                   setActiveTab("match");
-                  setMatchPOId(poId ?? null);
+                  if (poId) setMatchPOId(poId);
+                  router.push(
+                    `/purchases?tab=match${
+                      poId ? `&po=${encodeURIComponent(poId)}` : ""
+                    }`
+                  );
                 }}
               />
             )}
@@ -313,9 +345,11 @@ export default function PurchasesPage() {
             {!loading && !errored && activeTab === "grns" && (
               <GRNTable
                 data={filteredGRNs}
-                orders={purchaseOrders}
-                invoices={invoices}
-              />
+                onOpenMatch={(poId) => {
+                  setActiveTab("match");
+                  setMatchPOId(poId);
+                  router.push(`/purchases?tab=match&po=${poId}`);
+                } } orders={[]} invoices={[]}              />
             )}
 
             {!loading && !errored && activeTab === "match" && (
@@ -325,7 +359,10 @@ export default function PurchasesPage() {
                 grn={grnForMatch}
                 allPOs={purchaseOrders}
                 currentPOId={matchPOId}
-                onChangePO={setMatchPOId}
+                onChangePO={(poId) => {
+                  setMatchPOId(poId);
+                  router.push(`/purchases?tab=match&po=${poId}`);
+                }}
               />
             )}
           </div>
@@ -338,8 +375,7 @@ export default function PurchasesPage() {
         draft={grnDraft}
         onChange={setGrnDraft as any}
         onClose={() => setShowGRNModal(false)}
-        onSaveDraft={() => setShowGRNModal(false)}
-        onPost={() => setShowGRNModal(false)}
+        onPosted={handlePosted}
       />
     </div>
   );
@@ -384,7 +420,7 @@ function Tabs({
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
-            onClick={() => onChange(id as Tab)}
+            onClick={() => onChange(id as any)}
             className={`py-4 px-1 text-sm font-medium transition-colors ${
               active === id
                 ? "border-b-2 border-blue-500 text-blue-600"

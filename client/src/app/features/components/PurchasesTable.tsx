@@ -66,7 +66,7 @@ export default function PurchaseTable({ data }: Props) {
               <StatusBadge status={po.status} />
             </Td>
 
-            {/* Actions */}
+            {/* Actions  actions taken will map to a server actions folder containing the actions */}
             <Td className="text-right">
               <div className="flex justify-end gap-2">
                 <IconBtn>

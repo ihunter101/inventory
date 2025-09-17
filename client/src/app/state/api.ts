@@ -134,6 +134,7 @@ export interface InvoiceLine {
 }
 
 export interface SupplierInvoiceDTO {
+  poNumber: string;
   id: string;
   invoiceNumber: string;
   supplierId: string;
@@ -161,7 +162,9 @@ export interface GoodsReceiptDTO {
   id: string; 
   grnNumber: string;
   poId: string;
+  poNumber?: string;
   invoiceId?: string;
+  invoiceNumber?: string;
   date: string;
   status: GRNStatus;
   lines: GoodsReceiptLine[];

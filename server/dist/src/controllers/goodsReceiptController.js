@@ -13,21 +13,23 @@ exports.postGoodsReceipt = exports.createGoodsReceipt = exports.listGoodsReceipt
 const client_1 = require("@prisma/client");
 const prisma = new client_1.PrismaClient();
 const toGRNDTO = (g) => {
-    var _a, _b;
+    var _a, _b, _c, _d;
     return ({
         id: g.id,
         grnNumber: g.grnNumber,
         poId: g.poId,
-        invoiceId: (_a = g.invoiceId) !== null && _a !== void 0 ? _a : undefined,
+        poNumber: (_a = g.po) === null || _a === void 0 ? void 0 : _a.poNumber, // ⬅️ NEW
+        invoiceId: (_b = g.invoiceId) !== null && _b !== void 0 ? _b : undefined,
+        invoiceNumber: (_c = g.invoice) === null || _c === void 0 ? void 0 : _c.invoiceNumber, // ⬅️ NEW
         date: g.date instanceof Date ? g.date.toISOString() : g.date,
         status: g.status,
-        lines: ((_b = g.lines) !== null && _b !== void 0 ? _b : []).map((ln) => {
-            var _a, _b, _c;
+        lines: ((_d = g.lines) !== null && _d !== void 0 ? _d : []).map((ln) => {
+            var _a, _b, _c, _d, _e;
             return ({
                 productId: ln.productId,
-                sku: undefined,
-                name: (_b = (_a = ln.product) === null || _a === void 0 ? void 0 : _a.name) !== null && _b !== void 0 ? _b : "", // optional: include product name if you want
-                unit: (_c = ln.unit) !== null && _c !== void 0 ? _c : "",
+                sku: (_b = (_a = ln.product) === null || _a === void 0 ? void 0 : _a.sku) !== null && _b !== void 0 ? _b : undefined,
+                name: (_d = (_c = ln.product) === null || _c === void 0 ? void 0 : _c.name) !== null && _d !== void 0 ? _d : "",
+                unit: (_e = ln.unit) !== null && _e !== void 0 ? _e : "",
                 receivedQty: Number(ln.receivedQty),
                 unitPrice: ln.unitPrice == null ? undefined : Number(ln.unitPrice),
             });
@@ -37,10 +39,22 @@ const toGRNDTO = (g) => {
 const listGoodsReceipts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { q } = req.query;
-        const where = q ? { grnNumber: { contains: q, mode: "insensitive" } } : undefined;
+        const where = q
+            ? {
+                OR: [
+                    { grnNumber: { contains: q, mode: "insensitive" } },
+                    { po: { poNumber: { contains: q, mode: "insensitive" } } }, // search by poNumber
+                    { invoice: { invoiceNumber: { contains: q, mode: "insensitive" } } }, // search by invoiceNumber
+                ],
+            }
+            : undefined;
         const rows = yield prisma.goodsReceipt.findMany({
             where,
-            include: { po: true, invoice: true, lines: { include: { product: true } } },
+            include: {
+                po: true,
+                invoice: true,
+                lines: { include: { product: true } },
+            },
             orderBy: { date: "desc" },
         });
         return res.json(rows.map(toGRNDTO));
@@ -65,22 +79,24 @@ const createGoodsReceipt = (req, res) => __awaiter(void 0, void 0, void 0, funct
                 poId,
                 invoiceId: invoiceId !== null && invoiceId !== void 0 ? invoiceId : null,
                 date: date ? new Date(date) : new Date(),
-                status: client_1.GRNStatus.DRAFT, // create as DRAFT; you POST it later
+                status: client_1.GRNStatus.DRAFT,
                 lines: {
                     create: lines.map((line) => {
                         var _a, _b, _c, _d;
                         return ({
-                            // ✅ checked create: connect the product relation
                             product: { connect: { productId: String(line.productId) } },
                             unit: String((_b = (_a = line.unit) !== null && _a !== void 0 ? _a : line.uom) !== null && _b !== void 0 ? _b : ""),
                             receivedQty: Number((_c = line.receivedQty) !== null && _c !== void 0 ? _c : 0),
-                            // ✅ never null; schema is NOT NULL
                             unitPrice: Number((_d = line.unitPrice) !== null && _d !== void 0 ? _d : 0),
                         });
                     }),
                 },
             },
-            include: { lines: { include: { product: true } } },
+            include: {
+                po: true, // ⬅️ include to expose poNumber
+                invoice: true, // ⬅️ include to expose invoiceNumber
+                lines: { include: { product: true } },
+            },
         });
         return res.status(201).json(toGRNDTO(created));
     }
@@ -90,6 +106,7 @@ const createGoodsReceipt = (req, res) => __awaiter(void 0, void 0, void 0, funct
     }
 });
 exports.createGoodsReceipt = createGoodsReceipt;
+// postGoodsReceipt unchanged
 const postGoodsReceipt = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;

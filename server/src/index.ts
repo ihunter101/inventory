@@ -29,10 +29,10 @@ app.use("/dashboard", dashboardRoutes); // http://localhost:8000/dashboard
 app.use("/products", productRoutes); // http://localhost:8000/products
 app.use('/users', userRoutes ); //http://localhost:8000/users
 app.use("/expenses", expenseRoutes); //http://localhost:8000/expenses
-app.use("/suppliers",supplierRoutes )
-app.use("/purchase-orders", purchaseOrderRoutes)
-app.use("/invoices", invoiceRoutes)
-app.use("/grns", goodsReceiptRoutes)
+app.use("/suppliers",supplierRoutes ); //http://localHost:8000/suppliers
+app.use("/purchase-orders", purchaseOrderRoutes); //http://localhost:8000/purhase-orders
+app.use("/invoices", invoiceRoutes); //http://localhost:8000/invoices
+app.use("/grns", goodsReceiptRoutes)//http://localhost:8000/grns
 
 // server
 const port = process.env.PORT || 3001;
