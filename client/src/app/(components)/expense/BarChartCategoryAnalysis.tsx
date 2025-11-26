@@ -11,27 +11,17 @@ import {
   CartesianGrid,
 } from "recharts";
 import { Expense } from "@/app/state/api";
+import { getCategoryColor } from "@/utils/categoryColors";
 
 type Props = {
   expenses: Expense[];
 };
 
-const COLORS = [
-  "#3B82F6",
-  "#10B981",
-  "#F59E0B",
-  "#EF4444",
-  "#8B5CF6",
-  "#06B6D4",
-  "#84CC16",
-  "#F97316",
-];
-
 const formatCurrency = (value: number) =>
   `$${value.toLocaleString(undefined, { minimumFractionDigits: 0 })}`;
 
 const BarChartCategoryAnalysis = ({ expenses }: Props) => {
-  const data = useMemo(() => {
+  const categoryData = useMemo(() => {
     const totals: Record<string, number> = {};
 
     expenses.forEach((e) => {
@@ -39,7 +29,11 @@ const BarChartCategoryAnalysis = ({ expenses }: Props) => {
       totals[category] = (totals[category] ?? 0) + e.amount;
     });
 
-    return Object.entries(totals).map(([name, value]) => ({ name, value }));
+    return Object.entries(totals).map(([name, value]) => ({
+      name,
+      value,
+      fill: getCategoryColor(name), // 👈 use helper
+    }));
   }, [expenses]);
 
   return (
@@ -49,7 +43,7 @@ const BarChartCategoryAnalysis = ({ expenses }: Props) => {
       </h3>
       <ResponsiveContainer width="100%" height={350}>
         <BarChart
-          data={data}
+          data={categoryData}
           margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
@@ -63,9 +57,7 @@ const BarChartCategoryAnalysis = ({ expenses }: Props) => {
             stroke="#64748B"
           />
           <YAxis
-            tickFormatter={(value) =>
-              `$${(value / 1000).toFixed(0)}K`
-            }
+            tickFormatter={(value) => `$${(value / 1000).toFixed(0)}K`}
             tick={{ fontSize: 12 }}
             stroke="#64748B"
           />
@@ -78,7 +70,11 @@ const BarChartCategoryAnalysis = ({ expenses }: Props) => {
               boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
             }}
           />
-          <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#3B82F6" />
+          <Bar
+            dataKey="value"
+            radius={[4, 4, 0, 0]}
+            fill="#3B82F6"
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>

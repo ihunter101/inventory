@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
-import { PrismaClient, InvoiceStatus } from "@prisma/client";
+import {  InvoiceStatus } from "@prisma/client";
+import { prisma } from "../lib/prisma";
 
-const prisma = new PrismaClient();
+//const prisma = new PrismaClient();
 
 /** Frontend-friendly mapper: flatten supplier, coerce Decimals/Dates, map line fields */
 function toInvoiceDTO(inv: any) {

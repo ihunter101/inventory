@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
-import { GRNStatus, PrismaClient, Prisma } from "@prisma/client";
-const prisma = new PrismaClient();
+import { GRNStatus, Prisma } from "@prisma/client";
+import { prisma } from "../lib/prisma";
+
+//const prisma = new PrismaClient();
 
 const toGRNDTO = (g: any) => ({
   id: g.id,

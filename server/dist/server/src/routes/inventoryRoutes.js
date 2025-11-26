@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const rbac_1 = require("@shared/rbac");
+const auth_1 = require("../middleware/auth");
+const inventoryController_1 = require("../controllers/inventoryController");
+const router = (0, express_1.Router)();
+router.get('/', ...(0, auth_1.must)(rbac_1.PERMS.READ_INVENTORY), inventoryController_1.getInventory);
+router.post('/set', ...(0, auth_1.must)(rbac_1.PERMS.WRITE_INVENTORY), inventoryController_1.setInventory);
+router.post("/adjust", ...(0, auth_1.must)(rbac_1.PERMS.WRITE_INVENTORY), inventoryController_1.adjustInventory);
+exports.default = router;

@@ -1,31 +1,24 @@
-"use client"
+"use client";
 
 import { useAppDispatch, useAppSelector } from "@/app/redux";
-import { setIsSidebarCollapsed } from "@/app/state/index";
+import { setIsSidebarCollapsed } from "@/app/state";
 import { Bell, Menu, Moon, Settings, Sun } from "lucide-react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
+import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 
 const Navbar = () => {
   const dispatch = useAppDispatch();
-  const isSideBarCollapsed = useAppSelector(
-    (state) => state.global.isSideBarCollapsed
-  );
-
+  const isSideBarCollapsed = useAppSelector((s) => s.global.isSideBarCollapsed);
   const { setTheme, theme } = useTheme();
 
-  const toggleSidebar = () => {
-    dispatch(setIsSidebarCollapsed(!isSideBarCollapsed));
-  };
-
-  const toggleDarkMode = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
-  };
+  const toggleSidebar = () => dispatch(setIsSidebarCollapsed(!isSideBarCollapsed));
+  const toggleDarkMode = () => setTheme(theme === "dark" ? "light" : "dark");
 
   return (
     <div className="flex justify-between items-center w-full mb-7">
-      {/* LEFT SIDE */}
-      <div className="flex justify-between items-center gap-5">
+      {/* LEFT */}
+      <div className="flex items-center gap-5">
         <button
           className="px-3 py-3 bg-gray-100 dark:bg-gray-800 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900"
           onClick={toggleSidebar}
@@ -45,18 +38,16 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* RIGHT SIDE */}
-      <div className="flex justify-between items-center gap-5">
-        <div className="hidden md:flex justify-between items-center gap-5">
-          <div>
-            <button onClick={toggleDarkMode}>
-              {theme === "dark" ? (
-                <Sun className="cursor-pointer text-gray-500 dark:text-gray-100" size={24} />
-              ) : (
-                <Moon className="cursor-pointer text-gray-500" size={24} />
-              )}
-            </button>
-          </div>
+      {/* RIGHT */}
+      <div className="flex items-center gap-5">
+        <div className="hidden md:flex items-center gap-5">
+          <button onClick={toggleDarkMode}>
+            {theme === "dark" ? (
+              <Sun className="cursor-pointer text-gray-500 dark:text-gray-100" size={24} />
+            ) : (
+              <Moon className="cursor-pointer text-gray-500" size={24} />
+            )}
+          </button>
 
           <div className="relative">
             <Bell className="cursor-pointer text-gray-500 dark:text-gray-300" size={24} />
@@ -65,15 +56,24 @@ const Navbar = () => {
             </span>
           </div>
 
-          {/* vertical separator */}
-          <hr className="w-0 h-7 border-solid border-l border-gray-300 dark:border-gray-700 mx-3" />
+          {/* separator */}
+          <hr className="w-0 h-7 border-l border-gray-300 dark:border-gray-700 mx-3" />
 
-          <div className="flex items-center cursor-pointer gap-3">
-            img
-            <span className="font-semibold text-gray-800 dark:text-white">Hunter</span>
-          </div>
+          {/* Clerk auth controls */}
+          <SignedIn>
+            {/* Avatar menu includes Profile & Sign out by default */}
+            <UserButton afterSignOutUrl="/sign-in" />
+          </SignedIn>
 
-          <Link href="/settings">
+          <SignedOut>
+            <SignInButton mode="modal">
+              <button className="px-3 py-2 rounded-md border dark:border-gray-700">
+                Sign in
+              </button>
+            </SignInButton>
+          </SignedOut>
+
+          <Link href="/settings" className="ml-2">
             <Settings className="cursor-pointer text-gray-500 dark:text-gray-300" size={24} />
           </Link>
         </div>

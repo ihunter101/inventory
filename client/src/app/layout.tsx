@@ -1,35 +1,22 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
-import DashboardWrapper from "./DashboardWrapper";
+import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "next-themes";
-import { Toaster } from "sonner"
+import { Toaster } from "sonner";
+import Providers from "./providers"; // <-- use the shim
 
-const inter = Inter({ subsets: ["latin"] });
-
-export const metadata: Metadata = {
-  title: "LCS Inventory",
-  description: "Inventory and analytics platform for labs.",
-};
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-           <Toaster richColors position="top-right" />
-          <DashboardWrapper>{children}</DashboardWrapper>
-        </ThemeProvider>
-      </body>
-    </html>
+    <ClerkProvider signInUrl="/sign-in" signUpUrl="/sign-up" afterSignInUrl="/dashboard" afterSignUpUrl="/dashboard">
+      <html lang="en" suppressHydrationWarning>
+        <body>
+          <Providers>
+            <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+              <Toaster richColors position="top-right" />
+              {children}
+            </ThemeProvider>
+          </Providers>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

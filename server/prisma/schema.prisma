@@ -10,17 +10,20 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+    url      = env("DATABASE_URL")
 }
 
 model Users {
-  userId    Int       @id @default(autoincrement())
   name      String
+  id        String?   @unique @default(cuid())
+  clerkId   String?   @unique
   email     String    @unique
   role      Role      @default(viewer)
   location  Location  @default(Tapion)
   createdAt DateTime  @default(now())
   lastLogin DateTime? @default(now())
+
+  stockLedger StockLedger[]
 }
 
 enum Role {
@@ -44,10 +47,20 @@ enum Location {
   other
 }
 
+enum Department {
+  Administration
+  SpecimenCollection
+  heamatology 
+  Chemistry
+  Offlines
+  Cytology
+  Bacteriology
+  SpecialChemistry 
+}
+
 model Products {
-  productId     String    @id
+  productId     String    @id @map("productId")
   name          String
-  price         Float
   rating        Float?
   stockQuantity Int
   minQuantity   Int?      @default(0)
@@ -57,18 +70,87 @@ model Products {
   supplier      String?
   expiryDate    DateTime?
 
-  sku String? @unique 
+  imageUrl String?
+  Department String?
+
+  sku String? @unique
 
   Sales     Sales[]
   Purchases Purchases[]
+
+  inventory Inventory?
 
   poItems      PurchaseOrderItem[]
   invoiceItems SupplierInvoiceItem[]
   grnItems     GoodsReceiptItem[]
   stockMoves   StockLedger[]
-  createdAt    DateTime? @default(now())             
-  updatedAt    DateTime              @updatedAt @default(now())
+  createdAt    DateTime?             @default(now())
+  updatedAt    DateTime              @default(now()) @updatedAt
+
+  @@map("Products")
 }
+
+model Inventory {
+  id        String   @id @default(cuid())
+  productId String   @unique
+  product   Products @relation(fields: [productId], references: [productId])
+
+  stockQuantity Int       @default(0)
+  minQuantity   Int       @default(0)
+  reorderPoint  Int       @default(0)
+  lastCountedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Sale {
+  id Int @id @default(autoincrement())
+  locationId Int 
+  salesDate DateTime
+
+  hundredsCount Int @default(0)
+  fiftiesCount Int @default(0)
+  twentiesCount Int @default(0)
+  tensCount Int @default(0)
+  fivesCount Int @default(0)
+
+  cashTotal Decimal @db.Decimal(10, 2)
+  grandTotal Decimal @db.Decimal(10,2)
+
+  creditCardTotal Decimal @default(0) @db.Decimal(10, 2)
+  debitCardTotal Decimal @default(0) @db.Decimal(10,2)
+  chequeTotal Decimal @default(0) @db.Decimal(10,2)
+
+  notes String? 
+  enteredBy String
+  //VerifiedBy String shoul be a reference to a user
+  //verifiedAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([locationId, salesDate]) //one Entry Per Day
+  @@index([salesDate]) //@@index(locationId, createdAt)
+  @@map("dailySales")
+
+}
+
+model SalesAuditLog {
+  id Int @id @default(autoincrement())
+  salesId Int
+  action String @db.VarChar(50) //Created, updated, deleted, verified
+  columnName String
+  oldValue String
+  changedBy String 
+  changedAt DateTime @default(now())
+
+  @@index([salesId])
+  @@index([changedAt])
+  @@map("sales_audit_log")
+
+}
+
 
 model Sales {
   saleId      String   @id
@@ -95,6 +177,7 @@ model Expenses {
   category    String
   amount      Float
   date        DateTime @default(now())
+  group       String? 
   description String?
   status      String   @default("pending")
 }
@@ -281,6 +364,20 @@ model StockLedger {
   memo       String?
   createdAt  DateTime @default(now())
 
+  userId String?
+  user   Users?  @relation(fields: [userId], references: [id])
+
+  // beforeQty Int
+// afterQty  Int
+
   @@index([productId])
   @@index([SourceId, sourceType])
+  @@index([userId])
+}
+
+enum SourceType {
+  GRN
+  ADJUSTMENT
+  STOCKTAKE
+  CORRECTION
 }

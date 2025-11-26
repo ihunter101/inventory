@@ -1,10 +1,12 @@
 
 import { Router } from "express";
 import { listGoodsReceipts, createGoodsReceipt, postGoodsReceipt } from "../controllers/goodsReceiptController";
+import { must } from "../middleware/auth";
+import { PERMS } from "@shared/rbac";
 const router = Router();
 
-router.get("/", listGoodsReceipts);
-router.post("/", createGoodsReceipt);
-router.post("/:id/post", postGoodsReceipt);
+router.get("/", ...must(PERMS.READ_GRNS), listGoodsReceipts);
+router.post("/", ...must(PERMS.WRITE_GRNS), createGoodsReceipt);
+router.post("/:id/post", ...must(PERMS.WRITE_GRNS), postGoodsReceipt);
 
 export default router;

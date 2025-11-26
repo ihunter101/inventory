@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const invoiceController_1 = require("../controllers/invoiceController");
+const auth_1 = require("../middleware/auth");
+const rbac_1 = require("@shared/rbac");
+const router = (0, express_1.Router)();
+router.get("/", ...(0, auth_1.must)(rbac_1.PERMS.READ_INVOICES), invoiceController_1.listInvoices);
+// router.get("/:id", getInvoice);
+router.post("/", ...(0, auth_1.must)(rbac_1.PERMS.WRITE_INVOICES), invoiceController_1.createInvoice);
+router.patch("/:id/status", ...(0, auth_1.must)(rbac_1.PERMS.WRITE_INVOICES), invoiceController_1.markInvoicePaid);
+exports.default = router;

@@ -60,4 +60,4 @@ export const {
   clearExpenses,
 } = expenseSlice.actions;
 
-export  const expensesReducer = expenseSlice.reducer;
+export const expensesReducer = expenseSlice.reducer;

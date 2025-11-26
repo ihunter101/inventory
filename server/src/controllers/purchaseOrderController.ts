@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
-import { PrismaClient, POStatus } from "@prisma/client";
+import { prisma } from "../lib/prisma";
+import { POStatus } from "@prisma/client";
 
-const prisma = new PrismaClient();
+//const prisma = new PrismaClient();
 
 /** Frontend-friendly mapper: flattens supplier, coerces Decimals/Dates */
 function toPurchaseOrderDTO(po: any) {
