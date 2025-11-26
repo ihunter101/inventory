@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prisma";
+import { getGroupFromCategory } from "../../../client/src/utils/getGroupFromCategory";
 
-const prisma = new PrismaClient();
+//const prisma = new PrismaClient();
 
 export const getExpenses = async (req: Request, res: Response) => {
   try {
@@ -16,7 +17,7 @@ export const getExpenses = async (req: Request, res: Response) => {
 };
 
 export const createExpense = async (req: Request, res: Response) => {
-  const { category, amount, date, description, status = "pending" } = req.body;
+  const { category, amount, date, description, group, status = "pending" } = req.body;
 
   try {
     const newExpense = await prisma.expenses.create({
@@ -26,8 +27,10 @@ export const createExpense = async (req: Request, res: Response) => {
         date: new Date(date),
         description,
         status,
+        group,
       },
     });
+
     res.status(201).json(newExpense);
   } catch (error) {
     console.error("Error creating expense:", error);

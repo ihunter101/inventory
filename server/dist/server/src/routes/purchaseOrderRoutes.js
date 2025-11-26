@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const purchaseOrderController_1 = require("../controllers/purchaseOrderController");
+const auth_1 = require("../middleware/auth");
+const rbac_1 = require("@shared/rbac");
+const router = (0, express_1.Router)();
+router.get("/", ...(0, auth_1.must)(rbac_1.PERMS.READ_PURCHASE_ORDERS), purchaseOrderController_1.listPurchaseOrders);
+router.get("/:id", ...(0, auth_1.must)(rbac_1.PERMS.READ_PURCHASE_ORDERS), purchaseOrderController_1.getPurchaseOrder);
+router.post("/", ...(0, auth_1.must)(rbac_1.PERMS.WRITE_PURCHASE_ORDERS), purchaseOrderController_1.createPurchaseOrder);
+router.patch("/:id/status", ...(0, auth_1.must)(rbac_1.PERMS.WRITE_PURCHASE_ORDERS), purchaseOrderController_1.updatePOStatus);
+exports.default = router;

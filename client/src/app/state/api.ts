@@ -1,8 +1,26 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { url } from "inspector";
+import page from "../(private)/sales/page";
 
 // ----------------------
 // Interfaces
 // ----------------------
+
+export interface ProductResponse {
+  items: Product[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  previousPage: number | null;
+}
+
+interface GetProductsArgs {
+  page?: number;
+  search?: string;
+  department?: string;
+}
 
 export interface Product {
   productId: string;
@@ -11,6 +29,21 @@ export interface Product {
   rating?: number;
   stockQuantity: number;
   unit?: string; //added only to assist in the CreatePruchasreOrderModal
+  imageUrl?: string;
+  department?: string;
+}
+
+export interface Inventory {
+  id: string 
+  productId: string; 
+  name: string;
+  unit?: string | null;
+  supplier?: string | null;
+  expiryDate?: string | null;
+  stockQuantity: number;
+  minQuantity: number;
+  reorderPoint: number;
+  lastCounted: string;
 }
 
 export interface NewProduct {
@@ -56,7 +89,8 @@ export interface DashboardMetrics {
 }
 
 export interface User {
-  userId: string;
+  clerkId: string;
+  id: string;
   name: string;
   email: string;
   role: string;
@@ -65,13 +99,24 @@ export interface User {
   lastLogin: string;
 }
 
+export type ExpenseGroup = 
+  |"Clinical" 
+  | "Equipment and Infrastructure"
+  | "Logistics and Overhead"
+  | "Other"
+
+
 export interface Expense {
   expenseId: string;
   category: string;
+  group?: ExpenseGroup;
   amount: number;
   date: string;
   status: string;
   description?: string; 
+  title?: string
+  // sourceType?: "PurchaseOrder" | "Manual";
+  // sourceId?: string;
 };
 
 
@@ -184,10 +229,11 @@ export const api = createApi({
   reducerPath: "api",
   baseQuery: fetchBaseQuery({
     baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL,
+    credentials: "include", //for authentication and authorization 
   }),
   tagTypes: [
     "DashboardMetrics", "Products", "Users", "Expenses",
-    "PurchaseOrders", "SupplierInvoices", "GoodsReceipts", "Suppliers"
+    "PurchaseOrders", "SupplierInvoices", "GoodsReceipts", "Suppliers", "Inventory",
   ],
   endpoints: (build) => ({
     // Dashboard Metrics
@@ -195,22 +241,79 @@ export const api = createApi({
       query: () => "/dashboard",
       providesTags: ["DashboardMetrics"],
     }),
+    // Inventory
+    getInventory: build.query<Inventory[], string | void>({
+    query: (search) => ({
+      url: "/inventory",  // Points to your new inventory route 
+      params: search ? { search } : {},
+      }),
+    providesTags: (rows) =>
+    rows
+      ? [
+          { type: "Inventory" as const, id: "LIST" },
+          ...rows.map(r => ({ type: "Inventory" as const, id: r.productId })),
+        ]
+      : [{ type: "Inventory" as const, id: "LIST" }],
+      }),
+
+    adjustInventory: build.mutation<Inventory, { productId: string; delta: number; reason?: string }>({
+      query: (body) => ({
+        url: "/inventory/adjust",
+        method:"POST",
+        body, //{productId, delta, reason}
+      }),
+      async onQueryStarted({productId, delta}, { dispatch, queryFulfilled }) {
+        const patch = dispatch(
+          api.util.updateQueryData("getInventory", undefined, draft => {
+            const row = draft.find(r => r.productId === productId);
+            if (row) row.stockQuantity += delta;
+          })
+        );
+        try { await queryFulfilled;} catch { patch.undo();}
+      },
+      invalidatesTags: (_res, _err, {productId}) => [
+        { type: "Inventory", id: productId },
+        { type: "Products", id: productId },
+      ]
+    }),
+
+    setInventory: build.mutation<Inventory, {productId: string; stockQuantity: number; lastCounted?: string}>({
+      query: (body) => ({
+        url: "/inventory/set",
+        method: "POST",
+        body, //{ productId, stockQuantity, lastCounted}
+      }),
+      invalidatesTags: (_res, _err, {productId }) => [
+        { type: "Inventory", id: productId },
+        { type: "Products", id: productId },
+      ],
+    }),
 
     // Products
-    getProducts: build.query<Product[], string | void>({
-      query: (search) => ({
-        url: "/products",
-        params: search ? { search } : {},
-      }),
+    getProducts: build.query<ProductResponse, GetProductsArgs | void>({
+      query: (args) => {
+        const params: Record<string, any> = {};
+  
+        if (args?.page) params.page = args.page;
+        if (args?.search) params.search = args.search;
+        if (args?.department) params.department = args.department;
+        
+        return {
+          url: "/products",
+          params,
+          
+        }
+        
+      },
       providesTags: ["Products"],
     }),
-    createProduct: build.mutation<Product, NewProduct>({
+    createProduct: build.mutation< Product, NewProduct>({
       query: (newProduct) => ({
         url: "/products",
         method: "POST",
         body: newProduct,
       }),
-      invalidatesTags: ["Products"],
+      invalidatesTags: ["Products", "Inventory"],
     }),
 
     // Users
@@ -303,8 +406,12 @@ postGRN: build.mutation<{ ok: true }, { id: string }>({
 export const {
   useGetDashboardMetricsQuery,
   useGetProductsQuery,
+  useGetInventoryQuery,
   useCreateProductMutation,
   useGetUsersQuery,
+
+  useAdjustInventoryMutation,
+  useSetInventoryMutation,
 
   useGetExpensesQuery,
   useCreateExpenseMutation,

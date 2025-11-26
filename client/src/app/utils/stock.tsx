@@ -16,8 +16,8 @@ export function daysUntil(dateISO: string) {
 // if the difference (d) is less than 30 days (or thirty days from now is the expiry date) then display red, if it's less than 90 display yellow etc
 export function expiryColor(dateISO: string) {
   const d = daysUntil(dateISO); 
-  if (d < 30) return 'error';     // red
-  if (d < 90) return 'warning';   // yellow
+  if (d < 60) return 'error';     // red
+  if (d < 120) return 'warning';   // yellow
   return 'default';               // gray
 }
 

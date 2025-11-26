@@ -1,8 +1,8 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../src/lib/prisma";
 import fs from "fs";
 import path from "path";
 
-const prisma = new PrismaClient();
+//const prisma = new PrismaClient();
 const DATA_DIR = path.join(__dirname, "seedData");
 
 /* ------------------------- small helpers ------------------------- */

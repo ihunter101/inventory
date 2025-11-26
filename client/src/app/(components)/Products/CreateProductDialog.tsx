@@ -1,20 +1,33 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { useState } from "react"
-import { v4 as uuidv4 } from "uuid"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { useState } from "react";
+import { v4 as uuidv4 } from "uuid";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { UploadButton } from "@/utils/uploadthing";
+import "@uploadthing/react/styles.css";
 
 interface CreateProductDialogProps {
-  isOpen: boolean
-  onClose: () => void
-  onCreate: (product: any) => void
-  isCreating?: boolean
+  isOpen: boolean;
+  onClose: () => void;
+  onCreate: (product: any) => void;
+  isCreating?: boolean;
 }
 
-const CATEGORY_OPTIONS = ["Collection", "Equipment", "Reagent", "Safety"]
-const RATING_OPTIONS = [0, 1, 2, 3, 4, 5]
+const CATEGORY_OPTIONS = ["Collection", "Equipment", "Reagent", "Safety"];
+const RATING_OPTIONS = [0, 1, 2, 3, 4, 5];
 
 export function CreateProductDialog({
   isOpen,
@@ -33,48 +46,58 @@ export function CreateProductDialog({
     unit: "",
     category: "",
     expiryDate: "",
-      })
+    imageUrl: "",
+  });
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const { name, value } = e.target
-    setForm({ ...form, [name]: value })
+    const { name, value } = e.target;
+    setForm({ ...form, [name]: value });
   }
 
   function handleSubmit() {
-    const price = parseFloat(form.price)
-    const stockQuantity = parseInt(form.stockQuantity)
-    const minQuantity = parseInt(form.minQuantity)
+    const price = parseFloat(form.price);
+    const stockQuantity = parseInt(form.stockQuantity);
+    const minQuantity = parseInt(form.minQuantity);
 
     if (price < 0 || stockQuantity < 0 || minQuantity < 0) {
-      alert("Price, Stock Quantity, and Minimum Quantity must be non-negative.")
-      return
+      alert(
+        "Price, Stock Quantity, and Minimum Quantity must be non-negative."
+      );
+      return;
     }
 
     const payload = {
-  ...form,
-  price,
-  stockQuantity,
-  minQuantity,
-  rating: Number(form.rating),
-  expiryDate: form.expiryDate ? new Date(form.expiryDate) : null,
-};
+      ...form,
+      price,
+      stockQuantity,
+      minQuantity,
+      rating: Number(form.rating),
+      expiryDate: form.expiryDate ? new Date(form.expiryDate) : null,
+      imageUrl: form.imageUrl,
+    };
 
-
-    onCreate(payload)
-    onClose()
+    onCreate(payload);
+    onClose();
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px] p-6 rounded-2xl border border-neutral-200 bg-white shadow-xl">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-semibold text-gray-900">Create New Product</DialogTitle>
+          <DialogTitle className="text-2xl font-semibold text-gray-900">
+            Create New Product
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           <div>
             <Label htmlFor="name">Product Name</Label>
-            <Input name="name" value={form.name} onChange={handleChange} placeholder="e.g. Test Tubes" />
+            <Input
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              placeholder="e.g. Test Tubes"
+            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -104,7 +127,12 @@ export function CreateProductDialog({
 
             <div>
               <Label htmlFor="rating">Rating</Label>
-              <Select value={form.rating.toString()} onValueChange={(value) => setForm({ ...form, rating: Number(value) })}>
+              <Select
+                value={form.rating.toString()}
+                onValueChange={(value) =>
+                  setForm({ ...form, rating: Number(value) })
+                }
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select Rating" />
                 </SelectTrigger>
@@ -120,7 +148,12 @@ export function CreateProductDialog({
 
             <div>
               <Label htmlFor="supplier">Supplier</Label>
-              <Input name="supplier" value={form.supplier} onChange={handleChange} placeholder="e.g. MedTech Co." />
+              <Input
+                name="supplier"
+                value={form.supplier}
+                onChange={handleChange}
+                placeholder="e.g. MedTech Co."
+              />
             </div>
 
             <div>
@@ -137,12 +170,20 @@ export function CreateProductDialog({
 
             <div>
               <Label htmlFor="unit">Unit</Label>
-              <Input name="unit" value={form.unit} onChange={handleChange} placeholder="e.g. box, ml, tubes" />
+              <Input
+                name="unit"
+                value={form.unit}
+                onChange={handleChange}
+                placeholder="e.g. box, ml, tubes"
+              />
             </div>
 
             <div>
               <Label htmlFor="category">Category</Label>
-              <Select value={form.category} onValueChange={(value) => setForm({ ...form, category: value })}>
+              <Select
+                value={form.category}
+                onValueChange={(value) => setForm({ ...form, category: value })}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select Category" />
                 </SelectTrigger>
@@ -167,6 +208,31 @@ export function CreateProductDialog({
             </div>
           </div>
 
+          {/* Image  */}
+          <div className="mt-3 mb-4">
+            <Label className="Product Image">Product Image</Label>
+            <UploadButton
+              endpoint="imageUploader"
+              onClientUploadComplete={(res) => {
+                const file = res?.[0];
+                if (!file) return;
+
+                setForm((prev) => ({
+                  ...prev,
+                  imageUrl: file.ufsUrl,
+                }));
+              }}
+              onUploadError={(error: Error) => {
+                alert("Error uploading file: " + error.message);
+              }}
+            />
+            {form.imageUrl && (
+              <p className="text-xs text-gray-500 mt-1 break-all">
+                Image selected ✔
+              </p>
+            )}
+          </div>
+
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="ghost" onClick={onClose} disabled={isCreating}>
               Cancel
@@ -178,5 +244,5 @@ export function CreateProductDialog({
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

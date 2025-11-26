@@ -1,9 +1,9 @@
 //controller defines the logic of what happens when a route requested
 
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prisma";
 
-const prisma = new PrismaClient();
+//const prisma = new PrismaClient();
 
 export const getDashbaordMetrics = async (
     req: Request,
