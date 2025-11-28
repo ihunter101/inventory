@@ -1,6 +1,6 @@
 import type { Status } from "../../utils/stock";
+import type { Category } from "@/app/(components)/Products/CreateProductDialog"
 
-export type Category = "Collection" | "Equipment" | "Reagent" | "Safety" | "other";
 
 export type InventoryRow = {
   productId: string;

@@ -26,7 +26,8 @@ interface CreateProductDialogProps {
   isCreating?: boolean;
 }
 
-const CATEGORY_OPTIONS = ["Collection", "Equipment", "Reagent", "Safety"];
+ export const CATEGORY_OPTIONS = ["Collection", "Equipment", "Reagent", "Safety"];
+ export type Category = (typeof CATEGORY_OPTIONS)[number]
 const RATING_OPTIONS = [0, 1, 2, 3, 4, 5];
 
 export function CreateProductDialog({
@@ -136,7 +137,10 @@ export function CreateProductDialog({
                 <SelectTrigger>
                   <SelectValue placeholder="Select Rating" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent
+                  className="z-[70] bg-white border-slate-200 shadow-lg"
+                  position="popper"
+                >
                   {RATING_OPTIONS.map((num) => (
                     <SelectItem key={num} value={num.toString()}>
                       {num}
@@ -187,7 +191,10 @@ export function CreateProductDialog({
                 <SelectTrigger>
                   <SelectValue placeholder="Select Category" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent
+                  className="bg-white border-slate-200 z-[70] shadow-lg"
+                  position= "popper"
+                >
                   {CATEGORY_OPTIONS.map((cat) => (
                     <SelectItem key={cat} value={cat}>
                       {cat}

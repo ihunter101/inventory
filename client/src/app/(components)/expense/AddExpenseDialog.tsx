@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { useCreateExpenseMutation } from "../../state/api";
+import { Expense, ExpenseGroup, useCreateExpenseMutation } from "../../state/api";
 import { useDispatch } from "react-redux";
 import { addExpense } from "@/app/state";
 import {
@@ -36,10 +36,12 @@ const DEFAULT_CATEGORIES = [
   "Office Supplies",
 ];
 
+
+
 const GROUP_OPTIONS = [
   "Clinical",
-  "Equipment & Infrastructure",
-  "Logistics & Overhead",
+  "Equipment and Infrastructure",
+  "Logistics and Overhead",
 ];
 
 function generateExpenseId(date: Date) {
@@ -62,7 +64,7 @@ const AddExpenseDialog = () => {
 
   const [amount, setAmount] = React.useState(0);
   const [category, setCategory] = React.useState("");
-  const [group, setGroup] = React.useState("");
+  const [group, setGroup] = React.useState<ExpenseGroup | "">("");
   const [date, setDate] = React.useState("");
 
   const [expenseId, setExpenseId] = React.useState("");
@@ -73,6 +75,7 @@ const AddExpenseDialog = () => {
   const [createExpense, { isLoading }] = useCreateExpenseMutation();
 
   const todayString = React.useMemo(() => getTodayString(), []);
+
 
   // When dialog opens, prefill date and ID
   React.useEffect(() => {
@@ -114,7 +117,7 @@ const AddExpenseDialog = () => {
     }
 
     try {
-      const payload = {
+      const payload: Partial<Expense> = {
         amount,
         category,
         group,
@@ -223,7 +226,7 @@ const AddExpenseDialog = () => {
         {/* Group */}
         <div className="space-y-2">
           <Label>Group</Label>
-          <Select value={group} onValueChange={setGroup}>
+          <Select value={group || undefined} onValueChange={(value) => (setGroup(value as ExpenseGroup | ""))}>
             <SelectTrigger>
               <SelectValue placeholder="Select group" />
             </SelectTrigger>
