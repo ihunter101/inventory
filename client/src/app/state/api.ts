@@ -106,10 +106,11 @@ export type ExpenseGroup =
   | "Other"
 
 
+  
 export interface Expense {
   expenseId: string;
   category: string;
-  group?: ExpenseGroup;
+  group: ExpenseGroup;
   amount: number;
   date: string;
   status: string;

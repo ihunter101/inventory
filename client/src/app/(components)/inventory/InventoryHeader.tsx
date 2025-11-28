@@ -1,13 +1,14 @@
 import * as React from "react";
 import { Box, Button, Stack, Typography } from "@mui/material";
 import { Add as AddIcon, Download as DownloadIcon } from "@mui/icons-material";
+import InventoryPDFDownload, { InventoryItem as PdfItem } from "@/app/pdf/InventoryDocument";
 
 type Props = {
   onAddItem: () => void;
-  onExport?: () => void;
+  pdfItems: PdfItem[];
 };
 
-export const InventoryHeader: React.FC<Props> = ({ onAddItem, onExport }) => {
+export const InventoryHeader: React.FC<Props> = ({ onAddItem, pdfItems  }) => {
   return (
     <Stack
       direction={{ xs: "column", sm: "row" }}
@@ -39,13 +40,15 @@ export const InventoryHeader: React.FC<Props> = ({ onAddItem, onExport }) => {
         >
           Add Item
         </Button>
-        <Button
-          startIcon={<DownloadIcon />}
-          variant="outlined"
-          onClick={onExport}
-        >
-          Export
-        </Button>
+
+        <InventoryPDFDownload
+          items={pdfItems}
+          organizationName="Laboratory Services and Consultation Limited"
+          department="Medical Laboratory Services"
+          preparedBy="Hunter"
+          reportType="full"
+          notes="Auto-generated inventory report from LSCL inventory system."
+        />
       </Stack>
     </Stack>
   );

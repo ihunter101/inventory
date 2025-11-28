@@ -15,10 +15,11 @@ import {InventoryFilters} from "@/app/(components)/inventory/InventoryFilters";
 import {InventoryTable} from "@/app/(components)/inventory/InventoryTable";
 import {StocktakeDialog} from "@/app/(components)/inventory/StockTakeDialogue";
 import {
-  Category,
   InventoryRow,
   deriveStatus,
 } from "@/app/(components)/inventory/InventoryTypes";
+import {InventoryItem as PdfItem} from "@/app/pdf/InventoryDocument";
+import type {  Category } from "@/app/(components)/Products/CreateProductDialog";
 
 export default function InventoryPage() {
   const { data = [], isLoading, isError, error, refetch } = useGetInventoryQuery();
@@ -50,6 +51,20 @@ export default function InventoryPage() {
         return okStatus && okCategory;
       }),
     [rows, status, category]
+  );
+
+  const pdfItems: PdfItem[] = React.useMemo(
+    () =>
+      filteredRows.map((row) => ({
+        id: row.productId,
+        name: row.name,
+        category: row.category ?? "Other",
+        quantity: row.stockQuantity,
+        unit: row.unit ?? "pcs",
+        expiryDate: row.expiryDate ?? undefined,
+        status: deriveStatus(row) as string,
+      })),
+    [filteredRows]
   );
 
   // quick +/- adjust
@@ -106,13 +121,10 @@ export default function InventoryPage() {
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <InventoryHeader
-        onAddItem={() => {
-          /* hook into your add flow */
-        }}
-        onExport={() => {
-          /* hook into your export flow */
-        }}
+        onAddItem={() => { }}
+          pdfItems={pdfItems} 
       />
+
 
       <InventoryFilters
         status={status}
