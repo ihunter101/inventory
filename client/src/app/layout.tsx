@@ -2,19 +2,24 @@ import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
-import Providers from "./providers"; // <-- use the shim
+import Providers from "./providers";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider signInUrl="/sign-in" signUpUrl="/sign-up" afterSignInUrl="/dashboard" afterSignUpUrl="/dashboard">
+    <ClerkProvider 
+      signInUrl="/sign-in" 
+      signUpUrl="/sign-up" 
+      afterSignInUrl="/dashboard" 
+      afterSignUpUrl="/dashboard"
+    >
       <html lang="en" suppressHydrationWarning>
         <body>
-          <Providers>
-            <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+            <Providers>
               <Toaster richColors position="top-right" />
               {children}
-            </ThemeProvider>
-          </Providers>
+            </Providers>
+          </ThemeProvider>
         </body>
       </html>
     </ClerkProvider>

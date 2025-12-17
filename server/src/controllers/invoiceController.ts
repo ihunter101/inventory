@@ -20,9 +20,10 @@ function toInvoiceDTO(inv: any) {
         : inv.dueDate
       : undefined,
     lines: (inv.items ?? []).map((it: any) => ({
-      productId: it.productId,
+      draftProductId: it.draftProductId,
+      productId: it.productId || null,
       sku: undefined,                          // optional on FE
-      name: it.description ?? "",              // FE uses "name"
+      name: it.draftProduct?.name ?? it.name,   // FE uses "name"
       unit: it.uom ?? it.unit ?? "",           // schema uses "uom"; tolerate "unit"
       quantity: Number(it.quantity),
       unitPrice: Number(it.unitPrice),
@@ -51,7 +52,16 @@ export const listInvoices = async (req: Request, res: Response) => {
 
     const rows = await prisma.supplierInvoice.findMany({
       where,
-      include: { supplier: true, items: true, po: true },
+      include: { 
+        supplier: true, 
+        items: {
+          include: {
+            draftProduct: true, 
+            product: true,
+          }
+        }
+        , 
+        po: true },
       orderBy: { date: "desc" },
     });
 
@@ -77,6 +87,9 @@ export const createInvoice = async (req: Request, res: Response) => {
       0
     );
 
+    console.log("REQ BODY:", req.body);
+    console.log("LINES TYPE:", Array.isArray(lines), lines);
+
     const created = await prisma.supplierInvoice.create({
       data: {
         invoiceNumber,
@@ -88,7 +101,10 @@ export const createInvoice = async (req: Request, res: Response) => {
         amount,
         items: {
           create: lines.map((line: any) => ({
-            productId: line.productId,
+            //productId: line.productId || null,
+            draftProduct: {
+              connect: { id: line.draftProductId },
+            },
             description: line.description ?? line.name ?? "",
             // schema field is "uom"
             uom: line.unit ?? line.uom ?? "",
@@ -98,8 +114,22 @@ export const createInvoice = async (req: Request, res: Response) => {
           })),
         },
       },
-      include: { supplier: true, items: true, po: true },
-    });
+      include: { 
+        supplier: true, 
+        items: { include: { 
+          draftProduct: true,
+          product: true,
+        } }, 
+        po: true },
+
+        //orderBy: { date: "desc" }
+    }
+    
+  );
+
+    console.log("REQ BODY:", req.body);
+    console.log("LINES TYPE:", Array.isArray(lines), lines);
+
 
     return res.status(201).json(toInvoiceDTO(created));
   } catch (error) {

@@ -11,6 +11,7 @@ import {
   Stack,
   Tooltip,
   Typography,
+  useTheme,
 } from "@mui/material";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import {
@@ -22,6 +23,7 @@ import {
 import { useGetUsersQuery } from "@/app/state/api";
 
 export default function UsersPage() {
+  const theme = useTheme();
   const { data: users = [], isLoading, isError } = useGetUsersQuery();
 
   const rows = users.map((u: any) => ({
@@ -31,10 +33,10 @@ export default function UsersPage() {
     role: u.role,
   }));
 
-    const [paginationModel, setPaginationModel] = React.useState({
-        page: 0,
-        pageSize: 10, // default value
-    });
+  const [paginationModel, setPaginationModel] = React.useState({
+    page: 0,
+    pageSize: 10,
+  });
 
   const columns: GridColDef[] = [
     {
@@ -45,22 +47,22 @@ export default function UsersPage() {
       renderCell: (params) => (
         <Box>
           <Typography fontWeight={600}>{params.row.name}</Typography>
-          <Typography variant="overline" color="text.secondary">
+          <Typography variant="caption" color="text.secondary">
             {params.row.name}
           </Typography>
         </Box>
-          
       ),
     },
     {
       field: "id",
-      headerName: "User ID ",
+      headerName: "User ID",
       flex: 0.7,
       minWidth: 150,
       renderCell: (params) => (
         <Box>
-          <Typography fontWeight={600}>{params.row.id}</Typography>
-          <Typography variant="overline" color="text.primary">{params.row.id}</Typography>
+          <Typography fontWeight={600} variant="body2">
+            {params.row.id}
+          </Typography>
         </Box>
       ),
     },
@@ -82,12 +84,10 @@ export default function UsersPage() {
             px: 1.5,
             py: 0.5,
             borderRadius: 2,
-            bgcolor: "#EEF2FF",
-            color: "#3730A3",
+            bgcolor: theme.palette.mode === "dark" ? "#1e3a8a" : "#EEF2FF",
+            color: theme.palette.mode === "dark" ? "#93c5fd" : "#3730A3",
             fontSize: "0.85rem",
             textTransform: "capitalize",
-            ":hover": { bgcolor: "dark orange"},
-
           }}
         >
           {params.row.role}
@@ -132,7 +132,9 @@ export default function UsersPage() {
       <Card sx={{ borderRadius: "16px", boxShadow: 3 }}>
         <CardHeader
           title={<Typography fontWeight={700}>Users Table</Typography>}
-          sx={{ borderBottom: "1px solid #eee", backgroundColor: "#f9fafb" }}
+          sx={{
+            borderBottom: `1px solid ${theme.palette.divider}`,
+          }}
         />
         <CardContent>
           {isLoading && <Typography>Loading users...</Typography>}
@@ -155,18 +157,14 @@ export default function UsersPage() {
                 disableRowSelectionOnClick
                 getRowId={(r) => r.id}
                 sx={{
-                    border: 0,
-                    borderRadius: 2,
-                    fontSize: "0.9rem",
-                    "& .MuiDataGrid-columnHeader": {
-                    backgroundColor: "#f9fafb",
-                    fontWeight: "bold",
-                    },
-                    "& .MuiDataGrid-row:hover": {
-                    backgroundColor: "lightscyan",
-                    },
+                  border: 0,
+                  borderRadius: 2,
+                  fontSize: "0.9rem",
+                  "& .MuiDataGrid-row:hover": {
+                    backgroundColor: theme.palette.mode === "dark" ? "#334155" : "#f0fdfa",
+                  },
                 }}
-                />
+              />
             </div>
           )}
         </CardContent>

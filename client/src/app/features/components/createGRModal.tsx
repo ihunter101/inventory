@@ -22,11 +22,13 @@ type Props = {
   onPosted?: (poId: string) => void;
 };
 
+/**takes a value of whatever type its given, if its null it throws an error else it returns that value  */ 
 function assertDefined<T>(v: T | null | undefined, msg: string): T {
   if (v == null) throw new Error(msg);
   return v;
 }
 
+/**a function that takes a string id and shorten it to 8 character else returns "-" */
 function shortId(id?: string) {
   return id ? `${id.slice(0, 8)}…` : "-";
 }
@@ -65,7 +67,7 @@ export default function CreateGRNModal({
       (draft.invoiceNumber ?? draft.invoiceId) && (
         <>
           {" "}
-          • Invoice: <span className="font-medium">{draft.invoiceNumber}</span>
+          • Supplier Invoice: <span className="font-medium">{draft.invoiceNumber}</span>
         </>
       );
 
@@ -77,20 +79,26 @@ export default function CreateGRNModal({
     );
   }, [draft?.poId, draft?.poNumber, draft?.invoiceId, draft?.invoiceNumber]);
 
-  /** Save as DRAFT and return the saved GRN so callers get the id */
+  /** Save as DRAFT and return the saved GRN so callers get the id
+   ** creates GRN Line item payload and passes Purchase ord and Inv detail to the createGRN hook
+   */
   async function handleSaveDraft(): Promise<GoodsReceiptDTO> {
     setSubmitting(true);
     try {
       const d = assertDefined(draft, "No GRN draft to save");
 
+      const invalidLines = d.lines.filter(ln => !ln.draftProductId);
+    if (invalidLines.length > 0) {
+      console.error("Lines missing draftProductId:", invalidLines)}
       const linesPayload: GoodsReceiptLine[] = d.lines.map((ln) => ({
-        productId: ln.productId,
-        sku: ln.sku,
+        draftProductId: ln.draftProductId,
+        //sku: ln.sku,
         name: ln.name ?? "",
         unit: ln.unit,
         receivedQty: ln.receivedQty,
         unitPrice: ln.unitPrice ?? 0,
       }));
+console.log("GRN LINES PAYLOAD:", linesPayload);
 
       const saved = await createGRN({
         grnNumber: d.grnNumber,
@@ -100,7 +108,7 @@ export default function CreateGRNModal({
         lines: linesPayload,
       }).unwrap();
 
-      const next: GoodsReceiptDTO = { ...d, id: (saved as any).id };
+      const next: GoodsReceiptDTO = { ...d, id: (saved).id };
       onChange(next);
 
       toast({ title: "GRN saved as draft", description: next.grnNumber });
@@ -117,14 +125,16 @@ export default function CreateGRNModal({
     }
   }
 
-  /** POST (increments stock and updates PO server-side) */
+  /** POST (increments stock and updates PO server-side) 
+   **Gets the draft id then pass it as an arg to PostGRN Hook
+  */
   async function handlePost() {
     const d = assertDefined(draft, "No GRN draft to post");
     setSubmitting(true);
     try {
       // Ensure we have a real id to post
       let idToPost = d.id;
-      if (!idToPost || idToPost.startsWith("GRN-DRAFT-")) {
+      if (!idToPost || idToPost.startsWith("LSC-GR-")) {
         const saved = await handleSaveDraft();
         idToPost = saved.id;
       }
@@ -168,6 +178,8 @@ export default function CreateGRNModal({
         <div className="space-y-6 p-6">
           {/* header fields */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+
+            {/* GRN Date */}
             <Field label="GRN Date">
               <input
                 type="date"
@@ -177,6 +189,8 @@ export default function CreateGRNModal({
                 disabled={busy}
               />
             </Field>
+
+            {/* GRN Number */}
             <Field label="GRN Number">
               <input
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-blue-500 transition focus:ring-2"
@@ -187,6 +201,8 @@ export default function CreateGRNModal({
                 disabled={busy}
               />
             </Field>
+
+            {/* GRN Status */}
             <Field label="Status">
               <input
                 className="w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
@@ -196,26 +212,30 @@ export default function CreateGRNModal({
             </Field>
           </div>
 
-          {/* lines */}
+          {/* lines Headers*/}
           <div className="overflow-x-auto rounded-xl border">
             <table className="w-full text-sm">
               <thead className="bg-slate-50">
                 <tr>
-                  <Th>SKU</Th>
                   <Th>Item</Th>
-                  <Th>UOM</Th>
+                  <Th>Measurement Unit</Th>
                   <Th>Received Qty</Th>
                   <Th>Unit Price</Th>
                 </tr>
               </thead>
+              {/* we use the index as a key, fine for now but better to use the draft.prodId or line.prodId */}
               <tbody>
                 {draft.lines.map((ln, idx) => (
                   <tr key={idx} className="border-t">
-                    <Td>{ln.sku ?? "-"}</Td>
+                    
+                    {/* Item Name */}
                     <Td className="max-w-[22rem]">
                       <div className="truncate">{ln.name}</div>
                     </Td>
+
+                    {/* Unit  */}
                     <Td>{ln.unit ?? "-"}</Td>
+
                     <Td>
                       <input
                         type="number"

@@ -15,6 +15,7 @@
   "description": "",
   "dependencies": {
     "@clerk/backend": "^2.14.0",
+    "@clerk/clerk-sdk-node": "^4.13.23",
     "@clerk/express": "^1.7.31",
     "@prisma/client": "^6.19.0",
     "body-parser": "^2.2.0",
@@ -24,7 +25,10 @@
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "helmet": "^8.1.0",
+    "jspdf": "^3.0.4",
+    "jspdf-autotable": "^5.0.2",
     "morgan": "^1.10.1",
+    "resend": "^6.6.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {
@@ -32,7 +36,7 @@
     "@types/dotenv": "^6.1.1",
     "@types/express": "^5.0.3",
     "@types/morgan": "^1.9.10",
-    "@types/node": "^24.5.2",
+    "@types/node": "^24.10.4",
     "@types/pg": "^8.15.6",
     "nodemon": "^3.1.10",
     "prisma": "^6.19.0",

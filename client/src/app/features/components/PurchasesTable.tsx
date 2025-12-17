@@ -3,6 +3,7 @@ import { Edit3, Eye, MoreVertical, Copy } from "lucide-react";
 import { PurchaseOrderDTO } from "@/app/state/api";
 import StatusBadge from "./StatusBadge";
 import { currency } from "../../../lib/currency";
+import { EditPurchaseOrder } from "@/app/(components)/purchase-order/PurchaseOrderAction";
 
 type Props = { data: PurchaseOrderDTO[] };
 
@@ -43,7 +44,7 @@ export default function PurchaseTable({ data }: Props) {
             <Td>
               <div className="flex items-center">
                 <div className="mr-3 h-8 w-8 rounded-full bg-gray-200" />
-                <div className="text-sm font-medium">{po.supplier ?? "—"}</div>
+                <div className="text-sm font-medium">{po.supplier?.name ?? "—"}</div>
               </div>
             </Td>
 
@@ -69,15 +70,7 @@ export default function PurchaseTable({ data }: Props) {
             {/* Actions  actions taken will map to a server actions folder containing the actions */}
             <Td className="text-right">
               <div className="flex justify-end gap-2">
-                <IconBtn>
-                  <Eye className="h-4 w-4" />
-                </IconBtn>
-                <IconBtn>
-                  <Edit3 className="h-4 w-4" />
-                </IconBtn>
-                <IconBtn>
-                  <MoreVertical className="h-4 w-4" />
-                </IconBtn>
+                <EditPurchaseOrder purchaseOrder={po} />
               </div>
             </Td>
           </tr>

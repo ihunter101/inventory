@@ -8,6 +8,8 @@ exports.PERMS = {
     // inventory Page Perms
     READ_INVENTORY: 'read_inventory',
     WRITE_INVENTORY: 'write_inventory',
+    WRITE_PRODUCT_DRAFT: "write_product_draft",
+    READ_PRODUCT_DRAFT: "read_product_draft",
     // Setting Page Perms
     VIEW_SETTINGS: "view_settings",
     MANAGE_SETTING: "manage_settings",
@@ -55,6 +57,7 @@ exports.ROLE_PERMS = {
         exports.PERMS.READ_EXPENSES, exports.PERMS.WRITE_EXPENSES,
         exports.PERMS.READ_GRNS, exports.PERMS.WRITE_GRNS,
         exports.PERMS.VIEW_SETTINGS, exports.PERMS.MANAGE_SETTING,
+        exports.PERMS.READ_PRODUCT_DRAFT, exports.PERMS.WRITE_PRODUCT_DRAFT,
     ],
     labStaff: [
         exports.PERMS.ACCESS_HOME,

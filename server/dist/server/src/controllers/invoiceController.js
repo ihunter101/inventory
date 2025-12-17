@@ -29,12 +29,13 @@ function toInvoiceDTO(inv) {
                 : inv.dueDate
             : undefined,
         lines: ((_d = inv.items) !== null && _d !== void 0 ? _d : []).map((it) => {
-            var _a, _b, _c;
+            var _a, _b, _c, _d;
             return ({
-                productId: it.productId,
+                draftProductId: it.draftProductId,
+                productId: it.productId || null,
                 sku: undefined, // optional on FE
-                name: (_a = it.description) !== null && _a !== void 0 ? _a : "", // FE uses "name"
-                unit: (_c = (_b = it.uom) !== null && _b !== void 0 ? _b : it.unit) !== null && _c !== void 0 ? _c : "", // schema uses "uom"; tolerate "unit"
+                name: (_b = (_a = it.draftProduct) === null || _a === void 0 ? void 0 : _a.name) !== null && _b !== void 0 ? _b : it.name, // FE uses "name"
+                unit: (_d = (_c = it.uom) !== null && _c !== void 0 ? _c : it.unit) !== null && _d !== void 0 ? _d : "", // schema uses "uom"; tolerate "unit"
                 quantity: Number(it.quantity),
                 unitPrice: Number(it.unitPrice),
                 lineTotal: Number(it.lineTotal),
@@ -59,7 +60,16 @@ const listInvoices = (req, res) => __awaiter(void 0, void 0, void 0, function* (
         }
         const rows = yield prisma_1.prisma.supplierInvoice.findMany({
             where,
-            include: { supplier: true, items: true, po: true },
+            include: {
+                supplier: true,
+                items: {
+                    include: {
+                        draftProduct: true,
+                        product: true,
+                    }
+                },
+                po: true
+            },
             orderBy: { date: "desc" },
         });
         return res.json(rows.map(toInvoiceDTO));
@@ -79,6 +89,8 @@ const createInvoice = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 .json({ error: "invoiceNumber, supplierId and non-empty line items are required" });
         }
         const amount = lines.reduce((s, l) => s + Number(l.quantity) * Number(l.unitPrice), 0);
+        console.log("REQ BODY:", req.body);
+        console.log("LINES TYPE:", Array.isArray(lines), lines);
         const created = yield prisma_1.prisma.supplierInvoice.create({
             data: {
                 invoiceNumber,
@@ -92,7 +104,10 @@ const createInvoice = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                     create: lines.map((line) => {
                         var _a, _b, _c, _d;
                         return ({
-                            productId: line.productId,
+                            //productId: line.productId || null,
+                            draftProduct: {
+                                connect: { id: line.draftProductId },
+                            },
                             description: (_b = (_a = line.description) !== null && _a !== void 0 ? _a : line.name) !== null && _b !== void 0 ? _b : "",
                             // schema field is "uom"
                             uom: (_d = (_c = line.unit) !== null && _c !== void 0 ? _c : line.uom) !== null && _d !== void 0 ? _d : "",
@@ -103,8 +118,18 @@ const createInvoice = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                     }),
                 },
             },
-            include: { supplier: true, items: true, po: true },
+            include: {
+                supplier: true,
+                items: { include: {
+                        draftProduct: true,
+                        product: true,
+                    } },
+                po: true
+            },
+            //orderBy: { date: "desc" }
         });
+        console.log("REQ BODY:", req.body);
+        console.log("LINES TYPE:", Array.isArray(lines), lines);
         return res.status(201).json(toInvoiceDTO(created));
     }
     catch (error) {

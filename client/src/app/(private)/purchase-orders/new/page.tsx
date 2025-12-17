@@ -5,9 +5,28 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import POForm  from "@/app/features/CreatePOModal"; // named import
+import  PurchaseOrderForm, { PurchaseOrderFormPayload }  from "@/app/(components)/purchase-order/PurchaseOrderForm"
+import { PurchaseOrderDTO, useCreatePurchaseOrderMutation } from "@/app/state/api";
+import { toast } from "sonner";
 
 export default function NewPOPage() {
   const router = useRouter();
+  const [createPO, {isLoading}] = useCreatePurchaseOrderMutation();
+
+
+  async function handleCreate(payload: PurchaseOrderFormPayload) {
+    try {
+      const { id: _ignored, ...body } = payload as PurchaseOrderDTO;
+
+      await createPO(body).unwrap();
+      toast.success("Purchase order created successfully");
+      router.push("/purchases");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to create purchase order")
+    } 
+  }
+
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
@@ -26,10 +45,10 @@ export default function NewPOPage() {
         </div>
 
         <div className="rounded-2xl bg-white p-6 shadow-card ring-1 ring-black/5">
-          <POForm
-            onSuccess={() => {
-              router.push("/purchases"); // return to the tabbed list
-            }}
+          <PurchaseOrderForm
+            mode="create"
+            submitting={isLoading}
+            onSubmit={handleCreate}
           />
         </div>
       </div>

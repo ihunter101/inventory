@@ -44,7 +44,7 @@ export const InventoryHeader: React.FC<Props> = ({ onAddItem, pdfItems  }) => {
         <InventoryPDFDownload
           items={pdfItems}
           organizationName="Laboratory Services and Consultation Limited"
-          department="Medical Laboratory Services"
+          department="Tapion"
           preparedBy="Hunter"
           reportType="full"
           notes="Auto-generated inventory report from LSCL inventory system."
