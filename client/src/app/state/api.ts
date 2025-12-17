@@ -33,6 +33,12 @@ export interface Product {
   department?: string;
 }
 
+export interface ProductDraft {
+  id: string; 
+  name: string;
+  unit: string;
+}
+
 export interface Inventory {
   id: string 
   productId: string; 
@@ -51,6 +57,8 @@ export interface NewProduct {
   price: number;
   rating?: number;
   stockQuantity: number;
+  unit?: string;
+  // TODO: add unit an a cumpulsoary ptop but it may affect other places we we use createProduct hook fomr useCreateProductMutation
 }
 
 export interface SalesSummary {
@@ -121,9 +129,7 @@ export interface Expense {
 };
 
 
-// ------------
-//purchases
-//-------------
+
 export interface Supplier {
   supplierId: string 
   name: string;
@@ -132,7 +138,6 @@ export interface Supplier {
   number?: string;
 }
 
-// types
 export type POStatus =
   | "DRAFT" | "APPROVED" | "SENT" | "PARTIALLY_RECEIVED" | "RECEIVED" | "CLOSED";
 export type InvoiceStatus = "PENDING" | "PAID" | "OVERDUE"
@@ -149,11 +154,19 @@ export interface POItem {
   lineTotal: number; 
 }
 
+export interface SupplierDTO {
+  supplierId: string;
+  name: string;
+  email: string;
+  phone: string; //store in prisma as a string for some reason
+  address: string;
+}
+
 export interface PurchaseOrderDTO {
   id: string;
   poNumber: string; 
   supplierId: string; 
-  supplier?: string;
+  supplier?: SupplierDTO;
   status: POStatus; 
   orderDate: string;
   dueDate?: string;
@@ -163,14 +176,41 @@ export interface PurchaseOrderDTO {
   tax: number;
   total: number;
   category?: string;
+  invoiceCount?: number;
 }
 
-export interface NewPurchaseOrderDTO extends Omit<PurchaseOrderDTO, "id"|"poNumber"> {
-  poNumber?: string //server can assign if ommitted
+export interface NewPurchaseOrderDTO {
+  // server can assign this if you omit it
+  poNumber?: string;
+
+  orderDate: string; // problem
+  dueDate?: string; //
+  notes?: string; //
+
+  items: POItem[]; //unsure
+  subtotal: number;
+  tax: number; //
+  total: number; //
+
+  status?: POStatus;   // optional – server can default to "DRAFT"
+  //category?: string;
+
+  // OPTION 1: existing supplier
+  supplierId?: string; //
+
+  // OPTION 2: create a new supplier inline
+  supplier?: {
+    name: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+  };
 }
+
 
 export interface InvoiceLine {
-  productId: string;
+  draftProductId: string;
+  productId: string | null;
   sku?: string;
   name: string;
   unit: string;
@@ -192,11 +232,12 @@ export interface SupplierInvoiceDTO {
   lines: InvoiceLine[];
   amount: number;
   category?: string;
+
 }
 
 export interface GoodsReceiptLine {
-  productId: string;
-  sku?: string;
+  draftProductId: string;
+  //sku?: string;
   name: string;
   unit: string;
   receivedQty: number;
@@ -218,6 +259,45 @@ export interface GoodsReceiptDTO {
 
 }
 
+// shared core fields the form always sends
+export type POBaseInput = {
+  id?: string; // optional – create won’t use it
+  poNumber: string;
+  orderDate: string;
+  dueDate?: string;
+  notes?: string;
+  items: {
+    productId: string;
+    name: string;
+    unit: string;
+    quantity: number;
+    unitPrice: number;
+    lineTotal: number;
+  }[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  status?: POStatus; // only if you want to send it from the form
+};
+
+// case 1: use an existing supplier
+export type ExistingSupplierPOInput = POBaseInput & {
+  supplierId: string;
+};
+
+// case 2: create a new supplier inline
+export type NewSupplierPOInput = POBaseInput & {
+  supplier: {
+    name: string;
+    email: string;
+    phone: string;
+    address: string;
+  };
+};
+
+export type PurchaseOrderFormPayload =
+  | ExistingSupplierPOInput
+  | NewSupplierPOInput;
 
 
 
@@ -234,7 +314,7 @@ export const api = createApi({
   }),
   tagTypes: [
     "DashboardMetrics", "Products", "Users", "Expenses",
-    "PurchaseOrders", "SupplierInvoices", "GoodsReceipts", "Suppliers", "Inventory",
+    "PurchaseOrders", "SupplierInvoices", "GoodsReceipts", "Suppliers", "Inventory", "DraftProducts"
   ],
   endpoints: (build) => ({
     // Dashboard Metrics
@@ -324,7 +404,7 @@ export const api = createApi({
     }),
 
     // Expenses
-   getExpenses: build.query<Expense[], { category?: string; from?: string; to?: string } | void>({
+    getExpenses: build.query<Expense[], { category?: string; from?: string; to?: string } | void>({
     query: (params) => {
         return {
         url: "/expenses",
@@ -338,15 +418,25 @@ export const api = createApi({
     query: () => "/suppliers",
     providesTags: ["Suppliers"],
   }),
-   
+
   // Purchases
   getPurchaseOrders: build.query<PurchaseOrderDTO[], {status?: POStatus; q?: string} | void>({
-    query: (params) => ({url: "/purchase-orders", params: params ?? undefined}),
-    providesTags: ["PurchaseOrders"],
+    query: (params) => ({
+      url: "/purchase-orders", 
+      params: params ?? undefined
+    }),
+    providesTags: [{type: "PurchaseOrders", id: "LIST"}],
   }), 
   getPurchaseOrder: build.query<PurchaseOrderDTO, string>({
     query: (poId) => `/purchase-orders/${poId}`,
     providesTags: (_r, _e, id) => [{ type: "PurchaseOrders", id }],
+  }),
+  listPurchaseOrder: build.query<PurchaseOrderDTO[], { q?: string } | void>({
+    query: (arg) => ({
+      url: "/purchase-orders",
+      params: arg && arg?.q ? {q: arg.q} : undefined
+    }),
+    providesTags: [{ type: "PurchaseOrders", id: "LIST" }],
   }),
   createPurchaseOrder: build.mutation<PurchaseOrderDTO, NewPurchaseOrderDTO>({
     query: (body) => ({ url: "/purchase-orders", method: "POST", body }),
@@ -358,9 +448,23 @@ export const api = createApi({
       method: "PATCH",
       body: { status },
     }),
-    invalidatesTags: (_r, _e, { id }) => [{ type: "PurchaseOrders", id}],
+    invalidatesTags: (_r, _e, { id }) => [{ type: "PurchaseOrders", id: "LIST"}],
   }),
-
+  updatePurchaseOrder: build.mutation<PurchaseOrderDTO,{ id: string } & Partial<NewPurchaseOrderDTO>>({
+  query: ({ id, ...body }) => ({
+    url: `/purchase-orders/${id}`,
+    method: "PATCH",
+    body,
+  }),
+  invalidatesTags: (_r, _e, { id }) => [{ type: "PurchaseOrders", id }],
+}),
+  deletePurchaseOrder: build.mutation<void, { id: string }>({
+    query: ({ id }) => ({
+      url: `/purchase-orders/${id}`,
+      method: "DELETE",
+    }),
+    invalidatesTags: [{type: "PurchaseOrders", id: "LIST"}],
+  }),
   // SupplierInvoice
   getSupplierInvoices: build.query<SupplierInvoiceDTO[], { status?: InvoiceStatus; q?: string } | void>({
     query: (params) => ({ url: "/invoices", params: params ?? undefined}),
@@ -381,22 +485,48 @@ export const api = createApi({
   providesTags: ["GoodsReceipts", "PurchaseOrders"],
 }),
 createGRN: build.mutation<GoodsReceiptDTO, Partial<GoodsReceiptDTO>>({
-  query: (body) => ({ url: "/grns", method: "POST", body }),
+  query: (body) => ({ 
+    url: "/grns",
+    method: "POST", 
+    body 
+  }),
   invalidatesTags: ["GoodsReceipts", "PurchaseOrders"],
 }),
 postGRN: build.mutation<{ ok: true }, { id: string }>({
-  query: ({ id }) => ({ url: `/grns/${id}/post`, method: "POST" }),
+  query: ({ id }) => ({
+    url: `/grns/${id}/post`, 
+    method: "POST" 
+  }),
   invalidatesTags: ["GoodsReceipts", "PurchaseOrders", "Products", "DashboardMetrics"],
 }),
     // Expenses
-    createExpense: build.mutation<Expense, Partial<Expense>>({
+  createExpense: build.mutation<Expense, Partial<Expense>>({
       query: (expense) => ({
         url: "/expenses",
         method: "POST",
         body: expense,
       }),
       invalidatesTags: ["Expenses", "DashboardMetrics"],
+  }),
+
+  getDraftProducts: build.query<{ id: string; name: string; unit: string }[], void>({
+      query: () => "/draft-products",
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.map((d) => ({ type: "DraftProducts" as const, id: d.id })),
+              { type: "DraftProducts" as const, id: "LIST" },
+            ]
+          : [{ type: "DraftProducts" as const, id: "LIST" }],
     }),
+    createDraftProduct: build.mutation<{ id: string; name: string; unit: string }, { name: string; unit?: string }>({
+  query: (body) => ({
+    url: "/draft-products",
+    method: "POST",
+    body,
+  }),
+}),
+
   }),
 });
 
@@ -418,10 +548,14 @@ export const {
   useCreateExpenseMutation,
 
   useGetSuppliersQuery,
+
+  useListPurchaseOrderQuery,
   useGetPurchaseOrderQuery,
   useGetPurchaseOrdersQuery,
   useCreatePurchaseOrderMutation,
   useUpdatePurchaseOrderStatusMutation,
+  useUpdatePurchaseOrderMutation,
+  useDeletePurchaseOrderMutation,
 
   useGetSupplierInvoicesQuery,
   useCreateSupplierInvoiceMutation,
@@ -430,6 +564,9 @@ export const {
   useGetGoodsReceiptsQuery,
   useCreateGRNMutation,
   usePostGRNMutation,
+
+  useCreateDraftProductMutation,
+  useGetDraftProductsQuery,
 } = api;
 
 

@@ -12,13 +12,16 @@ import {
 const norm = (s?: string) =>
   (s ?? "").trim().toUpperCase().replace(/ /g, "_");
 
+/**emfwekofm
+ * @params fwjfofmfpmaf
+*/
 export function usePurchasingFilters(
   purchaseOrders: PurchaseOrderDTO[] = [],
   invoices: SupplierInvoiceDTO[] = [],
   grns: GoodsReceiptDTO[] = [],
   opts?: { search?: string; status?: string }
 ) {
-  // If caller doesn't pass search/status, we keep local state to control filters from inside the hook
+  // (uncontrolled mode) if the parent component Purchases/page.tsx doesnt pass any props, then we manage the state through internal variable 
   const [localSearch, setLocalSearch] = useState("");
   const [localStatus, setLocalStatus] = useState("all");
 
@@ -33,10 +36,29 @@ export function usePurchasingFilters(
   const invStatusVal = statusNorm === "ALL" ? null : (statusNorm as InvoiceStatus);
   const grnStatusVal = statusNorm === "ALL" ? null : (statusNorm as GRNStatus);
 
+  /**
+   * this function accept an argument and if arg is a sting it returns it else if the argument is an object and a name prop in that object ia string, it returns it 
+   * @param v 
+   * @returns 
+   */
+  const asSearchText = (v: unknown) => {
+    if (typeof v === "string") return v;
+    if ( v && typeof v === "object" && "name" in v && typeof(v as any).name === "string" ) {
+      return (v as any).name
+    }
+    return ""
+  }
+
+  const includesQuery = (v: string, q: string) => {
+    asSearchText(v).toLowerCase().includes(q)
+  }
+
+  
+
   const filteredPOs = useMemo(() => {
     return purchaseOrders.filter((po) => {
       const matchesSearch =
-        (po.supplier?.toLowerCase().includes(q) ?? false) ||
+        (po.supplier?.name.toLowerCase().includes(q) ?? false) ||
         (po.poNumber?.toLowerCase().includes(q) ?? false) ||
         (po.id?.toLowerCase().includes(q) ?? false) ||
         (po.items?.some(it => (it.sku || it.name || "").toLowerCase().includes(q)) ?? false);
@@ -45,7 +67,7 @@ export function usePurchasingFilters(
       return matchesSearch && matchesStatus;
     });
   }, [purchaseOrders, q, poStatusVal]);
-
+  //
   const filteredInvoices = useMemo(() => {
     return invoices.filter((inv) => {
       const matchesSearch =

@@ -1,16 +1,14 @@
 "use client";
 
-import StoreProvider from "@/app/redux";
-import { ThemeProvider } from "next-themes";
-import { Toaster } from "sonner";
+import StoreProvider from "./redux";
+import { MuiThemeProviderWrapper } from "@/app/providers/ThemeProvider";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <StoreProvider>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      <MuiThemeProviderWrapper>
         {children}
-        <Toaster richColors position="top-right" />
-      </ThemeProvider>
+      </MuiThemeProviderWrapper>
     </StoreProvider>
   );
 }

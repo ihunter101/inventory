@@ -42,7 +42,7 @@ export default function POForm({
 
   // data for selects
   const { data: suppliers = [] } = useGetSuppliersQuery();
-  const { data: products = [] } = useGetProductsQuery();
+  const { data: ProductResponse } = useGetProductsQuery();
   const [createProduct] = useCreateProductMutation();
   const [createPO, { isLoading }] = useCreatePurchaseOrderMutation();
 
@@ -50,6 +50,8 @@ export default function POForm({
     value: s.supplierId,
     label: s.name,
   }));
+
+  const products: Product[] = ProductResponse?.items ?? []
   const productOptions: ComboOption[] = products.map((p: Product) => ({
     value: p.productId,
     label: p.name,
@@ -173,6 +175,7 @@ export default function POForm({
             className="mt-2"
             value={poNumber}
             onChange={(e) => setPoNumber(e.target.value)}
+            readOnly
           />
         </div>
 

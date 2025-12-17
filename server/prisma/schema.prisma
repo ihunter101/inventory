@@ -238,13 +238,26 @@ enum InvoiceStatus {
 model Supplier {
   supplierId String @id @default(cuid())
   name       String
-  email      String
+  email      String @unique
   phone      String
   address    String
 
   purchaseOrders PurchaseOrder[]
   invoices       SupplierInvoice[]
 }
+
+model DraftProduct {
+  id        String   @id @default(cuid())
+  name      String @unique
+  unit      String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  poItems   PurchaseOrderItem[]
+  supplierItems SupplierInvoiceItem []
+  goodsReciept GoodsReceiptItem[]
+}
+
 
 model PurchaseOrder {
   id         String    @id @default(cuid())
@@ -259,7 +272,6 @@ model PurchaseOrder {
   items    PurchaseOrderItem[]
   invoices SupplierInvoice[] // convenience if you want reverse nav
   grns     GoodsReceipt[]
-
   subtotal Decimal @db.Decimal(14, 2)
   tax      Decimal @db.Decimal(14, 2)
   total    Decimal @db.Decimal(14, 2)
@@ -268,22 +280,31 @@ model PurchaseOrder {
   @@index([poNumber])
 }
 
-model PurchaseOrderItem {
-  id        String        @id @default(cuid())
-  poId      String
-  po        PurchaseOrder @relation(fields: [poId], references: [id]) //why?
-  productId String
-  product   Products      @relation(fields: [productId], references: [productId])
 
-  description String?
-  unit        String?
-  quantity    Int
-  unitPrice   Decimal @db.Decimal(12, 2)
-  lineTotal   Decimal @db.Decimal(14, 2)
+model PurchaseOrderItem {
+  id             String        @id @default(cuid())
+  poId           String
+  po             PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade) 
+
+  // ✅ optional until promoted
+  productId      String
+  product        DraftProduct    @relation(fields: [productId], references: [id])
+
+  // ✅ always required
+  promotedProductId String?
+  promotedProduct   Products?  @relation(fields: [promotedProductId], references: [productId])
+
+  description    String?
+  unit           String?
+  quantity       Int
+  unitPrice      Decimal       @db.Decimal(12, 2)
+  lineTotal      Decimal       @db.Decimal(14, 2)
 
   @@index([poId])
   @@index([productId])
+  @@index([promotedProductId])
 }
+
 
 model SupplierInvoice {
   id            String   @id @default(cuid())
@@ -309,9 +330,13 @@ model SupplierInvoice {
 model SupplierInvoiceItem {
   id        String          @id @default(cuid())
   invoiceId String
-  invoice   SupplierInvoice @relation(fields: [invoiceId], references: [id])
-  productId String
-  product   Products        @relation(fields: [productId], references: [productId])
+  invoice   SupplierInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  draftProductId String
+  draftProduct DraftProduct @relation(fields: [draftProductId], references:[id])
+  
+  productId String?
+  product   Products?       @relation(fields: [productId], references: [productId])
 
   description String?
   uom         String?
@@ -321,6 +346,7 @@ model SupplierInvoiceItem {
 
   @@index([invoiceId])
   @@index([productId])
+  @@index([draftProductId])
 }
 
 model GoodsReceipt {
@@ -342,15 +368,20 @@ model GoodsReceipt {
 model GoodsReceiptItem {
   id        String       @id @default(cuid())
   grnId     String
-  Grn       GoodsReceipt @relation(fields: [grnId], references: [id]) //why?
-  productId String
-  product   Products     @relation(fields: [productId], references: [productId])
+  Grn       GoodsReceipt @relation(fields: [grnId], references: [id], onDelete: Cascade) //why?
+
+  productDraftId String
+  product DraftProduct @relation(fields: [productDraftId], references: [id])
+
+  productId String?
+  promotedProduct   Products?     @relation(fields: [productId], references: [productId])
 
   unit        String?
   receivedQty Int
-  unitPrice   Decimal @db.Decimal(12, 2)
+  unitPrice   Decimal @db.Decimal(12, 2) 
 
   @@index([grnId])
+  @@index([productDraftId])
   @@index([productId])
 }
 

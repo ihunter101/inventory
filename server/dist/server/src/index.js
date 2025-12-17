@@ -45,6 +45,7 @@ const purchaseOrderRoutes_1 = __importDefault(require("./routes/purchaseOrderRou
 const invoiceRoutes_1 = __importDefault(require("./routes/invoiceRoutes"));
 const goodsReceiptRoute_1 = __importDefault(require("./routes/goodsReceiptRoute"));
 const inventoryRoutes_1 = __importDefault(require("./routes/inventoryRoutes"));
+const productDraftRoutes_1 = __importDefault(require("./routes/productDraftRoutes"));
 process.on('uncaughtException', (err) => {
     console.error('💥 Uncaught Exception:', err);
     process.exit(1);
@@ -83,6 +84,7 @@ protectedRouter.use("/purchase-orders", purchaseOrderRoutes_1.default);
 protectedRouter.use("/invoices", invoiceRoutes_1.default);
 protectedRouter.use("/grns", goodsReceiptRoute_1.default);
 protectedRouter.use("/inventory", inventoryRoutes_1.default);
+protectedRouter.use("/draft-products", productDraftRoutes_1.default);
 // Mount the protected router
 app.use(protectedRouter);
 // Error handling middleware

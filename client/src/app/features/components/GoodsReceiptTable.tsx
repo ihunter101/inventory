@@ -9,15 +9,19 @@ import {
   PurchaseOrderDTO,
 } from "@/app/state/api";
 import { toYMD } from "../../../lib/date";
+import { Button } from "@/components/ui/button";
+import { gridTabIndexCellSelector } from "@mui/x-data-grid";
 
 interface Props {
   data: GoodsReceiptDTO[];
   orders: PurchaseOrderDTO[];
   invoices: SupplierInvoiceDTO[];
   onOpenMatch?: (poId: string) => void;
+  onPost:(grnId: string) => void;
+  postingId: string | null;
 }
 
-export default function GRNTable({ data, orders, invoices, onOpenMatch }: Props) {
+export default function GRNTable({ data, orders, invoices, onOpenMatch, onPost, postingId= null }: Props) {
   const getPO = (id?: string) => orders.find((p) => p.id === id);
   const getInv = (id?: string) => invoices.find((i) => i.id === id);
 
@@ -33,10 +37,11 @@ export default function GRNTable({ data, orders, invoices, onOpenMatch }: Props)
       <thead className="bg-gray-50">
         <tr>
           <Th>GRN</Th>
-          <Th>PO / Invoice</Th>
+          <Th>Purchase Ord / Invoice</Th>
           <Th>Date</Th>
           <Th>Lines</Th>
           <Th>Status</Th>
+          <Th>Actions</Th> 
           <Th />
         </tr>
       </thead>
@@ -44,6 +49,8 @@ export default function GRNTable({ data, orders, invoices, onOpenMatch }: Props)
         {data.map((grn) => {
           const po = getPO(grn.poId);
           const inv = getInv(grn.invoiceId);
+          const canPost = grn.status === "DRAFT";
+          const isPosting = postingId === grn.id;
           return (
             <tr key={grn.id} className="hover:bg-gray-50">
               <Td className="font-medium">{grn.grnNumber}</Td>
@@ -66,7 +73,7 @@ export default function GRNTable({ data, orders, invoices, onOpenMatch }: Props)
                   </div>
                   <div>
                     <span className="text-slate-500">Invoice: </span>
-                    {inv?.invoiceNumber ? (
+                    {inv?.id ? (
                       <Link
                         className="font-medium text-blue-600 hover:underline"
                         href={`/purchases?tab=invoices`}
@@ -86,6 +93,21 @@ export default function GRNTable({ data, orders, invoices, onOpenMatch }: Props)
                 <StatusBadge status={grn.status} />
               </Td>
               <Td className="text-right" />
+
+
+              <Td className="px-6 py-4 text-right">
+                  {canPost ? (
+                    <Button
+                      onClick={() => onPost?.(grn.id)}
+                      disabled={!onPost || isPosting}
+                      className="inline-flex items-center rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibod text-white hover:bg-slate-800 disabled:opacity-50"
+                    >
+                      {isPosting ? "Posting..": "Post"}
+                    </Button>) : (
+                      <span className="text-xs text-slate-500">-</span>
+                  )}
+              </Td>
+              
             </tr>
           );
         })}

@@ -11,6 +11,9 @@ export const PERMS = {
     READ_INVENTORY: 'read_inventory',
     WRITE_INVENTORY: 'write_inventory',
 
+    WRITE_PRODUCT_DRAFT: "write_product_draft",
+    READ_PRODUCT_DRAFT: "read_product_draft",
+
     // Setting Page Perms
     VIEW_SETTINGS: "view_settings",
     MANAGE_SETTING: "manage_settings",
@@ -82,6 +85,8 @@ export const ROLE_PERMS: Record<Role, Perm[]> = {
         PERMS.READ_GRNS, PERMS.WRITE_GRNS,
 
         PERMS.VIEW_SETTINGS, PERMS.MANAGE_SETTING,
+
+        PERMS.READ_PRODUCT_DRAFT, PERMS.WRITE_PRODUCT_DRAFT,
     ],
 
     labStaff: [

@@ -1,7 +1,7 @@
+// app/(private)/purchases/page.tsx
 "use client";
 
-import Link from "next/link";
-import { useMemo, useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   GoodsReceiptDTO,
@@ -12,64 +12,71 @@ import {
   useGetPurchaseOrdersQuery,
   useGetSupplierInvoicesQuery,
   useGetGoodsReceiptsQuery,
+  usePostGRNMutation,
 } from "@/app/state/api";
 import { usePurchasingFilters } from "@/app/hooks/usePurchaseingHooks";
-import { currency } from "../../../lib/currency";
 import PurchaseTable from "@/app/features/components/PurchasesTable";
 import InvoiceTable from "@/app/features/components/invoiceTable";
 import GRNTable from "@/app/features/components/GoodsReceiptTable";
 import MatchTable from "@/app/features/components/MatchTable";
 import CreateGRNModal from "@/app/features/components/createGRModal";
-import {
-  Package,
-  FileText,
-  Boxes,
-  CheckCircle,
-  Search,
-  Download,
-  Filter,
-  Plus,
-} from "lucide-react";
 
-type Tab = "purchases" | "invoices" | "grns" | "match";
+import { PurchasesHeader } from "@/app/(components)/purchases/PurchasesHeader";
+import { PurchasesToolbar } from "@/app/(components)/purchases/PurchasesToolbar";
+import { PurchasesTabs, Tab } from "@/app/(components)/purchases/PurchasesTabs";
+import { setgroups } from "node:process";
 
-/* map UI filter -> API enums */
+const POSTATUS =  {
+  DRAFT: "DRAFT", 
+  APPROVED: "APPROVED", 
+  SENT: "SENT", 
+  PARTIALLY_RECEIVED:"PARTIALLY_RECEIVED", 
+  RECEIVED: "RECEIVED", 
+  CLOSED: "CLOSED"
+} as const 
+
+
+// --- status mappers (with new enum) ---
 function mapPOStatus(s?: string): POStatus | undefined {
   if (!s || s === "all") return undefined;
   const m: Record<string, POStatus> = {
-    draft: "DRAFT",
-    approved: "APPROVED",
-    sent: "SENT",
-    partially_received: "PARTIALLY_RECEIVED",
-    received: "RECEIVED",
-    closed: "CLOSED",
+    draft: POSTATUS.DRAFT,
+    sent: POSTATUS.SENT,
+    approved: POSTATUS.APPROVED,
+    closed: POSTATUS.CLOSED,
   };
   return m[s];
 }
+
+const InvStatus = { PENDING: "PENDING", PAID: "PAID", OVERDUE: "OVERDUE" } as const 
+
 function mapInvoiceStatus(s?: string): InvoiceStatus | undefined {
   if (!s || s === "all") return undefined;
   const m: Record<string, InvoiceStatus> = {
-    pending: "PENDING",
-    paid: "PAID",
-    overdue: "OVERDUE",
+    pending: InvStatus.PENDING,
+    paid: InvStatus.PAID,
+    overdue: InvStatus.OVERDUE,
   };
   return m[s];
 }
+//
 
 export default function PurchasesPage() {
   const router = useRouter();
   const params = useSearchParams();
 
   const [activeTab, setActiveTab] = useState<Tab>("purchases");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  const [postingId, setPostingId] = useState<string | null>(null)
+  const [grnState, setGRNState] = useState<GoodsReceiptDTO[]>([])
+
   const [grnDraft, setGrnDraft] = useState<GoodsReceiptDTO | null>(null);
   const [showGRNModal, setShowGRNModal] = useState(false);
   const [matchPOId, setMatchPOId] = useState<string | null>(null);
 
-  // top filters
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-
-  // Adopt URL query on first render (tab/status/po)
+  // adopt URL params on first render
   useEffect(() => {
     const qTab = params.get("tab") as Tab | null;
     const qStatus = params.get("status");
@@ -80,7 +87,7 @@ export default function PurchasesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // data
+  // queries
   const {
     data: purchaseOrders = [],
     isLoading: poLoading,
@@ -101,6 +108,8 @@ export default function PurchasesPage() {
     { refetchOnMountOrArgChange: true }
   );
 
+  const [postGRN ] = usePostGRNMutation();
+
   const {
     data: goodsReceipts = [],
     isLoading: grnLoading,
@@ -111,7 +120,7 @@ export default function PurchasesPage() {
     { refetchOnMountOrArgChange: true }
   );
 
-  // loading+error flags scoped by tab
+  // derived flags
   const loading =
     (activeTab === "purchases" && poLoading) ||
     (activeTab === "invoices" && invLoading) ||
@@ -124,7 +133,7 @@ export default function PurchasesPage() {
     (activeTab === "grns" && grnError) ||
     (activeTab === "match" && (poError || invError || grnError));
 
-  // client-side filtering (your hook)
+  // client-side filters
   const { filteredPOs, filteredInvoices, filteredGRNs } = usePurchasingFilters(
     purchaseOrders,
     invoices,
@@ -132,7 +141,7 @@ export default function PurchasesPage() {
     { search: searchTerm, status: statusFilter }
   );
 
-  // create GRN draft from invoice (opens modal)
+  // GRN draft from invoice
   const openGRNFromInvoice = (invoice: SupplierInvoiceDTO) => {
     const po = purchaseOrders.find((p) => p.id === invoice.poId);
     const poId = invoice.poId ?? po?.id;
@@ -141,32 +150,41 @@ export default function PurchasesPage() {
       return;
     }
 
+    
+
     const draft: GoodsReceiptDTO = {
-      id: `GRN-DRAFT-${Date.now()}`,
-      grnNumber: `GRN-DRAFT-${Date.now()}`,
+      id: `LSC-GR-${new Date().toISOString().slice(0,10)}`,
+      grnNumber: `LSC-GR-${new Date().toISOString().slice(0,10)}`,
       poId,
-      poNumber: po?.poNumber, // if present
+      poNumber: po?.poNumber,
       invoiceId: invoice.id,
       invoiceNumber: invoice.invoiceNumber,
-      date: new Date().toISOString().slice(0, 10), // YYYY-MM-DD
+      date: new Date().toISOString().slice(0, 10),
       status: "DRAFT",
       lines: (invoice.lines?.length ? invoice.lines : po?.items ?? []).map(
-        (ln: any) => ({
-          productId: ln.productId,
-          sku: ln.sku,
+        (ln: any) => {
+          console.log("Mapping line:", ln);
+        
+        return {
+          // Try to get draftProductId from multiple possible sources
+          draftProductId: ln.draftProductId ?? ln.productId ?? ln.id,
+          //sku: ln.sku,
           name: ln.name,
-          unit: ln.unit ?? ln.uom ?? "",
+          unit: ln.unit?? "",
           receivedQty: ln.quantity ?? 0,
           unitPrice: ln.unitPrice,
-        })
-      ),
+    }}),
     };
+
+    console.log("lines Page:" , draft.lines); 
+    console.log("GRN Draft created:", draft); 
+  console.log("Draft lines:", draft.lines);
 
     setGrnDraft(draft);
     setShowGRNModal(true);
   };
 
-  // context for Match tab (derived at component level)
+  // matching context
   const poForMatch: PurchaseOrderDTO | undefined = useMemo(() => {
     const id = matchPOId ?? filteredPOs[0]?.id;
     return purchaseOrders.find((p) => p.id === id);
@@ -187,7 +205,7 @@ export default function PurchasesPage() {
     return byInvoice ?? goodsReceipts.find((g) => g.poId === poForMatch.id);
   }, [poForMatch, invForMatch, goodsReceipts]);
 
-  // after posting: refresh and jump to Match on that PO
+  // after posting GRN
   async function handlePosted(poId: string) {
     await Promise.all([refetchGRNs(), refetchPOs(), refetchInvoices()]);
     setActiveTab("match");
@@ -195,122 +213,62 @@ export default function PurchasesPage() {
     router.push(`/purchases?tab=match&po=${encodeURIComponent(poId)}`);
   }
 
+  useEffect(()=> {
+    setGRNState(goodsReceipts)
+  },[goodsReceipts])
+
+
+  async function handlePostGRN(grnId: string) {
+      // Optimistic UI Update 
+      setPostingId(grnId)
+      // If optimistic UI fails then we roll back to the previous state 
+      const prev = grnState
+
+      setGRNState((current) => (
+        current.map((g) => (g.id === grnId ? {...g, status: "POSTED" as any} : g))
+      ))
+
+      try{
+      await postGRN({id: grnId}).unwrap()
+      //await refetchGRNs();
+    } catch (error) {
+      console.error(error)
+      //roll back to the previous state 
+      setGRNState(prev)
+    } finally {
+      setPostingId(null)
+    }
+  }
+
+  const totalPOSpend = purchaseOrders.reduce(
+    (s, p) => s + Number(p.total ?? 0),
+    0
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       <div className="mx-auto max-w-7xl px-6 py-8 lg:px-8">
-        {/* Header */}
-        <div className="mb-6 rounded-2xl bg-white/90 p-6 shadow-card ring-1 ring-black/5 backdrop-blur">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-ink-900 lg:text-4xl">
-                Purchases &amp; Invoicing
-              </h1>
-              <p className="mt-2 text-base text-ink-400 lg:text-lg">
-                POs, supplier invoices, goods receipts (GRN), and matching
-              </p>
-            </div>
 
-            <div className="flex flex-wrap gap-3">
-              <Link
-                href="/purchase-orders/new"
-                className="inline-flex items-center gap-2 rounded-xl2 bg-blue-600 px-4 py-2.5 text-white shadow-card hover:shadow-cardHover"
-              >
-                <Plus className="h-4 w-4" />
-                New Purchase Order
-              </Link>
+        {/* Child Component */}
+        <PurchasesHeader
+          poCount={purchaseOrders.length}
+          invoiceCount={invoices.filter((i) => i.status === "PENDING").length}
+          grnCount={goodsReceipts.length}
+          totalPOSpend={totalPOSpend}
+        />
 
-              <Link
-                href="/purchases/invoices/new"
-                className="inline-flex items-center gap-2 rounded-xl2 bg-blue-600 px-4 py-2.5 text-white shadow-card hover:shadow-cardHover"
-              >
-                <Plus className="h-4 w-4" /> New Invoice
-              </Link>
-
-              <button className="inline-flex items-center gap-2 rounded-xl2 border border-slate-200 bg-white px-4 py-2.5 text-ink-700 shadow-card transition-shadow hover:shadow-cardHover">
-                <Download className="h-4 w-4" /> Export
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="mb-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat
-            icon={<Package className="h-6 w-6 text-blue-600" />}
-            label="Active Orders"
-            value={purchaseOrders.length}
-          />
-          <Stat
-            icon={<FileText className="h-6 w-6 text-amber-600" />}
-            label="Pending Invoices"
-            value={invoices.filter((i) => i.status === "PENDING").length}
-          />
-          <Stat
-            icon={<Boxes className="h-6 w-6 text-violet-600" />}
-            label="GRNs"
-            value={goodsReceipts.length}
-          />
-          <Stat
-            icon={<CheckCircle className="h-6 w-6 text-emerald-600" />}
-            label="Total PO Spend"
-            value={currency(
-              purchaseOrders.reduce((s, p) => s + Number(p.total ?? 0), 0)
-            )}
-          />
-        </div>
-
-        {/* Main card */}
         <div className="rounded-2xl bg-white/90 shadow-card ring-1 ring-black/5 backdrop-blur">
-          {/* Tabs */}
-          <Tabs active={activeTab} onChange={setActiveTab} />
+          <PurchasesTabs active={activeTab} onChange={setActiveTab} />
 
-          {/* Toolbar */}
-          <div className="border-b border-slate-200 p-6">
-            <div className="flex flex-col justify-between gap-4 lg:flex-row">
-              <div className="flex flex-1 gap-4">
-                <div className="relative max-w-md flex-1">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <input
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder={`Search ${activeTab}...`}
-                    className="w-full rounded-lg border border-slate-300 py-2 pl-10 pr-4 outline-none ring-blue-500 transition focus:ring-2"
-                  />
-                </div>
+          {/* Child Component */}
+          <PurchasesToolbar
+            activeTab={activeTab}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            statusFilter={statusFilter}
+            onStatusChange={setStatusFilter}
+          />
 
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="rounded-lg border border-slate-300 px-3 py-2 outline-none ring-blue-500 transition focus:ring-2"
-                >
-                  {[
-                    "all",
-                    "draft",
-                    "approved",
-                    "sent",
-                    "partially_received",
-                    "received",
-                    "pending",
-                    "paid",
-                    "overdue",
-                    "posted",
-                    "closed",
-                  ].map((s) => (
-                    <option key={s} value={s}>
-                      {s.replace("_", " ")}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <button className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-ink-700 transition hover:bg-slate-50">
-                <Filter className="h-4 w-4" />
-                More Filters
-              </button>
-            </div>
-          </div>
-
-          {/* Tables */}
           <div className="overflow-x-auto">
             {loading && (
               <div className="p-6 text-slate-500">Loading {activeTab}…</div>
@@ -325,6 +283,7 @@ export default function PurchasesPage() {
               <PurchaseTable data={filteredPOs} />
             )}
 
+            {/* Child Component */}
             {!loading && !errored && activeTab === "invoices" && (
               <InvoiceTable
                 data={filteredInvoices}
@@ -342,6 +301,7 @@ export default function PurchasesPage() {
               />
             )}
 
+            {/* Child COmponent */}
             {!loading && !errored && activeTab === "grns" && (
               <GRNTable
                 data={filteredGRNs}
@@ -349,9 +309,15 @@ export default function PurchasesPage() {
                   setActiveTab("match");
                   setMatchPOId(poId);
                   router.push(`/purchases?tab=match&po=${poId}`);
-                } } orders={[]} invoices={[]}              />
+                }}
+                orders={[]}
+                invoices={[]}
+                postingId={postingId}
+                onPost={handlePostGRN}
+              />
             )}
 
+            {/* Child Component */}
             {!loading && !errored && activeTab === "match" && (
               <MatchTable
                 po={poForMatch}
@@ -369,69 +335,15 @@ export default function PurchasesPage() {
         </div>
       </div>
 
-      {/* GRN modal */}
+            {/* Child Component */}
       <CreateGRNModal
         open={showGRNModal}
         draft={grnDraft}
         onChange={setGrnDraft as any}
         onClose={() => setShowGRNModal(false)}
         onPosted={handlePosted}
+
       />
-    </div>
-  );
-}
-
-/* --- small bits --- */
-const Stat = ({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string | number;
-}) => (
-  <div className="flex items-center rounded-2xl bg-white/90 p-6 shadow-card ring-1 ring-black/5 backdrop-blur">
-    <div className="rounded-2xl bg-slate-50 p-3">{icon}</div>
-    <div className="ml-4">
-      <p className="text-sm font-medium text-slate-600">{label}</p>
-      <p className="text-2xl font-semibold text-ink-900">{value}</p>
-    </div>
-  </div>
-);
-
-function Tabs({
-  active,
-  onChange,
-}: {
-  active: string;
-  onChange: (t: Tab) => void;
-}) {
-  const tabs = [
-    { id: "purchases", label: "Purchase Orders", icon: Package },
-    { id: "invoices", label: "Invoices", icon: FileText },
-    { id: "grns", label: "Goods Receipts", icon: Boxes },
-    { id: "match", label: "Match", icon: CheckCircle },
-  ] as const;
-
-  return (
-    <div className="border-b border-slate-200">
-      <nav className="flex space-x-8 px-6">
-        {tabs.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => onChange(id as any)}
-            className={`py-4 px-1 text-sm font-medium transition-colors ${
-              active === id
-                ? "border-b-2 border-blue-500 text-blue-600"
-                : "text-slate-500 hover:border-b-2 hover:border-slate-300 hover:text-slate-700"
-            }`}
-          >
-            <Icon className="mr-2 inline h-4 w-4" />
-            {label}
-          </button>
-        ))}
-      </nav>
     </div>
   );
 }

@@ -108,20 +108,3 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
     }
 });
 exports.createProduct = createProduct;
-// Inside req, there are different “buckets” of info:
-// req.body → data mainly coming from post/put request where the client is sending information to the database (like form data or JSON).
-// req.params → route parameters (e.g. /products/:id → req.params.id).
-// req.query → query string parameters (the ?key=value part of the URL).
-// req.headers, req.cookies, etc. → other metadata.
-// /products?search=gloves&sort=price
-// req.query = {
-//   search: "gloves",
-//   sort: "price"
-// }
-// so req.search = gloves and req.sort = price
-// the products variable contains information fetched by te database
-// prisma.products.findMany states
-// go to the products table and use the findMany function to return all products 
-// where: tells prisma to filter through every row 
-// name: contains: search 
-// tells prisma to go the name column in the table and find all products where te products name match the search (query) string value
