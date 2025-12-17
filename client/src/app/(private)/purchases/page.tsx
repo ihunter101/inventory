@@ -246,104 +246,87 @@ export default function PurchasesPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-      <div className="mx-auto max-w-7xl px-6 py-8 lg:px-8">
+    <div className="w-full">
+      <PurchasesHeader
+        poCount={purchaseOrders.length}
+        invoiceCount={invoices.filter((i) => i.status === "PENDING").length}
+        grnCount={goodsReceipts.length}
+        totalPOSpend={totalPOSpend}
+      />
 
-        {/* Child Component */}
-        <PurchasesHeader
-          poCount={purchaseOrders.length}
-          invoiceCount={invoices.filter((i) => i.status === "PENDING").length}
-          grnCount={goodsReceipts.length}
-          totalPOSpend={totalPOSpend}
+      <div className="rounded-2xl bg-card shadow-card ring-1 ring-border backdrop-blur mt-6">
+        <PurchasesTabs active={activeTab} onChange={setActiveTab} />
+
+        <PurchasesToolbar
+          activeTab={activeTab}
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          statusFilter={statusFilter}
+          onStatusChange={setStatusFilter}
         />
 
-        <div className="rounded-2xl bg-white/90 shadow-card ring-1 ring-black/5 backdrop-blur">
-          <PurchasesTabs active={activeTab} onChange={setActiveTab} />
+        <div className="overflow-x-auto">
+          {loading && <div className="p-6 text-muted-foreground">Loading {activeTab}…</div>}
+          {errored && <div className="p-6 text-destructive">Error loading {activeTab}.</div>}
 
-          {/* Child Component */}
-          <PurchasesToolbar
-            activeTab={activeTab}
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            statusFilter={statusFilter}
-            onStatusChange={setStatusFilter}
-          />
+          {!loading && !errored && activeTab === "purchases" && (
+            <PurchaseTable data={filteredPOs} />
+          )}
 
-          <div className="overflow-x-auto">
-            {loading && (
-              <div className="p-6 text-slate-500">Loading {activeTab}…</div>
-            )}
-            {errored && (
-              <div className="p-6 text-rose-600">
-                Error loading {activeTab}.
-              </div>
-            )}
+          {!loading && !errored && activeTab === "invoices" && (
+            <InvoiceTable
+              data={filteredInvoices}
+              goodsReceipts={goodsReceipts}
+              onCreateGRN={openGRNFromInvoice}
+              onOpenMatch={(poId) => {
+                setActiveTab("match");
+                if (poId) setMatchPOId(poId);
+                router.push(
+                  `/purchases?tab=match${poId ? `&po=${encodeURIComponent(poId)}` : ""}`
+                );
+              }}
+            />
+          )}
 
-            {!loading && !errored && activeTab === "purchases" && (
-              <PurchaseTable data={filteredPOs} />
-            )}
+          {!loading && !errored && activeTab === "grns" && (
+            <GRNTable
+              data={filteredGRNs}
+              onOpenMatch={(poId) => {
+                setActiveTab("match");
+                setMatchPOId(poId);
+                router.push(`/purchases?tab=match&po=${poId}`);
+              }}
+              orders={[]}
+              invoices={[]}
+              postingId={postingId}
+              onPost={handlePostGRN}
+            />
+          )}
 
-            {/* Child Component */}
-            {!loading && !errored && activeTab === "invoices" && (
-              <InvoiceTable
-                data={filteredInvoices}
-                goodsReceipts={goodsReceipts}
-                onCreateGRN={openGRNFromInvoice}
-                onOpenMatch={(poId) => {
-                  setActiveTab("match");
-                  if (poId) setMatchPOId(poId);
-                  router.push(
-                    `/purchases?tab=match${
-                      poId ? `&po=${encodeURIComponent(poId)}` : ""
-                    }`
-                  );
-                }}
-              />
-            )}
-
-            {/* Child COmponent */}
-            {!loading && !errored && activeTab === "grns" && (
-              <GRNTable
-                data={filteredGRNs}
-                onOpenMatch={(poId) => {
-                  setActiveTab("match");
-                  setMatchPOId(poId);
-                  router.push(`/purchases?tab=match&po=${poId}`);
-                }}
-                orders={[]}
-                invoices={[]}
-                postingId={postingId}
-                onPost={handlePostGRN}
-              />
-            )}
-
-            {/* Child Component */}
-            {!loading && !errored && activeTab === "match" && (
-              <MatchTable
-                po={poForMatch}
-                invoice={invForMatch}
-                grn={grnForMatch}
-                allPOs={purchaseOrders}
-                currentPOId={matchPOId}
-                onChangePO={(poId) => {
-                  setMatchPOId(poId);
-                  router.push(`/purchases?tab=match&po=${poId}`);
-                }}
-              />
-            )}
-          </div>
+          {!loading && !errored && activeTab === "match" && (
+            <MatchTable
+              po={poForMatch}
+              invoice={invForMatch}
+              grn={grnForMatch}
+              allPOs={purchaseOrders}
+              currentPOId={matchPOId}
+              onChangePO={(poId) => {
+                setMatchPOId(poId);
+                router.push(`/purchases?tab=match&po=${poId}`);
+              }}
+            />
+          )}
         </div>
       </div>
 
-            {/* Child Component */}
       <CreateGRNModal
         open={showGRNModal}
         draft={grnDraft}
         onChange={setGrnDraft as any}
         onClose={() => setShowGRNModal(false)}
         onPosted={handlePosted}
-
       />
     </div>
   );
 }
+
