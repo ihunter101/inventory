@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
-import { getGroupFromCategory } from "../../../client/src/utils/getGroupFromCategory";
+import  getGroupFromCategory  from "@lab/shared";
+
 
 //const prisma = new PrismaClient();
 

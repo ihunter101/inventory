@@ -1,7 +1,7 @@
 import { Router } from "express"
 import { updatePOStatus, getPurchaseOrder, createPurchaseOrder, listPurchaseOrders, updatePurchaseOrder, deletePurchaseOrder } from "../controllers/purchaseOrderController"
 import { must } from "../middleware/auth";
-import { PERMS } from "@shared/rbac";
+import { PERMS } from "@lab/shared";
 import { resendPurchaseOrderEmail } from "../controllers/EmailController";
 const router =  Router();
 

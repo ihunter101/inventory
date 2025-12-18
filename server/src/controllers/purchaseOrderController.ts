@@ -88,7 +88,12 @@ export const getPurchaseOrder = async (req: Request, res: Response) => {
 
     const po = await prisma.purchaseOrder.findUnique({
       where: { id },
-      include: { supplier: true, items: true, invoices: true, grns: true },
+      include: { 
+        supplier: true, 
+        items: true, 
+        invoices: true, 
+        grns: true 
+      },
     });
 
     if (!po) {

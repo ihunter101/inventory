@@ -24,17 +24,15 @@ import CreateGRNModal from "@/app/features/components/createGRModal";
 import { PurchasesHeader } from "@/app/(components)/purchases/PurchasesHeader";
 import { PurchasesToolbar } from "@/app/(components)/purchases/PurchasesToolbar";
 import { PurchasesTabs, Tab } from "@/app/(components)/purchases/PurchasesTabs";
-import { setgroups } from "node:process";
 
-const POSTATUS =  {
-  DRAFT: "DRAFT", 
-  APPROVED: "APPROVED", 
-  SENT: "SENT", 
-  PARTIALLY_RECEIVED:"PARTIALLY_RECEIVED", 
-  RECEIVED: "RECEIVED", 
+const POSTATUS = {
+  DRAFT: "DRAFT",
+  APPROVED: "APPROVED",
+  SENT: "SENT",
+  PARTIALLY_RECEIVED: "PARTIALLY_RECEIVED",
+  RECEIVED: "RECEIVED",
   CLOSED: "CLOSED"
-} as const 
-
+} as const;
 
 // --- status mappers (with new enum) ---
 function mapPOStatus(s?: string): POStatus | undefined {
@@ -48,7 +46,7 @@ function mapPOStatus(s?: string): POStatus | undefined {
   return m[s];
 }
 
-const InvStatus = { PENDING: "PENDING", PAID: "PAID", OVERDUE: "OVERDUE" } as const 
+const InvStatus = { PENDING: "PENDING", PAID: "PAID", OVERDUE: "OVERDUE" } as const;
 
 function mapInvoiceStatus(s?: string): InvoiceStatus | undefined {
   if (!s || s === "all") return undefined;
@@ -59,7 +57,6 @@ function mapInvoiceStatus(s?: string): InvoiceStatus | undefined {
   };
   return m[s];
 }
-//
 
 export default function PurchasesPage() {
   const router = useRouter();
@@ -69,9 +66,7 @@ export default function PurchasesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const [postingId, setPostingId] = useState<string | null>(null)
-  const [grnState, setGRNState] = useState<GoodsReceiptDTO[]>([])
-
+  const [postingId, setPostingId] = useState<string | null>(null);
   const [grnDraft, setGrnDraft] = useState<GoodsReceiptDTO | null>(null);
   const [showGRNModal, setShowGRNModal] = useState(false);
   const [matchPOId, setMatchPOId] = useState<string | null>(null);
@@ -108,7 +103,7 @@ export default function PurchasesPage() {
     { refetchOnMountOrArgChange: true }
   );
 
-  const [postGRN ] = usePostGRNMutation();
+  const [postGRN] = usePostGRNMutation();
 
   const {
     data: goodsReceipts = [],
@@ -150,11 +145,9 @@ export default function PurchasesPage() {
       return;
     }
 
-    
-
     const draft: GoodsReceiptDTO = {
-      id: `LSC-GR-${new Date().toISOString().slice(0,10)}`,
-      grnNumber: `LSC-GR-${new Date().toISOString().slice(0,10)}`,
+      id: `LSC-GR-${new Date().toISOString().slice(0, 10)}`,
+      grnNumber: `LSC-GR-${new Date().toISOString().slice(0, 10)}`,
       poId,
       poNumber: po?.poNumber,
       invoiceId: invoice.id,
@@ -164,21 +157,22 @@ export default function PurchasesPage() {
       lines: (invoice.lines?.length ? invoice.lines : po?.items ?? []).map(
         (ln: any) => {
           console.log("Mapping line:", ln);
-        
-        return {
-          // Try to get draftProductId from multiple possible sources
-          draftProductId: ln.draftProductId ?? ln.productId ?? ln.id,
-          //sku: ln.sku,
-          name: ln.name,
-          unit: ln.unit?? "",
-          receivedQty: ln.quantity ?? 0,
-          unitPrice: ln.unitPrice,
-    }}),
+
+          return {
+            // Try to get draftProductId from multiple possible sources
+            draftProductId: ln.draftProductId ?? ln.productId ?? ln.id,
+            name: ln.name,
+            unit: ln.unit ?? "",
+            receivedQty: ln.quantity ?? 0,
+            unitPrice: ln.unitPrice,
+          };
+        }
+      ),
     };
 
-    console.log("lines Page:" , draft.lines); 
-    console.log("GRN Draft created:", draft); 
-  console.log("Draft lines:", draft.lines);
+    console.log("lines Page:", draft.lines);
+    console.log("GRN Draft created:", draft);
+    console.log("Draft lines:", draft.lines);
 
     setGrnDraft(draft);
     setShowGRNModal(true);
@@ -213,30 +207,16 @@ export default function PurchasesPage() {
     router.push(`/purchases?tab=match&po=${encodeURIComponent(poId)}`);
   }
 
-  useEffect(()=> {
-    setGRNState(goodsReceipts)
-  },[goodsReceipts])
-
-
   async function handlePostGRN(grnId: string) {
-      // Optimistic UI Update 
-      setPostingId(grnId)
-      // If optimistic UI fails then we roll back to the previous state 
-      const prev = grnState
+    setPostingId(grnId);
 
-      setGRNState((current) => (
-        current.map((g) => (g.id === grnId ? {...g, status: "POSTED" as any} : g))
-      ))
-
-      try{
-      await postGRN({id: grnId}).unwrap()
-      //await refetchGRNs();
+    try {
+      await postGRN({ id: grnId }).unwrap();
+      await refetchGRNs(); // Let the query update naturally
     } catch (error) {
-      console.error(error)
-      //roll back to the previous state 
-      setGRNState(prev)
+      console.error(error);
     } finally {
-      setPostingId(null)
+      setPostingId(null);
     }
   }
 
@@ -322,11 +302,10 @@ export default function PurchasesPage() {
       <CreateGRNModal
         open={showGRNModal}
         draft={grnDraft}
-        onChange={setGrnDraft as any}
+        onChange={setGrnDraft}
         onClose={() => setShowGRNModal(false)}
         onPosted={handlePosted}
       />
     </div>
   );
 }
-
