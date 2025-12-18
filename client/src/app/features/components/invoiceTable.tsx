@@ -27,77 +27,79 @@ export default function InvoiceTable({
     goodsReceipts.some((g) => g.poId === inv.poId && g.invoiceId === inv.id);
 
   return (
-    <table className="w-full">
-      <thead className="bg-gray-50">
-        <tr>
-          <Th>Invoice</Th>
-          <Th>Supplier</Th>
-          <Th>PO</Th>
-          <Th>Date</Th>
-          <Th>Amount</Th>
-          <Th>Status</Th>
-          <Th className="text-right">Actions</Th>
-        </tr>
-      </thead>
-      <tbody className="divide-y bg-white">
-        {data.map((inv) => {
-          const grnExists = hasGRNFor(inv);
-          const poLabel = inv.poNumber || shortId(inv.poId);
-          const hasPO = Boolean(inv.poId);
-          return (
-            <tr key={inv.id} className="hover:bg-gray-50">
-              <Td className="font-medium">{inv.invoiceNumber}</Td>
-              <Td>{inv.supplier}</Td>
-              <Td>
-                {hasPO ? (
+    <div className="w-full">
+      <table className="w-full">
+        <thead className="bg-muted/50">
+          <tr>
+            <Th>Invoice</Th>
+            <Th>Supplier</Th>
+            <Th>PO</Th>
+            <Th>Date</Th>
+            <Th>Amount</Th>
+            <Th>Status</Th>
+            <Th className="text-right">Actions</Th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {data.map((inv) => {
+            const grnExists = hasGRNFor(inv);
+            const poLabel = inv.poNumber || shortId(inv.poId);
+            const hasPO = Boolean(inv.poId);
+            return (
+              <tr key={inv.id} className="hover:bg-muted/30 transition-colors">
+                <Td className="font-medium text-foreground">{inv.invoiceNumber}</Td>
+                <Td className="text-foreground">{inv.supplier}</Td>
+                <Td>
+                  {hasPO ? (
+                    <Link
+                      href={`/purchases?tab=match&po=${encodeURIComponent(inv.poId!)}`}
+                      className="text-primary hover:underline"
+                      title={`Open PO ${poLabel}`}
+                      onClick={() => onOpenMatch?.(inv.poId!)}
+                    >
+                      {poLabel}
+                    </Link>
+                  ) : (
+                    <span className="text-muted-foreground">-</span>
+                  )}
+                </Td>
+                <Td className="text-sm text-foreground">{fmt(inv.date)}</Td>
+                <Td className="text-sm text-foreground">
+                  ${Number(inv.amount ?? 0).toFixed(2)}
+                </Td>
+                <Td className="text-sm">
                   <Link
-                    href={`/purchases?tab=match&po=${encodeURIComponent(inv.poId!)}`}
-                    className="text-blue-600 hover:underline"
-                    title={`Open PO ${poLabel}`}
-                    onClick={() => onOpenMatch?.(inv.poId!)}
+                    href={`/purchases?tab=invoices&status=${encodeURIComponent(
+                      inv.status.toLowerCase()
+                    )}`}
+                    title={`View ${inv.status.toLowerCase()} invoices`}
+                    className="inline-flex"
                   >
-                    {poLabel}
+                    <StatusBadge status={inv.status as any} />
                   </Link>
-                ) : (
-                  "-"
-                )}
-              </Td>
-              <Td className="text-sm">{fmt(inv.date)}</Td>
-              <Td className="text-sm">
-                ${Number(inv.amount ?? 0).toFixed(2)}
-              </Td>
-              <Td className="text-sm">
-                <Link
-                  href={`/purchases?tab=invoices&status=${encodeURIComponent(
-                    inv.status.toLowerCase()
-                  )}`}
-                  title={`View ${inv.status.toLowerCase()} invoices`}
-                  className="inline-flex"
-                >
-                  <StatusBadge status={inv.status as any} />
-                </Link>
-              </Td>
-              <Td className="text-right">
-                {!grnExists && hasPO && (
-                  <button
-                    className="text-blue-600 hover:underline"
-                    onClick={() => onCreateGRN(inv)}
-                  >
-                    Create GRN
-                  </button>
-                )}
-              </Td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+                </Td>
+                <Td className="text-right">
+                  {!grnExists && hasPO && (
+                    <button
+                      className="text-primary hover:underline font-medium"
+                      onClick={() => onCreateGRN(inv)}
+                    >
+                      Create GRN
+                    </button>
+                  )}
+                </Td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
 const Th = (p: any) => (
   <th
-    className={`px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 ${
+    className={`px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground ${
       p.className ?? ""
     }`}
   >

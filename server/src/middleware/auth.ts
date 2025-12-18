@@ -1,7 +1,7 @@
 // server/src/middleware/auth.ts
 import { requireAuth, clerkClient } from "@clerk/express";
 import type { Request, Response, NextFunction, RequestHandler } from "express";
-import { hasPerm, Role, type Perm } from "@shared/rbac";
+import { hasPerm, Role, type Perm } from "@lab/shared";
 import { prisma } from "../lib/prisma";
 
 // const prisma = new PrismaClient();

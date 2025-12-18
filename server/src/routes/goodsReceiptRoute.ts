@@ -2,7 +2,7 @@
 import { Router } from "express";
 import { listGoodsReceipts, createGoodsReceipt, postGoodsReceipt } from "../controllers/goodsReceiptController";
 import { must } from "../middleware/auth";
-import { PERMS } from "@shared/rbac";
+import { PERMS } from "@lab/shared";
 const router = Router();
 
 router.get("/", ...must(PERMS.READ_GRNS), listGoodsReceipts);

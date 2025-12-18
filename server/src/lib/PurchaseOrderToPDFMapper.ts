@@ -1,5 +1,5 @@
-import { PoData } from "../src/types/purchaseOrderTypes";
-import { PurchaseOrderPDFData, LineItem } from "../src/services/pdfServices";
+import { PoData } from "../types/purchaseOrderTypes";
+import { PurchaseOrderPDFData, LineItem } from "../services/pdfServices";
 
 export function mapPurchaseOrderDataToPDF(po: PoData): PurchaseOrderPDFData {
   // convert PoItem[] → LineItem[]

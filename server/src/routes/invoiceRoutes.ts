@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { listInvoices, createInvoice, markInvoicePaid } from "../controllers/invoiceController";
 import { must } from "../middleware/auth";
-import { PERMS } from "@shared/rbac";
+import { PERMS } from "@lab/shared";
 
 
 const router = Router();

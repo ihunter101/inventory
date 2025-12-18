@@ -1,7 +1,7 @@
 // src/routes/draftProducts.ts
 import { Router } from "express";
 import { createDraftProduct, listDraftProducts } from "../controllers/productDraftController";
-import { PERMS } from "@shared/rbac";
+import { PERMS } from "@lab/shared";
 import { must } from "../middleware/auth";
 
 const router = Router();

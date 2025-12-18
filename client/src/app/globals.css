@@ -16,9 +16,20 @@ body,
   height: 100%;
   width: 100%;
   @apply text-sm;
+  @apply bg-background text-foreground;
+}
+
+/* html,
+body,
+#root,
+.app {
+  height: 100%;
+  width: 100%;
+  @apply text-sm;
   @apply bg-gray-500;
   @apply text-gray-900;
-}
+} */
+
 
 
 

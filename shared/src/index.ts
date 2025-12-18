@@ -109,3 +109,5 @@ export const ROLE_PERMS: Record<Role, Perm[]> = {
 
 export const hasPerm = (role: Role | undefined, perm: Perm): boolean => 
     !!role && ROLE_PERMS[role]?.includes(perm) === true;
+
+export * from "./getGroupFromCategory";

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { PERMS } from "@shared/rbac";
+import { PERMS } from "@lab/shared";
 import { must } from "../middleware/auth";
 
 import { adjustInventory, getInventory, setInventory } from "../controllers/inventoryController";

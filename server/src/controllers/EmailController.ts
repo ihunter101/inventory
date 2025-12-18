@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import resend from '../config/resend';
 import { generatePurchaseOrderPDFBuffer } from '../services/pdfServices';
 import { getPurchaseOrderDetails } from '../services/purchaseOrderService'; 
-import { mapPurchaseOrderDataToPDF } from '../../lib/PurchaseOrderToPDFMapper';
+import { mapPurchaseOrderDataToPDF } from '../lib/PurchaseOrderToPDFMapper';
 
 // Assuming this is the data structure received from the frontend
 interface ResendEmailBody {

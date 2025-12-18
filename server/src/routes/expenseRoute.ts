@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { getExpenses, createExpense } from "../controllers/expenseController";
 import { must } from "../middleware/auth";
-import { PERMS } from "@shared/rbac";
+import { PERMS } from "@lab/shared";
 
 const router = Router();
 
