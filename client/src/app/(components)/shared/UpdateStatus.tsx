@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 
-type UpdatePurchaseOrderProps = {
+type UpdatePurchasesProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onConfirm: () => void;
@@ -21,14 +21,14 @@ type UpdatePurchaseOrderProps = {
 }
 
 
-export const UpdatePurchaseOrderStatus = (
+export const UpdatePurchasesStatus = (
     {id,
     source,
     title,
     isUpdating,
     open,
     onOpenChange,
-    onConfirm} : UpdatePurchaseOrderProps,
+    onConfirm} : UpdatePurchasesProps,
 ) => {
     return (
         <AlertDialog open={open} onOpenChange={onOpenChange}>

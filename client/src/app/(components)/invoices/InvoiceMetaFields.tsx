@@ -31,6 +31,7 @@ export default function InvoiceMetaFields({
           value={invoiceNumber}
           onChange={(e) => setInvoiceNumber(e.target.value)}
           disabled={disabled}
+          readOnly
         />
       </div>
 
@@ -42,6 +43,7 @@ export default function InvoiceMetaFields({
           value={date}
           onChange={(e) => setDate(e.target.value)}
           disabled={disabled}
+          readOnly
         />
       </div>
 

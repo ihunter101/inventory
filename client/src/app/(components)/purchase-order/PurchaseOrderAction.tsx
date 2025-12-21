@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation"
 import { useState } from "react";
 import { toast } from "sonner";
 import { DeleteDialogue } from "../shared/DeleteDialogue";
-import { UpdatePurchaseOrderStatus } from "../shared/UpdateStatus";
+import { UpdatePurchasesStatus } from "../shared/UpdateStatus";
 import { PurchaseOrderDownloadButton } from "../shared/OrderDownloadButton";
 import { generatePDF, PurchaseOrderPDFData } from "../shared/PDFUtils";
 
@@ -151,7 +151,7 @@ export function EditPurchaseOrder ({ purchaseOrder }: PurchaseOrderProps) {
                 id={purchaseOrder.id}
             />
             
-            <UpdatePurchaseOrderStatus 
+            <UpdatePurchasesStatus 
                 title={title}
                 source="Purchase Order"
                 open={isUpdateDialogOpen}

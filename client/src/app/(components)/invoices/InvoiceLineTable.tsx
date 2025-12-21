@@ -11,6 +11,7 @@ type Props = {
   onPatchRow: (rowId: string, patch: Partial<LineRow>) => void;
   onRemoveRow: (rowId: string) => void;
   disabled?: boolean;
+  //mode?: "create" | "edit";
 };
 
 export default function InvoiceLinesTable({
@@ -20,6 +21,7 @@ export default function InvoiceLinesTable({
   onPatchRow,
   onRemoveRow,
   disabled,
+  //mode = "create"
 }: Props) {
   return (
     <div
@@ -60,6 +62,7 @@ export default function InvoiceLinesTable({
               onPatch={onPatchRow}
               onRemove={onRemoveRow}
               disabled={disabled}
+              //mode={mode}
             />
           ))}
         </tbody>
