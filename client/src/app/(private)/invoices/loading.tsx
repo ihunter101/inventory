@@ -1,4 +1,4 @@
-import InvoiceFormSkeleton from "../../../features/components/InvoiceFormSkeleton";
+import InvoiceFormSkeleton from "../../features/components/InvoiceFormSkeleton";
 
 export default function LoadingNewInvoice() {
   return (

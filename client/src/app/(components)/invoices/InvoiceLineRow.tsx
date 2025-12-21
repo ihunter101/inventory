@@ -14,6 +14,7 @@ type Props = {
   onPatch: (rowId: string, patch: Partial<LineRow>) => void;
   onRemove: (rowId: string) => void;
   disabled?: boolean;
+  //mode: "create" | "edit";
 };
 
 export default function InvoiceLineRow({
@@ -23,10 +24,13 @@ export default function InvoiceLineRow({
   onPatch,
   onRemove,
   disabled,
+  //mode = "create"
 }: Props) {
   const p = row.productId ? productIndex.byId.get(row.productId) : undefined;
   const lineTotal = money(row.quantity) * money(row.unitPrice);
   const displayName = p?.name ?? row?.name;
+
+  //const isReadOnly = mode === "edit"
 
   return (
     <tr className="border-t align-top">
@@ -46,8 +50,8 @@ export default function InvoiceLineRow({
               unit: match ? match.unit : row.unit,
             });
           }}
-          disabled={disabled}
-          readOnly
+          //disabled={disabled}
+          //readOnly={isReadOnly}
         />
 
         <datalist id={`inv-products-${row.id}`}>
@@ -67,8 +71,8 @@ export default function InvoiceLineRow({
           value={row.unit}
           placeholder={p?.unit ?? "e.g. box"}
           onChange={(e) => onPatch(row.id, { unit: e.target.value })}
-          disabled={disabled}
-          readOnly
+          //disabled={disabled}
+          //readOnly={isReadOnly}
         />
       </td>
 
@@ -79,8 +83,8 @@ export default function InvoiceLineRow({
           min={0}
           value={row.quantity}
           onChange={(e) => onPatch(row.id, { quantity: Number(e.target.value) })}
-          disabled={disabled}
-          readOnly
+          //disabled={disabled}
+          //readOnly= {isReadOnly}
         />
       </td>
 
@@ -92,8 +96,8 @@ export default function InvoiceLineRow({
           min={0}
           value={row.unitPrice}
           onChange={(e) => onPatch(row.id, { unitPrice: Number(e.target.value) })}
-          disabled={disabled}
-          readOnly
+          //disabled={disabled}
+          //readOnly={isReadOnly}
         />
       </td>
 

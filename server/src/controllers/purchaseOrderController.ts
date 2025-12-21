@@ -317,7 +317,7 @@ const purchaseOrderInclude = {
  * @param input.supplier - New supplier details (if creating one)
  * @returns Prisma relation object for supplier
  */
-function buildSupplierRelation(input: { supplier?: any; supplierId?: string }) {
+ export function buildSupplierRelation(input: { supplier?: any; supplierId?: string }) {
   const { supplier, supplierId } = input;
 
   // Case 1: Link to existing supplier by ID

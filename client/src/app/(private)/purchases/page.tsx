@@ -11,7 +11,7 @@ import {
   InvoiceStatus,
   useGetPurchaseOrdersQuery,
   useGetSupplierInvoicesQuery,
-  useGetGoodsReceiptsQuery,
+  useSearchGoodsReceiptsQuery,
   usePostGRNMutation,
 } from "@/app/state/api";
 import { usePurchasingFilters } from "@/app/hooks/usePurchaseingHooks";
@@ -19,7 +19,7 @@ import PurchaseTable from "@/app/features/components/PurchasesTable";
 import InvoiceTable from "@/app/features/components/invoiceTable";
 import GRNTable from "@/app/features/components/GoodsReceiptTable";
 import MatchTable from "@/app/features/components/MatchTable";
-import CreateGRNModal from "@/app/features/components/createGRModal";
+import { CreateGRNDialog } from "@/app/features/components/createGRModal";
 
 import { PurchasesHeader } from "@/app/(components)/purchases/PurchasesHeader";
 import { PurchasesToolbar } from "@/app/(components)/purchases/PurchasesToolbar";
@@ -110,7 +110,7 @@ export default function PurchasesPage() {
     isLoading: grnLoading,
     isError: grnError,
     refetch: refetchGRNs,
-  } = useGetGoodsReceiptsQuery(
+  } = useSearchGoodsReceiptsQuery(
     { q: searchTerm },
     { refetchOnMountOrArgChange: true }
   );
@@ -299,7 +299,7 @@ export default function PurchasesPage() {
         </div>
       </div>
 
-      <CreateGRNModal
+      <CreateGRNDialog
         open={showGRNModal}
         draft={grnDraft}
         onChange={setGrnDraft}

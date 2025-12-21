@@ -19,7 +19,7 @@ import {
   useGetPurchaseOrderQuery,
 } from "@/app/state/api";
 
-import type { InvoiceFormProps, LineRow } from "@/app/features/lib/types";
+import type { LineRow } from "@/app/features/lib/types";
 import { genInvoiceNumber, makeEmptyRow, money } from "@/app/features/lib/helper";
 import { useProductIndex } from "@/app/features/lib/useProductIndex";
 
@@ -28,13 +28,85 @@ import PurchaseOrderPicker from "@/app/(components)/invoices/PurchaseOrderPicker
 import InvoiceSummaryCard from "@/app/(components)/invoices/InvoiceSummaryCard";
 import InvoiceLinesSection from "@/app/(components)/invoices/InvoiceLineSection";
 
-export default function InvoiceForm({ onSuccess }: InvoiceFormProps) {
+/**
+ * The data structure we send to the backend when creating/updating an invoice
+ */
+export type SupplierInvoiceFormPayload = Partial<SupplierInvoiceDTO>;
+
+/**
+ * Props for the InvoiceForm component
+ */
+type InvoiceFormProps = {
+  /** Whether we're creating a new invoice or editing an existing one */
+  mode: "create" | "edit";
+  
+  /** The existing invoice data (only used when mode is "edit") */
+  initial?: SupplierInvoiceDTO;
+
+  /** Linked Purchase order tied to the created invoice */
+  linkedPO?: PurchaseOrderDTO | null;
+  
+  /** Function called when user submits the form */
+  onSubmit: (data: SupplierInvoiceFormPayload) => Promise<void>;
+  
+  /** Whether the form is currently being submitted */
+  submitting?: boolean;
+
+  /** Optional callback for successful creation (create mode only) */
+  onSuccess?: (invoiceNumber: string) => void;
+};
+
+/**
+ * InvoiceForm - A form for creating or editing supplier invoices
+ * 
+ * Features:
+ * - Select purchase order (create mode) or display linked PO (edit mode)
+ * - Add/remove line items with draft products
+ * - Calculate subtotal, tax, and total automatically
+ * - Validates all required fields before submission
+ */
+export default function InvoiceForm({ 
+  mode, 
+  initial, 
+  onSubmit,
+  
+  submitting = false,
+  onSuccess,
+  linkedPO = null,
+}: InvoiceFormProps) {
   const router = useRouter();
   const { toast } = useToast();
 
-  // ----- PO search + selection -----
+  // ========================================
+  // FORM STATE - These hold all the form data
+  // ========================================
+
+  /** The invoice number */
+  const [invoiceNumber, setInvoiceNumber] = React.useState(
+    mode === "edit" && initial ? initial.invoiceNumber : genInvoiceNumber()
+  );
+
+  /** Invoice date (YYYY-MM-DD format) */
+  const [date, setDate] = React.useState(
+    mode === "edit" && initial 
+      ? initial.date.slice(0, 10) 
+      : new Date().toISOString().slice(0, 10)
+  );
+
+  /** When payment is due (YYYY-MM-DD format) */
+  const [dueDate, setDueDate] = React.useState(
+    mode === "edit" && initial ? initial.dueDate?.slice(0, 10) || "" : ""
+  );
+
+  // ========================================
+  // PO SEARCH + SELECTION
+  // ========================================
+
   const [poSearch, setPoSearch] = React.useState("");
   const [selectedPO, setSelectedPO] = React.useState<PurchaseOrderDTO | null>(null);
+
+  const activePO = selectedPO ?? linkedPO ?? null;
+  const activePOId = activePO?.id ?? initial?.poId ?? null;
 
   const searchActive = poSearch.trim().length > 0;
 
@@ -45,30 +117,69 @@ export default function InvoiceForm({ onSuccess }: InvoiceFormProps) {
 
   const { data: allPOResults = [] } = useListPurchaseOrderQuery();
 
-  // ✅ show searched results if searching, otherwise show all
+  // Get the linked PO for edit mode
+  // const { data: linkedPO } = useGetPurchaseOrderQuery(
+  //   mode === "edit" && initial?.poId ? initial.poId : "",
+  //   { skip: mode !== "edit" || !initial?.poId }
+  // );
+
+  // Show searched results if searching, otherwise show all
   const basePOs = searchActive ? poResults : allPOResults;
   const eligiblePOs = React.useMemo(
     () => basePOs.filter((po) => (po.invoiceCount ?? 0) === 0),
     [basePOs]
   );
 
-  // ----- products -----
+  // ========================================
+  // PRODUCTS
+  // ========================================
+
   const { data } = useGetDraftProductsQuery();
   const productDrafts = data ?? [];
   const productIndex = useProductIndex(productDrafts);
 
-  // ----- invoice meta -----
-  const [invoiceNumber, setInvoiceNumber] = React.useState(genInvoiceNumber());
-  const [date, setDate] = React.useState(new Date().toISOString().slice(0, 10));
-  const [dueDate, setDueDate] = React.useState("");
+  // ========================================
+  // LINE ITEMS
+  // ========================================
 
-  // ----- lines -----
-  const [rows, setRows] = React.useState<LineRow[]>([]);
+  const [rows, setRows] = React.useState<LineRow[]>(() => {
+    if (mode === "edit" && initial?.lines) {
+      return initial.lines.map((line) => ({
+        id: crypto.randomUUID(),
+        productId: line.draftProductId || "",
+        name: line.name || "",
+        unit: line.unit || "",
+        quantity: line.quantity || 1,
+        unitPrice: line.unitPrice || 0,
+      }));
+    }
+    return [makeEmptyRow()];
+  });
+
   const [taxPct, setTaxPct] = React.useState<number>(0);
-  const [poTax, setPoTax] = React.useState<number>(0);
+  const [poTax, setPoTax] = React.useState<number>(
+    mode === "edit" && initial ? (initial.amount - initial.lines.reduce((s, l) => s + l.lineTotal, 0)) : 0
+  );
 
-  // ----- mutation -----
-  const [createInvoice, { isLoading }] = useCreateSupplierInvoiceMutation();
+  // ========================================
+  // PREVENT DOUBLE SUBMISSION
+  // ========================================
+
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  // ========================================
+  // INITIALIZE SELECTED PO FOR EDIT MODE
+  // ========================================
+
+  React.useEffect(() => {
+    if (mode === "edit" && linkedPO && !selectedPO) {
+      setSelectedPO(linkedPO);
+    }
+  }, [mode, linkedPO, selectedPO]);
+
+  // ========================================
+  // PO SELECTION HANDLER
+  // ========================================
 
   const choosePO = React.useCallback((po: PurchaseOrderDTO) => {
     setSelectedPO(po);
@@ -87,121 +198,196 @@ export default function InvoiceForm({ onSuccess }: InvoiceFormProps) {
   }, []);
 
   const onClearPO = () => {
+    if (mode === "edit") {
+      toast({ 
+        variant: "destructive", 
+        title: "Cannot change PO in edit mode" 
+      });
+      return;
+    }
     setSelectedPO(null);
-    setPoSearch("")
-    setRows([]);
-    setPoTax(0);  
+    setPoSearch("");
+    setRows([makeEmptyRow()]);
+    setPoTax(0);
   };
 
-  const addRow = React.useCallback(() => setRows((prev) => [...prev, makeEmptyRow()]), []);
+  // ========================================
+  // LINE ITEM HANDLERS
+  // ========================================
+
+  const addRow = React.useCallback(
+    () => setRows((prev) => [...prev, makeEmptyRow()]), 
+    []
+  );
+
   const patchRow = React.useCallback((rowId: string, patch: Partial<LineRow>) => {
     setRows((prev) => prev.map((r) => (r.id === rowId ? { ...r, ...patch } : r)));
   }, []);
+
   const removeRow = React.useCallback((rowId: string) => {
     setRows((prev) => prev.filter((r) => r.id !== rowId));
   }, []);
+
+  // ========================================
+  // CALCULATIONS
+  // ========================================
 
   const subtotal = React.useMemo(
     () => rows.reduce((s, r) => s + money(r.quantity) * money(r.unitPrice), 0),
     [rows]
   );
-  const tax = React.useMemo(() => subtotal * (money(taxPct) / 100), [subtotal, taxPct]);
-  const amount = React.useMemo(() => subtotal + tax, [subtotal, tax]);
 
-  const onSubmit = React.useCallback(async () => {
-    if (!selectedPO) {
-      toast({ variant: "destructive", title: "Select a PO first" });
-      return;
-    }
-    if (!rows.length || rows.some((r) => !r.productId || r.quantity <= 0)) {
-      toast({
-        variant: "destructive",
-        title: "Add at least one valid line (product + quantity)",
-      });
-      return;
-    }
+  const tax = React.useMemo(
+    () => subtotal * (money(taxPct) / 100), 
+    [subtotal, taxPct]
+  );
 
-    const lines: InvoiceLine[] = rows.map((r) => {
-      const found = r.productId ? productIndex.byId.get(r.productId) : undefined;
+  const amount = React.useMemo(
+    () => subtotal + tax, 
+    [subtotal, tax]
+  );
 
-      return {
-        draftProductId: r.productId!,
-        productId: null,
-        sku: r.productId,
-        name: r.name || found?.name || "",
-        unit: r.unit || found?.unit || "",
-        quantity: Number(r.quantity) || 0,
-        unitPrice: Number(r.unitPrice) || 0,
-        lineTotal: (Number(r.quantity) || 0) * (Number(r.unitPrice) || 0),
-      };
+  // ========================================
+  // RESET FORM (CREATE MODE ONLY)
+  // ========================================
+
+  const reset = React.useCallback(() => {
+    setInvoiceNumber(genInvoiceNumber());
+    setDate(new Date().toISOString().slice(0, 10));
+    setDueDate("");
+    setRows([makeEmptyRow()]);
+    setSelectedPO(null);
+    setPoSearch("");
+    setPoTax(0);
+  }, []);
+
+  // ========================================
+  // VALIDATION
+  // ========================================
+
+  function validate(): boolean {
+  if (!activePOId) {
+    toast({
+      variant: "destructive",
+      title: mode === "edit" ? "No PO linked" : "Select a PO first",
     });
+    return false;
+  }
+
+  if (!rows.length || rows.some((r) => !r.productId || r.quantity <= 0)) {
+    toast({
+      variant: "destructive",
+      title: "Add at least one valid line (product + quantity)",
+    });
+    return false;
+  }
+
+  return true;
+}
+
+
+  // ========================================
+  // FORM SUBMISSION
+  // ========================================
+
+  const handleSubmit = React.useCallback(async () => {
+    if (isSubmitting || submitting) return;
+
+    if (!validate()) return;
+
+    setIsSubmitting(true);
 
     try {
-      const body: Partial<SupplierInvoiceDTO> = {
+      const lines: InvoiceLine[] = rows.map((r) => {
+        const found = r.productId ? productIndex.byId.get(r.productId) : undefined;
+
+        return {
+          draftProductId: r.productId!,
+          productId: null,
+          sku: r.productId,
+          name: r.name || found?.name || "",
+          unit: r.unit || found?.unit || "",
+          quantity: Number(r.quantity) || 0,
+          unitPrice: Number(r.unitPrice) || 0,
+          lineTotal: (Number(r.quantity) || 0) * (Number(r.unitPrice) || 0),
+        };
+      });
+
+      const payload: SupplierInvoiceFormPayload = {
         invoiceNumber,
-        supplierId: selectedPO.supplierId,
-        poId: selectedPO.id,
+        supplierId: activePO?.supplierId ?? initial?.supplierId ?? "",
+        poId: activePO?.id ?? initial?.poId ?? "",
         date,
         dueDate: dueDate || undefined,
-        status: "PENDING",
+        status: initial?.status || "PENDING",
         amount,
         lines,
       };
 
-  
-      console.log("LINES TYPE:", Array.isArray(lines), lines);
 
-      await createInvoice(body).unwrap();
+      await onSubmit(payload);
 
+      toast({ 
+        title: mode === "create" ? "Invoice created" : "Invoice updated", 
+        description: invoiceNumber 
+      });
 
-      toast({ title: "Invoice created", description: invoiceNumber });
-      onSuccess?.(invoiceNumber);
-
-      // reset
-      setInvoiceNumber(genInvoiceNumber());
-      setDate(new Date().toISOString().slice(0, 10));
-      setDueDate("");
-      setRows([]);
-      //setTaxPct(0);
-      setSelectedPO(null);
-      setPoSearch("");
+      if (mode === "create") {
+        onSuccess?.(invoiceNumber);
+        reset();
+      }
     } catch (e: any) {
       toast({
         variant: "destructive",
-        title: "Failed to create invoice",
+        title: mode === "create" ? "Failed to create invoice" : "Failed to update invoice",
         description: e?.data?.message || "Please try again.",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   }, [
+    isSubmitting,
+    submitting,
     selectedPO,
     rows,
-    toast,
     productIndex,
     invoiceNumber,
     date,
     dueDate,
     amount,
-    createInvoice,
+    onSubmit,
+    initial,
+    mode,
     onSuccess,
+    reset,
+    toast,
   ]);
+
+  // ========================================
+  // RENDER
+  // ========================================
 
   return (
     <Card className="relative rounded-3xl border-slate-200 bg-white/95 shadow-xl ring-1 ring-black/5">
-      {isLoading && (
+      {(submitting || isSubmitting) && (
         <div className="absolute inset-0 z-20 flex items-center justify-center rounded-3xl bg-white/70 backdrop-blur-sm">
           <div className="flex items-center gap-2 text-slate-700">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="text-base">Creating invoice…</span>
+            <span className="text-base">
+              {mode === "create" ? "Creating invoice…" : "Updating invoice…"}
+            </span>
           </div>
         </div>
       )}
 
       <CardHeader className="gap-2 p-8 pb-4 md:p-10 md:pb-6">
         <CardTitle className="text-3xl font-semibold tracking-tight text-slate-900">
-          Supplier Invoice
+          {mode === "create" ? "Create " : "Edit "}Supplier Invoice
         </CardTitle>
         <CardDescription className="text-[15px] text-slate-500">
-          Find a purchase order; we’ll capture the supplier and you can refine the lines.
+          {mode === "create"
+            ? "Find a purchase order; we'll capture the supplier and you can refine the lines."
+            : "Update the invoice details below."}
         </CardDescription>
       </CardHeader>
 
@@ -213,7 +399,7 @@ export default function InvoiceForm({ onSuccess }: InvoiceFormProps) {
           setDate={setDate}
           dueDate={dueDate}
           setDueDate={setDueDate}
-          disabled={isLoading}
+          disabled={submitting || isSubmitting}
         />
 
         <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -222,19 +408,18 @@ export default function InvoiceForm({ onSuccess }: InvoiceFormProps) {
             setPoSearch={setPoSearch}
             poSearching={poSearching}
             displayedPOs={eligiblePOs}
-            selectedPO={selectedPO}
+            selectedPO={activePO}
             onChoosePO={choosePO}
-            disabled={isLoading}
+            disabled={submitting || isSubmitting || mode === "edit"}
             onClearPO={onClearPO}
           />
 
           <InvoiceSummaryCard
             subtotal={subtotal}
             taxPct={taxPct}
-            //setTaxPct={setTaxPct}
             tax={tax}
             amount={amount}
-            disabled={isLoading}
+            disabled={submitting || isSubmitting}
             poTax={poTax}
           />
         </div>
@@ -246,25 +431,39 @@ export default function InvoiceForm({ onSuccess }: InvoiceFormProps) {
           onAddRow={addRow}
           onPatchRow={patchRow}
           onRemoveRow={removeRow}
-          disabled={isLoading}
+          disabled={submitting || isSubmitting}
+          //mode={mode}
         />
       </CardContent>
 
       <CardFooter className="flex items-center justify-end gap-3 p-8 pt-4 md:p-10 md:pt-6">
-        <Button variant="outline" onClick={() => router.back()} disabled={isLoading}>
+        <Button 
+          variant="outline" 
+          onClick={() => router.back()} 
+          disabled={submitting || isSubmitting}
+        >
           Cancel
         </Button>
 
-        <Button className="h-11 px-6 text-base" onClick={onSubmit} disabled={isLoading || !selectedPO}>
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Creating…
-            </>
-          ) : (
-            "Create Invoice"
-          )}
-        </Button>
+          <Button 
+            type="button"
+            className="h-11 px-6 text-base" 
+            onClick={handleSubmit} 
+            disabled={
+              submitting || 
+              isSubmitting || 
+              !activePOId // Fixed condition
+            }
+          >
+            {submitting || isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {mode === "create" ? "Creating…" : "Saving…"}
+              </>
+            ) : (
+              mode === "create" ? "Create Invoice" : "Save Changes"
+            )}
+          </Button>
       </CardFooter>
     </Card>
   );

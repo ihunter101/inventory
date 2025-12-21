@@ -14,6 +14,7 @@ type Props = {
   onPatchRow: (rowId: string, patch: Partial<LineRow>) => void;
   onRemoveRow: (rowId: string) => void;
   disabled?: boolean;
+  //mode: "create" | "edit";
 };
 
 export default function InvoiceLinesSection({
@@ -24,7 +25,9 @@ export default function InvoiceLinesSection({
   onPatchRow,
   onRemoveRow,
   disabled,
+ // mode = "create"
 }: Props) {
+  //const isReadOnly = mode === "edit";
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
@@ -41,7 +44,8 @@ export default function InvoiceLinesSection({
         productIndex={productIndex}
         onPatchRow={onPatchRow}
         onRemoveRow={onRemoveRow}
-        disabled={disabled}
+        //disabled={disabled || isReadOnly}
+       // mode={mode}
       />
     </div>
   );

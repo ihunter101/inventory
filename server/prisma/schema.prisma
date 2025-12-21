@@ -315,6 +315,8 @@ model SupplierInvoice {
   poId String?
   po   PurchaseOrder? @relation(fields: [poId], references: [id]) //optional revamp
 
+  
+
   status  InvoiceStatus @default(PENDING)
   date    DateTime      @default(now())
   dueDate DateTime?

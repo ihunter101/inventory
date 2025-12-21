@@ -216,7 +216,7 @@ export interface InvoiceLine {
   unit: string;
   quantity: number;
   unitPrice: number;
-  lineTotal?: number;
+  lineTotal: number;
 }
 
 export interface SupplierInvoiceDTO {
@@ -468,21 +468,59 @@ export const api = createApi({
   // SupplierInvoice
   getSupplierInvoices: build.query<SupplierInvoiceDTO[], { status?: InvoiceStatus; q?: string } | void>({
     query: (params) => ({ url: "/invoices", params: params ?? undefined}),
-    providesTags: ["SupplierInvoices"],
+    providesTags: [{ type: "SupplierInvoices", id: "LIST" }],
   }),
+  getSupplierInvoice: build.query<SupplierInvoiceDTO, string>({
+  query: (id) =>  `/invoices/${id}`,
+  providesTags: (_results, _error, id) => [
+    { type: "SupplierInvoices", id } 
+  ]
+}),
   createSupplierInvoice: build.mutation<SupplierInvoiceDTO, Partial<SupplierInvoiceDTO>>({
     query: (body) => ({ url: "/invoices", method: "POST", body}),
-    invalidatesTags: ["SupplierInvoices", "PurchaseOrders", "DashboardMetrics"],
+    invalidatesTags: [{ type: "SupplierInvoices", id: "LIST"}, "SupplierInvoices", "PurchaseOrders", "DashboardMetrics"],
   }),
   markInvoicePaid: build.mutation<SupplierInvoiceDTO, { id: string }>({
   query: ({ id }) => ({ url: `/invoices/${id}/status`, method: "PATCH" }),
-  invalidatesTags: (_r, _e, { id }) => [{ type: "SupplierInvoices", id }],
+  invalidatesTags: (_r, _e, { id }) =>
+    [{ type: "SupplierInvoices", id }, { type: "SupplierInvoices", id: "LIST"}],
 }),
-
+  deleteSupplierInvoice: build.mutation<void, {id: string}>({
+    query: ({id}) => ({
+      url: `/invoices/${id}`,
+      method: "DELETE",
+    }),
+    invalidatesTags: [{ type: "SupplierInvoices", id: "LIST"}]
+  }),
+  updateSupplierInvoice: build.mutation<SupplierInvoiceDTO, { id: string } & Partial<SupplierInvoiceDTO>>({
+  query: ({ id, ...body }) => ({
+    url: `/invoices/${id}`,
+    method: "PATCH",
+    body, // Make sure body is here!
+  }),
+  invalidatesTags: (_results, _error, { id }) => [
+    { type: "SupplierInvoices", id }, // Invalidate specific invoice
+    { type: "SupplierInvoices", id: "LIST" }, // Invalidate list
+  ],
+}),
   // Goods Receipt
-  getGoodsReceipts: build.query<GoodsReceiptDTO[], { q?: string } | void>({
+  searchGoodsReceipts: build.query<GoodsReceiptDTO[], { q?: string } | void>({
   query: (params) => ({ url: "/grns", params: params ?? undefined }),
   providesTags: ["GoodsReceipts", "PurchaseOrders"],
+}),
+listGoodsReceipts: build.query<GoodsReceiptDTO[], void>({
+  query: () => ({ url: "/grns" }),
+  providesTags: (result) =>
+    result
+      ? [
+          ...result.map(({ id }) => ({ type: "GoodsReceipts" as const, id })),
+          { type: "GoodsReceipts", id: "LIST" },
+        ]
+      : [{ type: "GoodsReceipts", id: "LIST" }],
+}),
+getGoodsReceipt: build.query<GoodsReceiptDTO, {id: string}>({
+  query: (id) => ({ url: `/grns/${id}` }),
+  providesTags: (_result, _error, {id}) => [{ type: "GoodsReceipts", id }],
 }),
 createGRN: build.mutation<GoodsReceiptDTO, Partial<GoodsReceiptDTO>>({
   query: (body) => ({ 
@@ -492,14 +530,36 @@ createGRN: build.mutation<GoodsReceiptDTO, Partial<GoodsReceiptDTO>>({
   }),
   invalidatesTags: ["GoodsReceipts", "PurchaseOrders"],
 }),
-postGRN: build.mutation<{ ok: true }, { id: string }>({
+postGRN: build.mutation<void, { id: string }>({
   query: ({ id }) => ({
-    url: `/grns/${id}/post`, 
-    method: "POST" 
+    url: `/grns/${id}/post`,
+    method: "POST",
   }),
-  invalidatesTags: ["GoodsReceipts", "PurchaseOrders", "Products", "DashboardMetrics"],
+  invalidatesTags: (_result, _error, { id }) => [
+    { type: "GoodsReceipts", id },
+    { type: "GoodsReceipts", id: "LIST" },
+    { type: "PurchaseOrders" }, // Also invalidate POs since they're affected
+  ],
 }),
-    // Expenses
+updateGRN: build.mutation<GoodsReceiptDTO, { id: string } & Partial<GoodsReceiptDTO>>({
+  query: ({ id, ...body }) => ({
+    url: `/grns/${id}`,
+    method: "PUT",
+    body,
+  }),
+  invalidatesTags: (_result, _error, { id }) => [
+    { type: "GoodsReceipts", id },
+    { type: "GoodsReceipts", id: "LIST" },
+  ],
+}),
+deleteGoodsReceipt: build.mutation<void, {id: string}> ({
+  query: ({id}) => ({
+    url: `/grns/${id}`,
+    method: "DELETE"
+  }),
+  invalidatesTags: [{ type: "GoodsReceipts", id: "LIST"}]
+}),
+// Expenses
   createExpense: build.mutation<Expense, Partial<Expense>>({
       query: (expense) => ({
         url: "/expenses",
@@ -549,6 +609,7 @@ export const {
 
   useGetSuppliersQuery,
 
+
   useListPurchaseOrderQuery,
   useGetPurchaseOrderQuery,
   useGetPurchaseOrdersQuery,
@@ -558,12 +619,19 @@ export const {
   useDeletePurchaseOrderMutation,
 
   useGetSupplierInvoicesQuery,
+  useGetSupplierInvoiceQuery,
+  useDeleteSupplierInvoiceMutation,
+  useUpdateSupplierInvoiceMutation,
   useCreateSupplierInvoiceMutation,
   useMarkInvoicePaidMutation,
 
-  useGetGoodsReceiptsQuery,
+  useListGoodsReceiptsQuery, 
+  useSearchGoodsReceiptsQuery,
+  useGetGoodsReceiptQuery, 
   useCreateGRNMutation,
   usePostGRNMutation,
+  useUpdateGRNMutation,
+  useDeleteGoodsReceiptMutation,
 
   useCreateDraftProductMutation,
   useGetDraftProductsQuery,

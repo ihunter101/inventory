@@ -3,6 +3,7 @@
 import Link from "next/link";
 import StatusBadge from "./StatusBadge";
 import { GoodsReceiptDTO, SupplierInvoiceDTO } from "@/app/state/api";
+import { InvoiceActions } from "@/app/(components)/invoices/InvoiceActions";
 
 type Props = {
   data: SupplierInvoiceDTO[];
@@ -37,7 +38,7 @@ export default function InvoiceTable({
             <Th>Date</Th>
             <Th>Amount</Th>
             <Th>Status</Th>
-            <Th className="text-right">Actions</Th>
+            <Th>Actions</Th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
@@ -78,7 +79,7 @@ export default function InvoiceTable({
                     <StatusBadge status={inv.status as any} />
                   </Link>
                 </Td>
-                <Td className="text-right">
+                {/* <Td className="text-right">
                   {!grnExists && hasPO && (
                     <button
                       className="text-primary hover:underline font-medium"
@@ -87,7 +88,16 @@ export default function InvoiceTable({
                       Create GRN
                     </button>
                   )}
-                </Td>
+                </Td> */}
+                <td className="text-right">
+                  <div className="flex items-center">
+                    <InvoiceActions 
+                      supplierInvoice={inv} 
+                      goodsReceipt={goodsReceipts}
+                      onCreateGRN={onCreateGRN}
+                    />
+                  </div>
+                </td>
               </tr>
             );
           })}
