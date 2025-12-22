@@ -1,138 +1,221 @@
-"use client";
+"use client"
 
-import { useAppDispatch, useAppSelector } from "@/app/redux";
-import { setIsSidebarCollapsed } from "@/app/state";
-import { Bell, Menu, Moon, Settings, Sun, Search } from "lucide-react";
-import Link from "next/link";
-import { useTheme } from "next-themes";
-import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
+import React from "react"
+import { usePathname, useRouter } from "next/navigation"
+import { Bell, Search, Settings, User, Moon, Sun, ChevronDown, Menu } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { useSidebar } from "@/components/ui/sidebar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
+import Link from "next/link"
+import { useClerk } from "@clerk/nextjs"
 
-const Navbar = () => {
-  const dispatch = useAppDispatch();
-  const isSideBarCollapsed = useAppSelector((s) => s.global.isSideBarCollapsed);
-  const { setTheme, theme } = useTheme();
+// Hamburger Menu Icon Component
+function HamburgerIcon({ isOpen }: { isOpen: boolean }) {
+  return (
+    <div className="flex h-5 w-5 flex-col items-center justify-center gap-1">
+      <span 
+        className={`h-0.5 w-5 bg-current transition-all duration-150 ${
+          isOpen ? 'translate-y-1.5 rotate-45' : ''
+        }`}
+      />
+      <span 
+        className={`h-0.5 w-5 bg-current transition-all duration-150 ${
+          isOpen ? 'opacity-0' : ''
+        }`}
+      />
+      <span 
+        className={`h-0.5 w-5 bg-current transition-all duration-150 ${
+          isOpen ? '-translate-y-1.5 -rotate-45' : ''
+        }`}
+      />
+    </div>
+  )
+}
 
-  const toggleSidebar = () => dispatch(setIsSidebarCollapsed(!isSideBarCollapsed));
-  const toggleDarkMode = () => setTheme(theme === "dark" ? "light" : "dark");
+// Generate page title from pathname
+function getPageTitle(pathname: string) {
+  const segments = pathname.split("/").filter(Boolean)
+  if (segments.length === 0) return "Dashboard"
+  const lastSegment = segments[segments.length - 1]
+  return lastSegment.charAt(0).toUpperCase() + lastSegment.slice(1)
+}
+
+export default function Navbar() {
+
+
+  const router = useRouter()
+  const { signOut } = useClerk()
+
+  const handleLogout = async () => {
+    // Optional: redirect after sign out
+    await signOut({ redirectUrl: "/sign-in" })
+  }
+  const pathname = usePathname()
+  const pageTitle = getPageTitle(pathname)
+  const [theme, setTheme] = React.useState<"light" | "dark">("light")
+  const { toggleSidebar, state } = useSidebar()
+
+  const toggleTheme = () => {
+    const newTheme = theme === "light" ? "dark" : "light"
+    setTheme(newTheme)
+    document.documentElement.classList.toggle("dark")
+  }
+
+  const isOpen = state === "expanded"
 
   return (
-    <header className="flex w-full items-center justify-between mb-7">
-      {/* LEFT: menu + search */}
-      <div className="flex items-center gap-5">
-        <button
-          type="button"
+    <div className="flex flex-1 items-center justify-between gap-4">
+      {/* Left Side - Hamburger + Title */}
+      <div className="flex items-center gap-3">
+        {/* Custom Hamburger Menu */}
+        <Button 
+          variant="ghost" 
+          size="icon"
           onClick={toggleSidebar}
-          aria-label="Toggle sidebar"
-          className="
-            inline-flex items-center justify-center
-            rounded-full p-3
-            bg-ink-100 hover:bg-ink-200
-            dark:bg-ink-900 dark:hover:bg-ink-800
-            shadow-sm
-          "
+          className="h-9 w-9 transition-colors"
         >
-          <Menu className="h-4 w-4 text-foreground" />
-        </button>
+          <HamburgerIcon isOpen={isOpen} />
+          <span className="sr-only">Toggle Sidebar</span>
+        </Button>
 
-        <div className="relative">
-          <input
-            type="search"
-            placeholder="Start typing to search groups and products"
-            className="
-              w-52 md:w-72
-              rounded-lg
-              border border-border
-              bg-background
-              pl-10 pr-4 py-2.5
-              text-sm text-foreground
-              placeholder:text-foreground/40
-              focus:outline-none
-              focus:ring-3 focus:ring-primary/20
-              focus:border-primary
-              transition
-            "
-          />
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-            <Search className="h-4 w-4 text-foreground/50" />
-          </div>
-        </div>
+        {/* Page Title */}
+        <h1 className="text-lg font-semibold text-foreground">{pageTitle}</h1>
       </div>
 
-      {/* RIGHT: theme toggle + notifications + user */}
-      <div className="flex items-center gap-5">
-        <div className="hidden md:flex items-center gap-5">
-          {/* Theme toggle */}
-          <button
-            type="button"
-            onClick={toggleDarkMode}
-            aria-label="Toggle theme"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background hover:bg-ink-50 dark:hover:bg-ink-900"
-          >
-            {theme === "dark" ? (
-              <Sun className="h-4 w-4 text-foreground/80" />
-            ) : (
-              <Moon className="h-4 w-4 text-foreground/80" />
-            )}
-          </button>
-
-          {/* Notifications */}
+      {/* Right Side Actions */}
+      <div className="flex items-center gap-2">
+        {/* Search - Hidden on mobile */}
+        <div className="hidden md:flex">
           <div className="relative">
-            <button
-              type="button"
-              aria-label="Notifications"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background hover:bg-ink-50 dark:hover:bg-ink-900"
-            >
-              <Bell className="h-4 w-4 text-foreground/80" />
-            </button>
-            <span
-              className="
-                absolute -top-1 -right-1
-                inline-flex h-4 min-w-[1rem] items-center justify-center
-                rounded-full bg-primary px-[0.3rem]
-                text-[10px] font-semibold text-primary-foreground
-              "
-            >
-              3
-            </span>
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search..."
+              className="w-[200px] pl-8 lg:w-[300px]"
+            />
           </div>
-
-          {/* Divider */}
-          <span className="mx-2 h-6 w-px bg-border" />
-
-          {/* Auth (Clerk) */}
-          <SignedIn>
-            <UserButton afterSignOutUrl="/sign-in" />
-          </SignedIn>
-
-          <SignedOut>
-            <SignInButton mode="modal">
-              <button
-                type="button"
-                className="
-                  rounded-md border border-border
-                  bg-background px-3 py-2
-                  text-sm font-medium text-foreground
-                  hover:bg-ink-50 dark:hover:bg-ink-900
-                "
-              >
-                Sign in
-              </button>
-            </SignInButton>
-          </SignedOut>
-
-          {/* Settings link */}
-          <Link href="/settings" aria-label="Settings" className="ml-1">
-            <button
-              type="button"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background hover:bg-ink-50 dark:hover:bg-ink-900"
-            >
-              <Settings className="h-4 w-4 text-foreground/80" />
-            </button>
-          </Link>
         </div>
-      </div>
-    </header>
-  );
-};
 
-export default Navbar;
+        {/* Theme Toggle */}
+        <Button variant="ghost" size="icon" onClick={toggleTheme}>
+          {theme === "light" ? (
+            <Moon className="h-5 w-5" />
+          ) : (
+            <Sun className="h-5 w-5" />
+          )}
+        </Button>
+
+        {/* Notifications */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="relative">
+              <Bell className="h-5 w-5" />
+              <Badge className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full p-0 text-[10px]">
+                3
+              </Badge>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-80">
+            <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <div className="max-h-80 overflow-y-auto">
+              <DropdownMenuItem className="flex flex-col items-start py-3">
+                <div className="font-medium">Low stock alert</div>
+                <div className="text-xs text-muted-foreground">
+                  5 products are running low on stock
+                </div>
+                <div className="text-xs text-muted-foreground">2 hours ago</div>
+              </DropdownMenuItem>
+              <DropdownMenuItem className="flex flex-col items-start py-3">
+                <div className="font-medium">New purchase order</div>
+                <div className="text-xs text-muted-foreground">
+                  PO-2025-001 has been approved
+                </div>
+                <div className="text-xs text-muted-foreground">5 hours ago</div>
+              </DropdownMenuItem>
+              <DropdownMenuItem className="flex flex-col items-start py-3">
+                <div className="font-medium">Invoice received</div>
+                <div className="text-xs text-muted-foreground">
+                  New invoice from Fisher Scientific
+                </div>
+                <div className="text-xs text-muted-foreground">1 day ago</div>
+              </DropdownMenuItem>
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="w-full justify-center text-center">
+              View all notifications
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Settings */}
+        <DropdownMenu>
+          <DropdownMenuContent>
+            <DropdownMenuItem asChild>
+              <Link href="/settings" className="flex items-center">
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Settings</span>
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        
+
+        {/* User Menu */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="gap-2 pl-2 pr-2">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src="/placeholder-avatar.jpg" alt="User" />
+                <AvatarFallback className="bg-primary text-primary-foreground">
+                  JD
+                </AvatarFallback>
+              </Avatar>
+              <div className="hidden flex-col items-start text-left lg:flex">
+                <span className="text-sm font-medium">John Doe</span>
+                <span className="text-xs text-muted-foreground">Admin</span>
+              </div>
+              <ChevronDown className="hidden h-4 w-4 opacity-50 lg:block" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>
+              <div className="flex flex-col">
+                <span className="font-medium">John Doe</span>
+                <span className="text-xs text-muted-foreground">john@example.com</span>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>
+              <User className="mr-2 h-4 w-4" />
+              Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/settings" className="flex items-center">
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Settings</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              className="text-destructive focus:text-destructive"
+              onSelect={handleLogout}
+            >
+              Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  )
+}

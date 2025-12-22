@@ -1,31 +1,26 @@
+
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { Expense } from "./api"; // adjust path to your types if needed
+import { Expense } from "./api";
 
 export interface GlobalState {
-  isSideBarCollapsed: boolean;
-  // isDarkMode is removed since you're using Tailwind toggle + localStorage or HTML class directly
+  // Remove: isSideBarCollapsed: boolean;
+  // The shadcn sidebar manages its own state
 }
 
-const globalInitialState: GlobalState = {
-  isSideBarCollapsed: false,
-};
+const globalInitialState: GlobalState = {};
 
 export const globalSlice = createSlice({
   name: "global",
   initialState: globalInitialState,
   reducers: {
-    setIsSidebarCollapsed: (state, action: PayloadAction<boolean>) => {
-      state.isSideBarCollapsed = action.payload;
-    },
+    // Remove: setIsSidebarCollapsed
   },
 });
 
-export const { setIsSidebarCollapsed } = globalSlice.actions;
-
+export const {} = globalSlice.actions;
 export const globalReducer = globalSlice.reducer;
 
-// src/state/expenseSlice.ts
-
+// Keep your expense slice as is
 interface ExpenseState {
   expenses: Expense[];
 }
@@ -42,7 +37,7 @@ const expenseSlice = createSlice({
       state.expenses = action.payload;
     },
     addExpense: (state, action: PayloadAction<Expense>) => {
-      state.expenses.unshift(action.payload); // newest on top
+      state.expenses.unshift(action.payload);
     },
     removeExpense: (state, action: PayloadAction<string>) => {
       state.expenses = state.expenses.filter((e) => e.expenseId !== action.payload);

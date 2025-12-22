@@ -11,6 +11,7 @@ import Header from "../../(components)/Header";
 import Rating from "../../(components)/Rating";
 import { CreateProductDialog } from "../../(components)/Products/CreateProductDialog";
 import { toast } from "sonner";
+import ProductsPagination from "@/app/(components)/Products/ProductsPagination";
 
 interface ProductFormData {
   name: string;
@@ -221,35 +222,19 @@ const Products = () => {
       )}
 
       {/* Pagination bar */}
-      <div className="mt-6 flex items-center justify-between text-xs text-gray-500">
-        <span>
-          Showing{" "}
-          {products.length === 0
-            ? "0–0"
-            : `${startIndex}–${endIndex}`}{" "}
-          of {totalItems} products
-        </span>
+<div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-xs text-gray-500">
+  <span>
+    Showing{" "}
+    {products.length === 0 ? "0–0" : `${startIndex}–${endIndex}`} of{" "}
+    {totalItems} products
+  </span>
 
-        <div className="flex items-center gap-2">
-          <button
-            disabled={page === 1}
-            onClick={() => updateQuery({ page: page - 1 })}
-            className="px-3 py-1 rounded border text-xs disabled:opacity-40"
-          >
-            Previous
-          </button>
-          <span>
-            Page {page} of {totalPages}
-          </span>
-          <button
-            disabled={page === totalPages}
-            onClick={() => updateQuery({ page: page + 1 })}
-            className="px-3 py-1 rounded border text-xs disabled:opacity-40"
-          >
-            Next
-          </button>
-        </div>
-      </div>
+  <ProductsPagination
+    page={page}
+    totalPages={totalPages}
+    onPageChange={(nextPage) => updateQuery({ page: nextPage })}
+  />
+</div>
 
       {/* Modal Dialog */}
       <CreateProductDialog

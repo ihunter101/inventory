@@ -1,33 +1,31 @@
-// DashboardWrapper.tsx
-"use client";
+"use client"
 
-import React from "react";
-import Navbar from "@/app/(components)/Navbar";
-import Sidebar from "@/app/(components)/Navbar/Sidebar";
-import { useAppSelector } from "../redux";
+import React from "react"
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
+import { AppSidebar } from "@/app/(components)/Navbar/Sidebar/index"
+import Navbar from "@/app/(components)/Navbar"
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
-  const isSideBarCollapsed = useAppSelector(
-    (state) => state.global.isSideBarCollapsed
-  );
-
   return (
-    <div className="flex w-full min-h-screen bg-background text-foreground">
-      <Sidebar />
-      <main
-        className={`flex flex-col w-full h-full py-7 px-9 transition-[padding] ${
-          isSideBarCollapsed ? "md:pl-24" : "md:pl-72"
-        }`}
-      >
-        <Navbar />
-        {children}
-      </main>
-    </div>
-  );
-};
+    <SidebarProvider defaultOpen={true}>
+      <AppSidebar />
+      <SidebarInset>
+        {/* Header with Custom Hamburger in Navbar */}
+        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4">
+          <Navbar />
+        </header>
+
+        {/* Main Content Area */}
+        <main className="flex flex-1 flex-col p-4 md:p-6 lg:p-8">
+          {children}
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
+  )
+}
 
 const DashboardWrapper = ({ children }: { children: React.ReactNode }) => {
-  return <DashboardLayout>{children}</DashboardLayout>;
-};
+  return <DashboardLayout>{children}</DashboardLayout>
+}
 
-export default DashboardWrapper;
+export default DashboardWrapper
