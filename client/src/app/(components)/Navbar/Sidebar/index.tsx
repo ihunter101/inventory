@@ -1,10 +1,11 @@
-"use client";
+// UPDATE YOUR APP SIDEBAR
+// app/(components)/app-sidebar.tsx
 
-import React from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useAppDispatch, useAppSelector } from "@/app/redux";
-import { setIsSidebarCollapsed } from "@/app/state";
+"use client"
+
+import * as React from "react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import {
   Layout,
   Archive,
@@ -14,237 +15,285 @@ import {
   BarChart3,
   User,
   SlidersHorizontal,
-  Menu,
   LifeBuoy,
-} from "lucide-react";
+} from "lucide-react"
 
-/* ------------------------- */
-/* Single link               */
-/* ------------------------- */
-interface SidebarLinkProps {
-  href: string;
-  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
-  label: string;
-  isCollapsed: boolean;
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarSeparator,
+} from "@/components/ui/sidebar"
+import SidebarUserFooter from "./SideBaruserFooter"
+import { cn } from "@/lib/utils"
+import Image from "next/image"
+
+// Navigation items structure
+const navigation = {
+  home: [
+    {
+      title: "Dashboard",
+      href: "/dashboard",
+      icon: Layout,
+    },
+  ],
+  operations: [
+    {
+      title: "Inventory",
+      href: "/inventory",
+      icon: Archive,
+    },
+    {
+      title: "Products",
+      href: "/products",
+      icon: Clipboard,
+    },
+  ],
+  finance: [
+    {
+      title: "Purchases",
+      href: "/purchases",
+      icon: ClipboardList,
+    },
+    {
+      title: "Expenses",
+      href: "/expenses",
+      icon: CircleDollarSign,
+    },
+    {
+      title: "Sales",
+      href: "/sales",
+      icon: BarChart3,
+    },
+  ],
+  settings: [
+    {
+      title: "Users",
+      href: "/users",
+      icon: User,
+    },
+    {
+      title: "Settings",
+      href: "/settings",
+      icon: SlidersHorizontal,
+    },
+  ],
 }
 
-const SidebarLinks = ({ href, icon: Icon, label, isCollapsed }: SidebarLinkProps) => {
-  const pathname = usePathname();
-  const isActive =
-    pathname === href ||
-    pathname === `${href}/` ||
-    (href !== "/" && pathname.startsWith(`${href}/`));
+export function AppSidebar() {
+  const pathname = usePathname()
 
-  const basePadding = isCollapsed ? "py-2.5" : "py-2.5 pl-3 pr-2";
-
-  return (
-    <Link href={href} className="block">
-      <div
-        className={[
-          "relative flex items-center gap-3 rounded-md transition-colors",
-          basePadding,
-          isActive
-            ? "bg-primary/10 text-primary"
-            : "text-foreground/80 hover:bg-ink-50 dark:hover:bg-ink-900",
-        ].join(" ")}
-      >
-        {isActive && (
-          <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded bg-primary" />
-        )}
-
-        <Icon
-          className={[
-            "h-5 w-5",
-            isActive ? "text-primary" : "text-foreground/60",
-          ].join(" ")}
-        />
-
-        {!isCollapsed && (
-          <span
-            className={[
-              "truncate text-sm font-medium",
-              isActive ? "text-primary" : "",
-            ].join(" ")}
-          >
-            {label}
-          </span>
-        )}
-      </div>
-    </Link>
-  );
-};
-
-/* ------------------------- */
-/* Section header            */
-/* ------------------------- */
-function SectionHeader({ title, collapsed }: { title: string; collapsed: boolean }) {
-  if (collapsed) return null;
+  const isActive = (href: string) => {
+    if (href === "/dashboard") {
+      return pathname === href || pathname === "/"
+    }
+    return pathname === href || pathname.startsWith(`${href}/`)
+  }
 
   return (
-    <div className="flex items-center justify-between px-4 pt-3 pb-1">
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground/40">
-        {title}
-      </div>
-    </div>
-  );
-}
+    <Sidebar collapsible="icon" variant="sidebar">
+      {/* Changed from collapsible="offcanvas" to collapsible="icon" */}
+      
+      {/* Header with Logo */}
+      <SidebarHeader>
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton size="lg" asChild>
+            <Link href="/dashboard" className="flex items-center gap-3">
+              {/* EXPANDED logo (nice + readable) */}
+              <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border bg-white shadow-sm group-data-[collapsible=icon]:hidden">
+                <Image
+                  src="/logo.png"
+                  alt="LSCL Logo"
+                  width={48}
+                  height={48}
+                  priority
+                  className="h-11 w-11 object-contain"
+                />
+              </div>
 
-const Divider = () => <div className="mx-4 my-3 h-px bg-border" />;
+              {/* COLLAPSED logo (small sidebar) */}
+              <div className="hidden h-10 w-10 items-center justify-center overflow-hidden rounded-xl border bg-white shadow-sm group-data-[collapsible=icon]:flex">
+                <Image
+                  src="/logo.png"
+                  alt="LSCL Logo"
+                  width={32}
+                  height={32}
+                  className="h-8 w-8 object-contain"
+                />
+              </div>
 
-/* ------------------------- */
-/* Sidebar root              */
-/* ------------------------- */
-export default function Sidebar() {
-  const dispatch = useAppDispatch();
-  const isCollapsed = useAppSelector((s) => s.global.isSideBarCollapsed);
-  const toggle = () => dispatch(setIsSidebarCollapsed(!isCollapsed));
+              {/* Text only when expanded */}
+              <div className="flex flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
+                <span className="font-semibold">LCS Stock</span>
+                <span className="text-xs text-muted-foreground">
+                  Inventory System
+                </span>
+              </div>
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    </SidebarHeader>
 
-  const wrapper =
-    "fixed z-40 flex h-full flex-col shadow-md transition-all duration-300 " +
-    "bg-background border-r border-border " +
-    (isCollapsed ? "w-0 md:w-16" : "w-72 md:w-64") +
-    " overflow-hidden";
+      <SidebarContent>
+        {/* Home Section */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Home</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navigation.home.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={isActive(item.href)} 
+                    tooltip={item.title}
+                    className={cn("hover:bg-accent hover:text-accent-foreground",
+                              // active = stays light green permanently
+                            "data-[active=true]:bg-accent data-[active=true]:text-accent-foreground data-[active=true]:font-medium",
+                            // optional: nicer focus ring
+                            "focus-visible:ring-2 focus-visible:ring-primary/30"
+                  )}>
+                    <Link href={item.href}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-  return (
-    <aside className={wrapper} aria-label="Sidebar">
-      {/* Header / Brand */}
-      <div
-        className={[
-          "flex items-center justify-between pt-6",
-          isCollapsed ? "px-4" : "px-5",
-        ].join(" ")}
-      >
-        <div className="flex items-center gap-3">
-          <div className="rounded-md bg-primary px-2 py-1 text-xs font-semibold text-primary-foreground">
-            Logo
-          </div>
-          {!isCollapsed && (
-            <h1 className="text-xl font-extrabold text-foreground">LCS Stock</h1>
-          )}
-        </div>
+        <SidebarSeparator />
 
-        {/* Mobile toggle */}
-        <button
-          type="button"
-          className="ml-2 rounded-full bg-ink-50 p-2 text-foreground hover:bg-ink-100 dark:bg-ink-900 dark:hover:bg-ink-800 md:hidden"
-          onClick={toggle}
-          aria-label="Toggle sidebar"
-        >
-          <Menu className="h-4 w-4" />
-        </button>
-      </div>
+        {/* Operations Section */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Operations</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navigation.operations.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={isActive(item.href)} 
+                    tooltip={item.title}
+                    className={cn("hover:bg-accent hover:text-accent-foreground",
+                              // active = stays light green permanently
+                            "data-[active=true]:bg-accent data-[active=true]:text-accent-foreground data-[active=true]:font-medium",
+                            // optional: nicer focus ring
+                            "focus-visible:ring-2 focus-visible:ring-primary/30"
+                  )}
+                    >
+                    <Link href={item.href}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-      {/* NAV CONTENT */}
-      <nav className="mt-4 flex-1">
-        {/* HOME */}
-        <SectionHeader title="Home" collapsed={isCollapsed} />
-        <div className="px-2">
-          <SidebarLinks
-            href="/dashboard"
-            icon={Layout}
-            label="Dashboard"
-            isCollapsed={isCollapsed}
-          />
-        </div>
+        <SidebarSeparator />
 
-        <Divider />
+        {/* Finance Section */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Finance</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navigation.finance.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={isActive(item.href)} 
+                    tooltip={item.title}
+                    className={cn("hover:bg-accent hover:text-accent-foreground",
+                              // active = stays light green permanently
+                            "data-[active=true]:bg-accent data-[active=true]:text-accent-foreground data-[active=true]:font-medium",
+                            // optional: nicer focus ring
+                            "focus-visible:ring-2 focus-visible:ring-primary/30"
+                  )}>
+                    <Link href={item.href}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-        {/* OPERATIONS */}
-        <SectionHeader title="Operations" collapsed={isCollapsed} />
-        <div className="px-2">
-          <SidebarLinks
-            href="/inventory"
-            icon={Archive}
-            label="Inventory"
-            isCollapsed={isCollapsed}
-          />
-          <SidebarLinks
-            href="/products"
-            icon={Clipboard}
-            label="Products"
-            isCollapsed={isCollapsed}
-          />
-        </div>
+        <SidebarSeparator />
 
-        {/* Spacer like the mock */}
-        <div className="h-8" />
-
-        {/* FINANCE */}
-        <SectionHeader title="Finance" collapsed={isCollapsed} />
-        <div className="px-2">
-          <SidebarLinks
-            href="/purchases"
-            icon={ClipboardList}
-            label="Purchases"
-            isCollapsed={isCollapsed}
-          />
-          <SidebarLinks
-            href="/expenses"
-            icon={CircleDollarSign}
-            label="Expenses"
-            isCollapsed={isCollapsed}
-          />
-          <SidebarLinks
-            href="/sales"
-            icon={BarChart3}
-            label="Sales"
-            isCollapsed={isCollapsed}
-          />
-        </div>
-
-        {/* “In development” card */}
-        {!isCollapsed && (
-          <div className="mx-4 mt-6 rounded-lg border border-border bg-ink-50 dark:bg-ink-900/40 p-3">
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+        {/* Development Notice - Only shows when expanded */}
+        <SidebarGroup className="mt-auto">
+          <div className="rounded-lg border bg-amber-50 p-3 dark:bg-amber-950/20 group-data-[collapsible=icon]:hidden">
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-900 dark:text-amber-200">
               • In development
             </span>
-            <p className="mt-2 text-xs text-foreground/70">
-              Some features are still being built. You’ll see them light up here soon.
+            <p className="mt-2 text-xs text-muted-foreground">
+              Some features are still being built. You'll see them light up here soon.
             </p>
           </div>
-        )}
+        </SidebarGroup>
 
-        {/* Push bottom groups down */}
-        <div className="flex-1" />
+        <SidebarSeparator />
 
-        {/* PEOPLE & SETTINGS */}
-        <Divider />
-        <SectionHeader title="People & Settings" collapsed={isCollapsed} />
-        <div className="px-2">
-          <SidebarLinks
-            href="/users"
-            icon={User}
-            label="Users"
-            isCollapsed={isCollapsed}
-          />
-          <SidebarLinks
-            href="/settings"
-            icon={SlidersHorizontal}
-            label="Settings"
-            isCollapsed={isCollapsed}
-          />
-        </div>
+        {/* Settings Section */}
+        <SidebarGroup>
+          <SidebarGroupLabel>People & Settings</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navigation.settings.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={isActive(item.href)} 
+                    tooltip={item.title}
+                    className={cn("hover:bg-accent hover:text-accent-foreground",
+                              // active = stays light green permanently
+                            "data-[active=true]:bg-accent data-[active=true]:text-accent-foreground data-[active=true]:font-medium",
+                            // optional: nicer focus ring
+                            "focus-visible:ring-2 focus-visible:ring-primary/30"
+                  )}>
+                    <Link href={item.href}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
 
-        {/* HELP CENTER */}
-        {!isCollapsed && <div className="h-2" />}
-        <div className="mb-4 px-2">
-          <Link href="/help" className="block">
-            <div className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm text-foreground/80 hover:bg-ink-50 dark:hover:bg-ink-900">
-              <LifeBuoy className="h-5 w-5 text-foreground/60" />
-              {!isCollapsed && <span className="font-medium">Help Center</span>}
-            </div>
-          </Link>
-        </div>
-      </nav>
+      {/* Footer with Help */}
+      <SidebarSeparator />
 
-      {/* Footer */}
-      {!isCollapsed && (
-        <div className="mb-6 px-5">
-          <p className="text-center text-[11px] text-foreground/50">
-            &copy; {new Date().getFullYear()} LCS Stock
-          </p>
-        </div>
-      )}
-    </aside>
-  );
+      <SidebarFooter>
+        <SidebarUserFooter
+          user={{
+            name: "hunter",
+            email: "m@example.com",
+            imageUrl: "/placeholder-avatar.jpg",
+          }}
+          onLogout={() => {
+            // later: clerk.signOut()
+            console.log("logout")
+          }}
+        />
+      </SidebarFooter>
+    </Sidebar>
+  )
 }
