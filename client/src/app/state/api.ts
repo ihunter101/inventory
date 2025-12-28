@@ -1,6 +1,8 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { url } from "inspector";
 import page from "../(private)/sales/page";
+import { FulfillStockRequestResponse, Paginated, ReviewStockRequestBody, StockRequestDetailResponse, StockRequestListQuery, StockRequestListResponse, StockRequestStatus } from "./stockSheetSlice";
+import { parseAppSegmentConfig } from "next/dist/build/segment-config/app/app-segment-config";
 
 // ----------------------
 // Interfaces
@@ -31,6 +33,7 @@ export interface Product {
   unit?: string; //added only to assist in the CreatePruchasreOrderModal
   imageUrl?: string;
   department?: string;
+  category?: string;
 }
 
 export interface ProductDraft {
@@ -54,7 +57,6 @@ export interface Inventory {
 
 export interface NewProduct {
   name: string;
-  price: number;
   rating?: number;
   stockQuantity: number;
   unit?: string;
@@ -314,7 +316,8 @@ export const api = createApi({
   }),
   tagTypes: [
     "DashboardMetrics", "Products", "Users", "Expenses",
-    "PurchaseOrders", "SupplierInvoices", "GoodsReceipts", "Suppliers", "Inventory", "DraftProducts"
+    "PurchaseOrders", "SupplierInvoices", "GoodsReceipts", 
+    "Suppliers", "Inventory", "DraftProducts", "StockSheet"
   ],
   endpoints: (build) => ({
     // Dashboard Metrics
@@ -579,14 +582,69 @@ deleteGoodsReceipt: build.mutation<void, {id: string}> ({
             ]
           : [{ type: "DraftProducts" as const, id: "LIST" }],
     }),
-    createDraftProduct: build.mutation<{ id: string; name: string; unit: string }, { name: string; unit?: string }>({
-  query: (body) => ({
-    url: "/draft-products",
-    method: "POST",
-    body,
-  }),
+  createDraftProduct: build.mutation<{ id: string; name: string; unit: string }, { name: string; unit?: string }>({
+      query: (body) => ({
+        url: "/draft-products",
+        method: "POST",
+        body,
+    }),
 }),
+  createStockSheet: build.mutation<{id: string, status: string, submittedAt: string}, {lines: Array<{productId: string, requestedQty: number}>}>({
+    query: (body) => ({
+      url: "/stock-requests",
+      method: "POST",
+      body,
+    }),
+    invalidatesTags: [{ type: "StockSheet", id: "LIST"}]
+  }),
 
+  listStockRequests: build.query<StockRequestListResponse, StockRequestListQuery>({
+    query: (args) => {
+      const params: Record<string, any> = {
+        page: args.page,
+        pageSize: args.pageSize ?? 20,
+      };
+
+      if (args.location) params.location = args.location;
+      if (args.status) params.status = args.status;
+      if (args.search?.trim()) params.search = args.search.trim();
+
+      return {
+        url: "/stock-requests",
+        params,
+        method: "GET",
+      };
+    },
+    providesTags: [{ type: "StockSheet", id: "LIST" }],
+  }),
+  getStockRequestById: build.query<StockRequestDetailResponse, string>({
+    query: (id) => ({
+      url: `/stock-requests/${id}`,
+      method: "GET"
+    }),
+    providesTags: (results, _err, id) => [{ type: "StockSheet", id}, { type: "StockSheet", id: "LIST"}]
+  }),
+  reviewStockRequest: build.mutation<{ ok: boolean}, ReviewStockRequestBody>({
+    query: ({ id, body}) => ({
+      url: `/stock-requests/${id}/review`,
+      method: "PATCH",
+      body,
+    }),
+    invalidatesTags: (_res, _err, arg) => [
+      { type: "StockSheet", id: arg.id},
+      { type: "StockSheet", id: "LIST"}
+    ],
+  }),
+  fulfillStockRequest: build.mutation<FulfillStockRequestResponse, string>({
+    query: (id) => ({
+      url: `/stock-requests/${id}/fulfill`, 
+      method: "POST", 
+    }),
+    invalidatesTags: (_res, _err, id) => [
+      { type: "StockSheet", id },
+      { type: "StockSheet", id: "LIST" },
+    ],
+  })
   }),
 });
 
@@ -635,19 +693,12 @@ export const {
 
   useCreateDraftProductMutation,
   useGetDraftProductsQuery,
+
+  useCreateStockSheetMutation,
+  useListStockRequestsQuery,
+  useGetStockRequestByIdQuery,
+  useReviewStockRequestMutation,
+  useFulfillStockRequestMutation,
 } = api;
 
-
-// the CreateApi function has four properties 
-// the reducer path which is where all the information about stored data and states related to your app is 
-// the baseQuery prop which contains a functions called baseQuery set the baseURL for getting to your inital webpage and from there more urls paths can be added
-// tagTypes help assign tags to a some kind of object (data) and tracks it so if something changes redux toolkit reflects those new changes
-// endpoints are the last file paths in a URL. Here DashboardMetrics is the name we give to this endpoint. build.query tells it that its a get request (were fetching data) 
-// ... cont and DashbaordMetrics is they type of data we expect back. which is popular products, sales summary, purchases summary, expense summary and expense by category from the interface DashboardMetrics
-// and void means this query takes no inputs nor does it have any parameters 
-// query: () => "/dashboard", this arrow function tells redux wen someone calls getDashBoardMetrics, render the /dashboard enpoint
-
-
-// redux toolkit automatically create react hooks for every endpoint that we define. since we created an getDashmetrics, redux creates an hook get useGetDasboardMetrics that we can use in our components (for tat enpoint) for fetching data
-    // const { data, error, isLoading } = useGetDashboardMetricsQuery(); for example this snippet of code handles all this information for us
 

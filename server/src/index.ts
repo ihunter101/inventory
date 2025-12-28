@@ -47,6 +47,7 @@ import invoiceRoutes from "./routes/invoiceRoutes";
 import goodsReceiptRoutes from "./routes/goodsReceiptRoute";
 import inventoryRoutes from "./routes/inventoryRoutes"
 import draftProductRoutes from "./routes/productDraftRoutes"
+import  stockSheetRoutes  from "./routes/stocksheetRoutes";
 
 process.on('uncaughtException', (err) => {
   console.error('💥 Uncaught Exception:', err);
@@ -96,6 +97,7 @@ protectedRouter.use("/invoices", invoiceRoutes);
 protectedRouter.use("/grns", goodsReceiptRoutes);
 protectedRouter.use("/inventory", inventoryRoutes);
 protectedRouter.use("/draft-products", draftProductRoutes);
+protectedRouter.use("/stock-requests", stockSheetRoutes);
 
 // Mount the protected router
 app.use(protectedRouter);

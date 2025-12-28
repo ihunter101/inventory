@@ -2,7 +2,7 @@
 
 import React from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { Bell, Search, Settings, User, Moon, Sun, ChevronDown, Menu } from "lucide-react"
+import { Bell, Search, Settings, User, Moon, Sun, ChevronDown, ClipboardList } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useSidebar } from "@/components/ui/sidebar"
@@ -18,6 +18,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { useClerk } from "@clerk/nextjs"
+import { useAppSelector } from "@/app/redux"
+import { selectStockSheetCount } from "@/app/state/stockSheetSlice"
 
 // Hamburger Menu Icon Component
 function HamburgerIcon({ isOpen }: { isOpen: boolean }) {
@@ -42,6 +44,29 @@ function HamburgerIcon({ isOpen }: { isOpen: boolean }) {
   )
 }
 
+function StockSheetNavbarButton() {
+  const count = useAppSelector(selectStockSheetCount);
+
+  return (
+    <Link
+      href="/stock-sheet"
+      className="relative inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-300 hover:bg-gradient-to-r hover:from-emerald-50 hover:to-green-50 hover:shadow-sm group"
+    >
+      <div className="relative">
+        <ClipboardList className="h-5 w-5 text-emerald-600 group-hover:text-emerald-700 transition-colors" />
+        {count > 0 && (
+          <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-r from-emerald-500 to-green-600 text-[10px] font-bold text-white shadow-lg shadow-emerald-500/30 animate-pulse">
+            {count}
+          </span>
+        )}
+      </div>
+      <span className="text-gray-700 group-hover:text-emerald-700 transition-colors">
+        Stock Sheet
+      </span>
+    </Link>
+  );
+}
+
 // Generate page title from pathname
 function getPageTitle(pathname: string) {
   const segments = pathname.split("/").filter(Boolean)
@@ -51,15 +76,13 @@ function getPageTitle(pathname: string) {
 }
 
 export default function Navbar() {
-
-
   const router = useRouter()
   const { signOut } = useClerk()
 
   const handleLogout = async () => {
-    // Optional: redirect after sign out
     await signOut({ redirectUrl: "/sign-in" })
   }
+  
   const pathname = usePathname()
   const pageTitle = getPageTitle(pathname)
   const [theme, setTheme] = React.useState<"light" | "dark">("light")
@@ -115,6 +138,9 @@ export default function Navbar() {
           )}
         </Button>
 
+        {/* Stock Sheet Button - Fixed */}
+        <StockSheetNavbarButton />
+
         {/* Notifications */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -157,19 +183,6 @@ export default function Navbar() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-
-        {/* Settings */}
-        <DropdownMenu>
-          <DropdownMenuContent>
-            <DropdownMenuItem asChild>
-              <Link href="/settings" className="flex items-center">
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
-              </Link>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        
 
         {/* User Menu */}
         <DropdownMenu>

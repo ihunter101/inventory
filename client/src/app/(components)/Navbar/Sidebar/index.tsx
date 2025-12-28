@@ -1,6 +1,3 @@
-// UPDATE YOUR APP SIDEBAR
-// app/(components)/app-sidebar.tsx
-
 "use client"
 
 import * as React from "react"
@@ -15,7 +12,6 @@ import {
   BarChart3,
   User,
   SlidersHorizontal,
-  LifeBuoy,
 } from "lucide-react"
 
 import {
@@ -34,6 +30,7 @@ import {
 import SidebarUserFooter from "./SideBaruserFooter"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
+import { useClerk, useUser } from "@clerk/nextjs"
 
 // Navigation items structure
 const navigation = {
@@ -89,6 +86,8 @@ const navigation = {
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const { signOut } = useClerk()
+  const { user } = useUser()
 
   const isActive = (href: string) => {
     if (href === "/dashboard") {
@@ -97,51 +96,59 @@ export function AppSidebar() {
     return pathname === href || pathname.startsWith(`${href}/`)
   }
 
+  const handleLogout = async () => {
+    // Clear sidebar state before signing out
+    try {
+      localStorage.removeItem("sidebar:state")
+      await signOut({ redirectUrl: "/sign-in" })
+    } catch (error) {
+      console.error("Logout error:", error)
+    }
+  }
+
   return (
-    <Sidebar collapsible="icon" variant="sidebar">
-      {/* Changed from collapsible="offcanvas" to collapsible="icon" */}
-      
+    <Sidebar collapsible="icon">
       {/* Header with Logo */}
       <SidebarHeader>
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <SidebarMenuButton size="lg" asChild>
-            <Link href="/dashboard" className="flex items-center gap-3">
-              {/* EXPANDED logo (nice + readable) */}
-              <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border bg-white shadow-sm group-data-[collapsible=icon]:hidden">
-                <Image
-                  src="/logo.png"
-                  alt="LSCL Logo"
-                  width={48}
-                  height={48}
-                  priority
-                  className="h-11 w-11 object-contain"
-                />
-              </div>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" asChild>
+              <Link href="/dashboard" className="flex items-center gap-3">
+                {/* EXPANDED logo */}
+                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border bg-white shadow-sm group-data-[collapsible=icon]:hidden">
+                  <Image
+                    src="/logo.png"
+                    alt="LSCL Logo"
+                    width={48}
+                    height={48}
+                    priority
+                    className="h-11 w-11 object-contain"
+                  />
+                </div>
 
-              {/* COLLAPSED logo (small sidebar) */}
-              <div className="hidden h-10 w-10 items-center justify-center overflow-hidden rounded-xl border bg-white shadow-sm group-data-[collapsible=icon]:flex">
-                <Image
-                  src="/logo.png"
-                  alt="LSCL Logo"
-                  width={32}
-                  height={32}
-                  className="h-8 w-8 object-contain"
-                />
-              </div>
+                {/* COLLAPSED logo */}
+                <div className="hidden h-10 w-10 items-center justify-center overflow-hidden rounded-xl border bg-white shadow-sm group-data-[collapsible=icon]:flex">
+                  <Image
+                    src="/logo.png"
+                    alt="LSCL Logo"
+                    width={32}
+                    height={32}
+                    className="h-8 w-8 object-contain"
+                  />
+                </div>
 
-              {/* Text only when expanded */}
-              <div className="flex flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
-                <span className="font-semibold">LCS Stock</span>
-                <span className="text-xs text-muted-foreground">
-                  Inventory System
-                </span>
-              </div>
-            </Link>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
-    </SidebarHeader>
+                {/* Text only when expanded */}
+                <div className="flex flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
+                  <span className="font-semibold">LCS Stock</span>
+                  <span className="text-xs text-muted-foreground">
+                    Inventory System
+                  </span>
+                </div>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
 
       <SidebarContent>
         {/* Home Section */}
@@ -155,12 +162,12 @@ export function AppSidebar() {
                     asChild 
                     isActive={isActive(item.href)} 
                     tooltip={item.title}
-                    className={cn("hover:bg-accent hover:text-accent-foreground",
-                              // active = stays light green permanently
-                            "data-[active=true]:bg-accent data-[active=true]:text-accent-foreground data-[active=true]:font-medium",
-                            // optional: nicer focus ring
-                            "focus-visible:ring-2 focus-visible:ring-primary/30"
-                  )}>
+                    className={cn(
+                      "hover:bg-accent hover:text-accent-foreground",
+                      "data-[active=true]:bg-accent data-[active=true]:text-accent-foreground data-[active=true]:font-medium",
+                      "focus-visible:ring-2 focus-visible:ring-primary/30"
+                    )}
+                  >
                     <Link href={item.href}>
                       <item.icon />
                       <span>{item.title}</span>
@@ -185,13 +192,12 @@ export function AppSidebar() {
                     asChild 
                     isActive={isActive(item.href)} 
                     tooltip={item.title}
-                    className={cn("hover:bg-accent hover:text-accent-foreground",
-                              // active = stays light green permanently
-                            "data-[active=true]:bg-accent data-[active=true]:text-accent-foreground data-[active=true]:font-medium",
-                            // optional: nicer focus ring
-                            "focus-visible:ring-2 focus-visible:ring-primary/30"
-                  )}
-                    >
+                    className={cn(
+                      "hover:bg-accent hover:text-accent-foreground",
+                      "data-[active=true]:bg-accent data-[active=true]:text-accent-foreground data-[active=true]:font-medium",
+                      "focus-visible:ring-2 focus-visible:ring-primary/30"
+                    )}
+                  >
                     <Link href={item.href}>
                       <item.icon />
                       <span>{item.title}</span>
@@ -216,12 +222,12 @@ export function AppSidebar() {
                     asChild 
                     isActive={isActive(item.href)} 
                     tooltip={item.title}
-                    className={cn("hover:bg-accent hover:text-accent-foreground",
-                              // active = stays light green permanently
-                            "data-[active=true]:bg-accent data-[active=true]:text-accent-foreground data-[active=true]:font-medium",
-                            // optional: nicer focus ring
-                            "focus-visible:ring-2 focus-visible:ring-primary/30"
-                  )}>
+                    className={cn(
+                      "hover:bg-accent hover:text-accent-foreground",
+                      "data-[active=true]:bg-accent data-[active=true]:text-accent-foreground data-[active=true]:font-medium",
+                      "focus-visible:ring-2 focus-visible:ring-primary/30"
+                    )}
+                  >
                     <Link href={item.href}>
                       <item.icon />
                       <span>{item.title}</span>
@@ -260,12 +266,12 @@ export function AppSidebar() {
                     asChild 
                     isActive={isActive(item.href)} 
                     tooltip={item.title}
-                    className={cn("hover:bg-accent hover:text-accent-foreground",
-                              // active = stays light green permanently
-                            "data-[active=true]:bg-accent data-[active=true]:text-accent-foreground data-[active=true]:font-medium",
-                            // optional: nicer focus ring
-                            "focus-visible:ring-2 focus-visible:ring-primary/30"
-                  )}>
+                    className={cn(
+                      "hover:bg-accent hover:text-accent-foreground",
+                      "data-[active=true]:bg-accent data-[active=true]:text-accent-foreground data-[active=true]:font-medium",
+                      "focus-visible:ring-2 focus-visible:ring-primary/30"
+                    )}
+                  >
                     <Link href={item.href}>
                       <item.icon />
                       <span>{item.title}</span>
@@ -278,20 +284,17 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      {/* Footer with Help */}
+      {/* Footer with User Info */}
       <SidebarSeparator />
 
       <SidebarFooter>
         <SidebarUserFooter
           user={{
-            name: "hunter",
-            email: "m@example.com",
-            imageUrl: "/placeholder-avatar.jpg",
+            name: user?.fullName || user?.username || "User",
+            email: user?.primaryEmailAddress?.emailAddress || "user@example.com",
+            imageUrl: user?.imageUrl || "/placeholder-avatar.jpg",
           }}
-          onLogout={() => {
-            // later: clerk.signOut()
-            console.log("logout")
-          }}
+          onLogout={handleLogout}
         />
       </SidebarFooter>
     </Sidebar>

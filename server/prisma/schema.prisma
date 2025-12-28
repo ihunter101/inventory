@@ -10,7 +10,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-    url      = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
 model Users {
@@ -24,6 +24,9 @@ model Users {
   lastLogin DateTime? @default(now())
 
   stockLedger StockLedger[]
+
+  stockRequestsCreated  StockRequest[] @relation("StockRequestRequestedBy")
+  stockRequestsReviewed StockRequest[] @relation("StockRequestReviewedBy")
 }
 
 enum Role {
@@ -50,12 +53,12 @@ enum Location {
 enum Department {
   Administration
   SpecimenCollection
-  heamatology 
+  heamatology
   Chemistry
   Offlines
   Cytology
   Bacteriology
-  SpecialChemistry 
+  SpecialChemistry
 }
 
 model Products {
@@ -70,7 +73,7 @@ model Products {
   supplier      String?
   expiryDate    DateTime?
 
-  imageUrl String?
+  imageUrl   String?
   Department String?
 
   sku String? @unique
@@ -86,6 +89,8 @@ model Products {
   stockMoves   StockLedger[]
   createdAt    DateTime?             @default(now())
   updatedAt    DateTime              @default(now()) @updatedAt
+
+  stockRequestLines StockRequestLine[]
 
   @@map("Products")
 }
@@ -105,24 +110,24 @@ model Inventory {
 }
 
 model Sale {
-  id Int @id @default(autoincrement())
-  locationId Int 
-  salesDate DateTime
+  id         Int      @id @default(autoincrement())
+  locationId Int
+  salesDate  DateTime
 
   hundredsCount Int @default(0)
-  fiftiesCount Int @default(0)
+  fiftiesCount  Int @default(0)
   twentiesCount Int @default(0)
-  tensCount Int @default(0)
-  fivesCount Int @default(0)
+  tensCount     Int @default(0)
+  fivesCount    Int @default(0)
 
-  cashTotal Decimal @db.Decimal(10, 2)
-  grandTotal Decimal @db.Decimal(10,2)
+  cashTotal  Decimal @db.Decimal(10, 2)
+  grandTotal Decimal @db.Decimal(10, 2)
 
   creditCardTotal Decimal @default(0) @db.Decimal(10, 2)
-  debitCardTotal Decimal @default(0) @db.Decimal(10,2)
-  chequeTotal Decimal @default(0) @db.Decimal(10,2)
+  debitCardTotal  Decimal @default(0) @db.Decimal(10, 2)
+  chequeTotal     Decimal @default(0) @db.Decimal(10, 2)
 
-  notes String? 
+  notes     String?
   enteredBy String
   //VerifiedBy String shoul be a reference to a user
   //verifiedAt DateTime
@@ -133,24 +138,21 @@ model Sale {
   @@unique([locationId, salesDate]) //one Entry Per Day
   @@index([salesDate]) //@@index(locationId, createdAt)
   @@map("dailySales")
-
 }
 
 model SalesAuditLog {
-  id Int @id @default(autoincrement())
-  salesId Int
-  action String @db.VarChar(50) //Created, updated, deleted, verified
+  id         Int      @id @default(autoincrement())
+  salesId    Int
+  action     String   @db.VarChar(50) //Created, updated, deleted, verified
   columnName String
-  oldValue String
-  changedBy String 
-  changedAt DateTime @default(now())
+  oldValue   String
+  changedBy  String
+  changedAt  DateTime @default(now())
 
   @@index([salesId])
   @@index([changedAt])
   @@map("sales_audit_log")
-
 }
-
 
 model Sales {
   saleId      String   @id
@@ -177,7 +179,7 @@ model Expenses {
   category    String
   amount      Float
   date        DateTime @default(now())
-  group       String? 
+  group       String?
   description String?
   status      String   @default("pending")
 }
@@ -248,16 +250,15 @@ model Supplier {
 
 model DraftProduct {
   id        String   @id @default(cuid())
-  name      String @unique
+  name      String   @unique
   unit      String   @default("")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  poItems   PurchaseOrderItem[]
-  supplierItems SupplierInvoiceItem []
-  goodsReciept GoodsReceiptItem[]
+  poItems       PurchaseOrderItem[]
+  supplierItems SupplierInvoiceItem[]
+  goodsReciept  GoodsReceiptItem[]
 }
-
 
 model PurchaseOrder {
   id         String    @id @default(cuid())
@@ -272,39 +273,37 @@ model PurchaseOrder {
   items    PurchaseOrderItem[]
   invoices SupplierInvoice[] // convenience if you want reverse nav
   grns     GoodsReceipt[]
-  subtotal Decimal @db.Decimal(14, 2)
-  tax      Decimal @db.Decimal(14, 2)
-  total    Decimal @db.Decimal(14, 2)
+  subtotal Decimal             @db.Decimal(14, 2)
+  tax      Decimal             @db.Decimal(14, 2)
+  total    Decimal             @db.Decimal(14, 2)
 
   @@index([supplierId])
   @@index([poNumber])
 }
 
-
 model PurchaseOrderItem {
-  id             String        @id @default(cuid())
-  poId           String
-  po             PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade) 
+  id   String        @id @default(cuid())
+  poId String
+  po   PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
 
   // ✅ optional until promoted
-  productId      String
-  product        DraftProduct    @relation(fields: [productId], references: [id])
+  productId String
+  product   DraftProduct @relation(fields: [productId], references: [id])
 
   // ✅ always required
   promotedProductId String?
-  promotedProduct   Products?  @relation(fields: [promotedProductId], references: [productId])
+  promotedProduct   Products? @relation(fields: [promotedProductId], references: [productId])
 
-  description    String?
-  unit           String?
-  quantity       Int
-  unitPrice      Decimal       @db.Decimal(12, 2)
-  lineTotal      Decimal       @db.Decimal(14, 2)
+  description String?
+  unit        String?
+  quantity    Int
+  unitPrice   Decimal @db.Decimal(12, 2)
+  lineTotal   Decimal @db.Decimal(14, 2)
 
   @@index([poId])
   @@index([productId])
   @@index([promotedProductId])
 }
-
 
 model SupplierInvoice {
   id            String   @id @default(cuid())
@@ -314,8 +313,6 @@ model SupplierInvoice {
 
   poId String?
   po   PurchaseOrder? @relation(fields: [poId], references: [id]) //optional revamp
-
-  
 
   status  InvoiceStatus @default(PENDING)
   date    DateTime      @default(now())
@@ -333,12 +330,12 @@ model SupplierInvoiceItem {
   id        String          @id @default(cuid())
   invoiceId String
   invoice   SupplierInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  
+
   draftProductId String
-  draftProduct DraftProduct @relation(fields: [draftProductId], references:[id])
-  
+  draftProduct   DraftProduct @relation(fields: [draftProductId], references: [id])
+
   productId String?
-  product   Products?       @relation(fields: [productId], references: [productId])
+  product   Products? @relation(fields: [productId], references: [productId])
 
   description String?
   uom         String?
@@ -368,19 +365,19 @@ model GoodsReceipt {
 }
 
 model GoodsReceiptItem {
-  id        String       @id @default(cuid())
-  grnId     String
-  Grn       GoodsReceipt @relation(fields: [grnId], references: [id], onDelete: Cascade) //why?
+  id    String       @id @default(cuid())
+  grnId String
+  Grn   GoodsReceipt @relation(fields: [grnId], references: [id], onDelete: Cascade) //why?
 
   productDraftId String
-  product DraftProduct @relation(fields: [productDraftId], references: [id])
+  product        DraftProduct @relation(fields: [productDraftId], references: [id])
 
-  productId String?
-  promotedProduct   Products?     @relation(fields: [productId], references: [productId])
+  productId       String?
+  promotedProduct Products? @relation(fields: [productId], references: [productId])
 
   unit        String?
   receivedQty Int
-  unitPrice   Decimal @db.Decimal(12, 2) 
+  unitPrice   Decimal @db.Decimal(12, 2)
 
   @@index([grnId])
   @@index([productDraftId])
@@ -401,7 +398,7 @@ model StockLedger {
   user   Users?  @relation(fields: [userId], references: [id])
 
   // beforeQty Int
-// afterQty  Int
+  // afterQty  Int
 
   @@index([productId])
   @@index([SourceId, sourceType])
@@ -413,4 +410,74 @@ enum SourceType {
   ADJUSTMENT
   STOCKTAKE
   CORRECTION
+}
+
+// -----------
+// StockSheet
+// ----------
+
+enum StockRequestStatus {
+  SUBMITTED
+  FULFILLED
+  CANCELLED
+  IN_REVIEW
+}
+
+enum StockLineOutcome {
+  PENDING
+  GRANTED
+  ADJUSTED
+  UNAVAILABLE
+}
+
+model StockRequest {
+  id String @id @default(cuid())
+
+  status StockRequestStatus @default(SUBMITTED)
+
+  // snapshot fields (reliable even if user changes later)
+  requestedByName     String
+  requestedByEmail    String
+  requestedByLocation Location
+
+  // optional relation (matches how your StockLedger does it)
+  requestedByUserId String?
+  requestedByUser   Users?  @relation("StockRequestRequestedBy", fields: [requestedByUserId], references: [id])
+
+  // review/fulfill metadata
+  reviewedByUserId String?
+  reviewedByUser   Users?  @relation("StockRequestReviewedBy", fields: [reviewedByUserId], references: [id])
+
+  expectedDeliveryAt DateTime?
+  messageToRequester String?
+
+  submittedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lines StockRequestLine[]
+
+  @@index([status])
+  @@index([requestedByLocation])
+  @@index([requestedByUserId])
+}
+
+model StockRequestLine {
+  id String @id @default(cuid())
+
+  stockRequestId String
+  stockRequest   StockRequest @relation(fields: [stockRequestId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Products @relation(fields: [productId], references: [productId])
+
+  requestedQty Int
+  grantedQty   Int? // null until reviewed
+
+  outcome StockLineOutcome @default(PENDING)
+  notes   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([stockRequestId])
+  @@index([productId])
 }
