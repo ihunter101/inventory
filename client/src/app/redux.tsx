@@ -24,6 +24,8 @@ import {
 } from "redux-persist";
 import { PersistGate } from "redux-persist/integration/react";
 import createWebStorage from "redux-persist/lib/storage/createWebStorage";
+import { stockSheetReducer } from "./state/stockSheetSlice";
+import { loadStocksheetState, saveStocksheetState } from "./state/stocksheetStorage";
 
 /* REDUX PERSISTENCE */
 const createNoopStorage = () => {
@@ -48,13 +50,16 @@ const storage =
 const persistConfig = {
   key: "root",
   storage,
-  whitelist: ["global", "expenses"],
+  whitelist: ["global", "expenses", "stockSheet"],
 };
 const rootReducer = combineReducers({
   global: globalReducer,
   expenses: expensesReducer,
+  stockSheet: stockSheetReducer,
   [api.reducerPath]: api.reducer,
 });
+
+
 const persistedReducer = persistReducer(persistConfig, rootReducer);
 
 /* REDUX STORE */

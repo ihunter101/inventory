@@ -50,6 +50,9 @@ export const PERMS = {
     READ_SALES: 'read_sales',
     WRITE_SALES: 'write_sales',
 
+    READ_STOCK_SHEET: 'read_stock_sheet',
+    WRITE_STOCK_SHEET: 'write_stock_sheet',
+
 } as const;
 
 export type Perm = typeof PERMS[keyof typeof PERMS]
@@ -87,6 +90,8 @@ export const ROLE_PERMS: Record<Role, Perm[]> = {
         PERMS.VIEW_SETTINGS, PERMS.MANAGE_SETTING,
 
         PERMS.READ_PRODUCT_DRAFT, PERMS.WRITE_PRODUCT_DRAFT,
+
+        PERMS.READ_STOCK_SHEET, PERMS.WRITE_STOCK_SHEET,
     ],
 
     labStaff: [

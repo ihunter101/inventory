@@ -6,16 +6,25 @@ import {
   useCreateProductMutation,
   useGetProductsQuery,
 } from "../../state/api";
-import { PlusCircle, SearchIcon } from "lucide-react";
+import { PlusCircle, SearchIcon, Star } from "lucide-react";
 import Header from "../../(components)/Header";
-import Rating from "../../(components)/Rating";
 import { CreateProductDialog } from "../../(components)/Products/CreateProductDialog";
 import { toast } from "sonner";
 import ProductsPagination from "@/app/(components)/Products/ProductsPagination";
+import {
+  addLine,
+  removeLine,
+  increment,
+  decrement,
+  selectStockSheetLines
+} from "@/app/state/stockSheetSlice";
+import { ClipboardPlus, Minus, Plus, Trash2 } from "lucide-react";
+import { useAppDispatch, useAppSelector } from "@/app/redux";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 interface ProductFormData {
   name: string;
-  price: number;
   stockQuantity: number;
   rating: number;
   supplier?: string;
@@ -24,27 +33,23 @@ interface ProductFormData {
   category?: string;
   expiryDate?: string;
   imageUrl?: string;
+  Department?: string;
 }
 
 const Products = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // ✅ Read filters & page from the URL
   const page = Number(searchParams.get("page") ?? "1");
   const search = searchParams.get("search") ?? "";
-  const departmentInUrl = searchParams.get("department"); // can be null or value
+  const departmentInUrl = searchParams.get("department");
 
-  // department for UI select
   const departmentSelectValue = departmentInUrl ?? "all";
-
-  // department for API (undefined means "no filter")
   const departmentForApi =
     departmentInUrl && departmentInUrl !== "all"
       ? departmentInUrl
       : undefined;
 
-  // ✅ Helper to update URL query string
   const updateQuery = (updates: {
     page?: number;
     search?: string;
@@ -74,7 +79,6 @@ const Products = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // ✅ call API with page + filters from URL
   const { data, isLoading, isError } = useGetProductsQuery({
     page,
     search: search || undefined,
@@ -96,13 +100,14 @@ const Products = () => {
       await createProduct(productData).unwrap();
       toast.success("Product created successfully!", { id: toastId });
       setIsModalOpen(false);
-      // optional: reset to first page
-      // updateQuery({ page: 1 });
     } catch (error) {
       console.error("Create product error:", error);
       toast.error("Failed to create product", { id: toastId });
     }
   };
+
+  const dispatch = useAppDispatch();
+  const stockLines = useAppSelector(selectStockSheetLines);
 
   if (isLoading) {
     return (
@@ -124,9 +129,29 @@ const Products = () => {
     products.length === 0 ? 0 : (page - 1) * pageSize + 1;
   const endIndex = (page - 1) * pageSize + products.length;
 
+  const lineById = new Map(stockLines.map((line) => [line.productId, line]));
+
+  // Helper to render stars
+  const renderStars = (rating: number) => {
+    return (
+      <div className="flex items-center gap-0.5">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            className={`h-3.5 w-3.5 ${
+              star <= rating
+                ? "fill-yellow-400 text-yellow-400"
+                : "fill-gray-200 text-gray-200"
+            }`}
+          />
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="mx-auto w-full max-w-7xl px-4 pb-12">
-      {/* Top bar: title + search + filter + button */}
+      {/* Top bar */}
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <Header name="Products" />
 
@@ -140,7 +165,6 @@ const Products = () => {
               className="w-full outline-none text-sm"
               value={search}
               onChange={(e) => {
-                // reset to first page whenever you change search
                 updateQuery({ search: e.target.value, page: 1 });
               }}
             />
@@ -179,62 +203,145 @@ const Products = () => {
       </div>
 
       {/* Product Cards Grid */}
-      {products.length === 0 ? (
-        <div className="py-8 text-center text-gray-500">
-          No products found for this filter.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
-          {products.map((product) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+        {products.map((product) => {
+          const line = lineById.get(product.productId);
+
+          return (
             <div
               key={product.productId}
-              className="rounded-xl border bg-white p-4 shadow-sm hover:shadow-md transition"
+              className="group relative rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm hover:shadow-xl hover:border-gray-300 transition-all duration-300"
             >
-              <div className="h-36 w-full bg-gray-100 rounded-md flex items-center justify-center text-gray-400 text-sm mb-3 overflow-hidden">
+              {/* Product Image */}
+              <div className="relative h-40 w-full bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center text-gray-400 text-sm mb-4 overflow-hidden">
                 {product.imageUrl ? (
                   <img
                     src={product.imageUrl}
                     alt={product.name}
-                    className="w-full h-full object-contain"
+                    className="w-full h-full object-contain p-2"
                   />
                 ) : (
-                  <span>Image</span>
+                  <span className="text-xs">No image</span>
                 )}
               </div>
 
-              <h3 className="text-lg font-semibold text-gray-800 mb-1 truncate">
-                {product.name}
-              </h3>
-              <p className="text-sm font-medium text-gray-900">
-                ${product.price?.toFixed?.(2) ?? "0.00"}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                Quantity: {product.stockQuantity}
-              </p>
-              {product.rating && (
-                <div className="mt-2">
-                  <Rating rating={product.rating} />
+              {/* Product Info */}
+              <div className="space-y-2">
+                <h3 className="text-base font-semibold text-gray-900 truncate">
+                  {product.name}
+                </h3>
+
+                {/* Stock Quantity */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Stock:</span>
+                  <span className="text-sm font-medium text-gray-700">
+                    {product.stockQuantity} {product.unit || "units"}
+                  </span>
                 </div>
-              )}
+
+                {/* Rating - Horizontal */}
+                {product.rating && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">Rating:</span>
+                    {renderStars(product.rating)}
+                  </div>
+                )}
+
+                {/* Category Badge */}
+                {product.category && (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-xs">
+                      {product.category}
+                    </Badge>
+                  </div>
+                )}
+
+                {/* Department Badge */}
+                {product.department && (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">
+                      {product.department}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+
+              {/* Stock Sheet Controls - Modern Glassmorphism */}
+              <div className="mt-4">
+                {!line ? (
+                  <Button
+                    onClick={() =>
+                      dispatch(
+                        addLine({
+                          productId: product.productId,
+                          name: product.name,
+                          unit: product.unit ?? null,
+                          imageUrl: product.imageUrl ?? null,
+                          requestedQty: 1,
+                        })
+                      )
+                    }
+                    className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transition-all duration-300 backdrop-blur-sm border border-emerald-400/20"
+                  >
+                    <ClipboardPlus className="mr-2 h-4 w-4" />
+                    Add to Stock Sheet
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-2 p-2 rounded-xl bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200/50 backdrop-blur-sm">
+                    <Button
+                      onClick={() => dispatch(decrement({ productId: product.productId }))}
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-lg hover:bg-emerald-100 transition-colors"
+                    >
+                      <Minus className="h-4 w-4 text-emerald-700" />
+                    </Button>
+
+                    <div className="flex-1 text-center">
+                      <span className="text-sm font-semibold text-emerald-900">
+                        {line.requestedQty}
+                      </span>
+                    </div>
+
+                    <Button
+                      onClick={() => dispatch(increment({ productId: product.productId }))}
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-lg hover:bg-emerald-100 transition-colors"
+                    >
+                      <Plus className="h-4 w-4 text-emerald-700" />
+                    </Button>
+
+                    <Button
+                      onClick={() => dispatch(removeLine({ productId: product.productId }))}
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-lg hover:bg-red-100 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4 text-red-600" />
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
-          ))}
-        </div>
-      )}
+          );
+        })}
+      </div>
 
-      {/* Pagination bar */}
-<div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-xs text-gray-500">
-  <span>
-    Showing{" "}
-    {products.length === 0 ? "0–0" : `${startIndex}–${endIndex}`} of{" "}
-    {totalItems} products
-  </span>
+      {/* Pagination */}
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-xs text-gray-500">
+        <span>
+          Showing{" "}
+          {products.length === 0 ? "0–0" : `${startIndex}–${endIndex}`} of{" "}
+          {totalItems} products
+        </span>
 
-  <ProductsPagination
-    page={page}
-    totalPages={totalPages}
-    onPageChange={(nextPage) => updateQuery({ page: nextPage })}
-  />
-</div>
+        <ProductsPagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={(nextPage) => updateQuery({ page: nextPage })}
+        />
+      </div>
 
       {/* Modal Dialog */}
       <CreateProductDialog
