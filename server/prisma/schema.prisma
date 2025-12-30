@@ -14,19 +14,35 @@ datasource db {
 }
 
 model Users {
-  name      String
-  id        String?   @unique @default(cuid())
+  name      String?
+  id        String    @unique @default(cuid())
   clerkId   String?   @unique
   email     String    @unique
   role      Role      @default(viewer)
   location  Location  @default(Tapion)
   createdAt DateTime  @default(now())
-  lastLogin DateTime? @default(now())
+  lastLogin DateTime?
 
   stockLedger StockLedger[]
 
+  session Sessions[]
+
   stockRequestsCreated  StockRequest[] @relation("StockRequestRequestedBy")
   stockRequestsReviewed StockRequest[] @relation("StockRequestReviewedBy")
+  onboardedAt DateTime? 
+}
+
+model Sessions {
+  id        String   @default(cuid())
+  userId    String   @unique
+  user      Users    @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  ipAddress String?
+  userAgent String
+  sessionId String?
+
+  @@index([userId, createdAt])
 }
 
 enum Role {

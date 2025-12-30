@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useClerk, useSignIn } from "@clerk/nextjs";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useClerk, useSignIn, useUser } from "@clerk/nextjs";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -15,7 +15,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 
 type OAuthStrategy = "oauth_google" | "oauth_microsoft" | "oauth_facebook" | "oauth_apple";
 
-
 const schema = z.object({
   email: z.string().email("Enter a valid email"),
   password: z.string().min(8, "Password must be at least 8 characters"),
@@ -24,8 +23,10 @@ type Values = z.infer<typeof schema>;
 
 export function SignInForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { isSignedIn } = useUser();
   const { isLoaded, signIn } = useSignIn();
-  const { setActive } = useClerk();
+  const { setActive, signOut } = useClerk();
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
@@ -33,6 +34,24 @@ export function SignInForm() {
   });
 
   const isPending = form.formState.isSubmitting;
+
+  // Get the redirect URL from query params or use default
+  const getRedirectUrl = () => {
+    const redirectUrl = searchParams.get('redirect_url');
+    if (redirectUrl) {
+      // If it's already a path (starts with /), use it directly
+      if (redirectUrl.startsWith('/')) {
+        return redirectUrl;
+      }
+      // Otherwise try to decode
+      try {
+        return decodeURIComponent(redirectUrl);
+      } catch {
+        return '/dashboard';
+      }
+    }
+    return '/dashboard';
+  };
 
   const onSubmit = async (values: Values) => {
     if (!isLoaded || !signIn) return;
@@ -45,7 +64,7 @@ export function SignInForm() {
 
       if (res.status === "complete") {
         await setActive({ session: res.createdSessionId! });
-        router.push("/dashboard");
+        router.push(getRedirectUrl());
       } else {
         form.setError("root", { message: "Sign in incomplete. Please try again." });
       }
@@ -54,15 +73,30 @@ export function SignInForm() {
     }
   };
 
-  
-  const sso = async (strategy: OAuthStrategy) => {
-    if (!isLoaded) return;
-    await signIn.authenticateWithRedirect({
+const sso = async (strategy: OAuthStrategy) => {
+  if (!isLoaded) {
+    form.setError("root", { message: "Clerk is still loading—try again in a second." });
+    return;
+  }
+
+  // ✅ If already signed in, just go where they wanted
+  if (isSignedIn) {
+    router.replace(getRedirectUrl());
+    return;
+  }
+
+  try {
+    await signIn!.authenticateWithRedirect({
       strategy,
       redirectUrl: "/sso-callback",
-      redirectUrlComplete: "/dashboard",
+      redirectUrlComplete: getRedirectUrl(),
     });
-  };
+  } catch (err: any) {
+    console.error(err);
+    form.setError("root", { message: err?.errors?.[0]?.message ?? "OAuth failed" });
+  }
+};
+
 
   return (
     <Card className="shadow-xl">
@@ -74,13 +108,21 @@ export function SignInForm() {
       <CardContent className="space-y-6">
         {/* OAuth */}
         <div className="grid gap-3">
-          <Button type="button" variant="outline" disabled={isPending} onClick={() => sso("oauth_google")}>
+          <Button type="button" variant="outline"  disabled={!isLoaded || isPending || isSignedIn} onClick={() => sso("oauth_google")}>
             <Image src="/logos/google.svg" alt="Google" width={18} height={18} />
             Continue with Google
           </Button>
 
           <Button type="button" variant="outline" disabled={isPending} onClick={() => sso("oauth_microsoft")}>
             Continue with Microsoft
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={!isSignedIn}
+            onClick={() => signOut({ redirectUrl: "/sign-in" })}
+          >
+            Sign out (debug)
           </Button>
         </div>
 
@@ -127,12 +169,12 @@ export function SignInForm() {
               </p>
             )}
 
-            <Button className="w-full" type="submit" disabled={isPending}>
+            <Button className="w-full" type="submit" disabled={!isLoaded || isPending}>
               {isPending ? "Signing in..." : "Sign in"}
             </Button>
 
             <p className="text-center text-sm text-muted-foreground">
-              Don’t have an account?{" "}
+              Don't have an account?{" "}
               <Link href="/sign-up" className="underline underline-offset-4">
                 Sign up
               </Link>
@@ -143,4 +185,3 @@ export function SignInForm() {
     </Card>
   );
 }
-

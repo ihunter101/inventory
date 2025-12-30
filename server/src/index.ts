@@ -1,4 +1,3 @@
-// server/src/index.ts
 import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
@@ -48,6 +47,7 @@ import goodsReceiptRoutes from "./routes/goodsReceiptRoute";
 import inventoryRoutes from "./routes/inventoryRoutes"
 import draftProductRoutes from "./routes/productDraftRoutes"
 import  stockSheetRoutes  from "./routes/stocksheetRoutes";
+import meRoutes from "./routes/meRoutes";
 
 process.on('uncaughtException', (err) => {
   console.error('💥 Uncaught Exception:', err);
@@ -75,18 +75,21 @@ app.use(
   cors({
     origin: ["http://localhost:3000"],
     credentials: true, // allow Clerk cookie to flow
+    allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
 
 // Public routes (no auth required)
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
-// 5) Apply ensureUser to all protected routes
-// Create a router for protected routes
+// 5) Create protected router with BOTH ensureUser AND routes
 const protectedRouter = express.Router();
+
+// ✅ CRITICAL: ensureUser must run FIRST, before any routes
+// This creates the user in DB if they don't exist
 protectedRouter.use(...ensureUser());
 
-// 6) Mount protected routers
+// 6) Mount protected routers (they can now use must() safely)
 protectedRouter.use("/dashboard", dashboardRoutes);
 protectedRouter.use("/products", productRoutes);
 protectedRouter.use("/users", userRoutes);
@@ -98,6 +101,7 @@ protectedRouter.use("/grns", goodsReceiptRoutes);
 protectedRouter.use("/inventory", inventoryRoutes);
 protectedRouter.use("/draft-products", draftProductRoutes);
 protectedRouter.use("/stock-requests", stockSheetRoutes);
+protectedRouter.use("/me", meRoutes);
 
 // Mount the protected router
 app.use(protectedRouter);
