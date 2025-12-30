@@ -41,6 +41,8 @@ export function must(perm: Perm): RequestHandler[] {
         const auth = (req as any).auth  as { userId?: string } | undefined;
         const clerkId = auth?.userId;
 
+        
+
         if (!clerkId) {
           return res.status(401).json({ error: "Unauthenticated" });
         }
