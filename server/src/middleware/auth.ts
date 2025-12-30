@@ -6,6 +6,12 @@ import { prisma } from "../lib/prisma";
 
 // const prisma = new PrismaClient();
 
+function getClientIp(req: Request) {
+  const ip = req.headers["x-forwarded-for"] 
+  const raw = Array.isArray(ip) ? ip[0] : ip;
+  return (raw?.split(",")[0] ?? req.ip)?.trim();
+}
+
 const ORG_ID = process.env.CLERK_PRIMARY_ORG_ID!;
 
 // Auto-join the single org (safe to call every time)
@@ -25,32 +31,26 @@ async function ensureOrgMembership(userId: string, orgId: string) {
 }
 
 // matches your JWT template
-type SessionClaims = {
-  metadata?: Record<string, unknown>;
-  orgId?: string;
-  orgRole?: string;       // e.g. "admin" or "org:admin" (depends on Clerk)
-  userId?: string;        // same as req.auth.userId
-  [k: string]: unknown;   // tolerate other fields
-};
 
-type AnyAuth = {
-  userId: string;
-  orgId?: string;                 // some SDKs still set this
-  orgRole?: string;
-  sessionClaims?: SessionClaims;  // your custom claims live here
-};
 
 export function must(perm: Perm): RequestHandler[] {
   return [
     requireAuth(),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const auth = (req as any).auth as AnyAuth | undefined;
-        if (!auth?.userId) return res.status(401).json({ error: "Unauthorized" });
+        const auth = (req as any).auth  as { userId?: string } | undefined;
+        const clerkId = auth?.userId;
+
+        
+
+        if (!clerkId) {
+          return res.status(401).json({ error: "Unauthenticated" });
+        }
+
 
         // Get the user from database to check their role
         const user = await prisma.users.findUnique({
-          where: { clerkId: auth.userId }
+          where: { clerkId }
         });
 
         if (!user || !user.role) {

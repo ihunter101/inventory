@@ -53,6 +53,9 @@ export const PERMS = {
     READ_STOCK_SHEET: 'read_stock_sheet',
     WRITE_STOCK_SHEET: 'write_stock_sheet',
 
+    READ_ME: 'read_me',
+    WRITE_ME: 'write_me',
+
 } as const;
 
 export type Perm = typeof PERMS[keyof typeof PERMS]
@@ -92,22 +95,27 @@ export const ROLE_PERMS: Record<Role, Perm[]> = {
         PERMS.READ_PRODUCT_DRAFT, PERMS.WRITE_PRODUCT_DRAFT,
 
         PERMS.READ_STOCK_SHEET, PERMS.WRITE_STOCK_SHEET,
+
+        PERMS.READ_ME, PERMS.WRITE_ME
     ],
 
     labStaff: [
         PERMS.ACCESS_HOME,
         PERMS.READ_SALES, PERMS.WRITE_SALES,
-        PERMS.READ_PRODUCTS, PERMS.VIEW_SETTINGS
+        PERMS.READ_PRODUCTS, PERMS.VIEW_SETTINGS,
+        PERMS.READ_ME, PERMS.WRITE_ME
     ],
 
     orderAgent: [
         PERMS.ACCESS_HOME,
         PERMS.READ_PRODUCTS,
         PERMS.VIEW_SETTINGS,
+        PERMS.READ_ME, PERMS.WRITE_ME
     ],
 
     viewer: [
-        PERMS.ACCESS_HOME
+        PERMS.ACCESS_HOME,
+        PERMS.READ_ME, PERMS.WRITE_ME
     ],
 
 }

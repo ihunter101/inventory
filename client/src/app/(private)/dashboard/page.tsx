@@ -1,84 +1,32 @@
-"use client";
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+import DashboardClient from "./DashboardClient";
 
-import {
-  CheckCircle,
-  Package,
-  Tag,
-  TrendingDown,
-  TrendingUp,
-} from "lucide-react";
-import CardExpenseSummary from "./CardExpenseSummary";
-import CardPopularProducts from "./CardPopularProducts";
-import CardPurchaseSummary from "./CardPurchaseSummary";
-import CardSalesSummary from "./CardSalesSummary";
-import StatCard from "./StatCard";
+export default async function DashboardPage() {
+  const { userId, getToken } = await auth();
 
-const Dashboard = () => {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 auto-row-fr gap-10 pb-4">
-      <CardPopularProducts />
-      <CardSalesSummary />
-      <CardPurchaseSummary />
-      <CardExpenseSummary />
-      <StatCard
-        title="Customer & Expenses"
-        primaryIcon={<Package className="text-blue-600 w-6 h-6" />}
-        dateRange="22 - 29 October 2023"
-        details={[
-          {
-            title: "Customer Growth",
-            amount: "175.00",
-            changePercentage: 131,
-            IconComponent: TrendingUp,
-          },
-          {
-            title: "Expenses",
-            amount: "10.00",
-            changePercentage: -56,
-            IconComponent: TrendingDown,
-          },
-        ]}
-      />
-      <StatCard
-        title="Dues & Pending Orders"
-        primaryIcon={<CheckCircle className="text-blue-600 w-6 h-6" />}
-        dateRange="22 - 29 October 2023"
-        details={[
-          {
-            title: "Dues",
-            amount: "250.00",
-            changePercentage: 131,
-            IconComponent: TrendingUp,
-          },
-          {
-            title: "Pending Orders",
-            amount: "147",
-            changePercentage: -56,
-            IconComponent: TrendingDown,
-          },
-        ]}
-      />
-      <StatCard
-        title="Sales & Discount"
-        primaryIcon={<Tag className="text-blue-600 w-6 h-6" />}
-        dateRange="22 - 29 October 2023"
-        details={[
-          {
-            title: "Sales",
-            amount: "1000.00",
-            changePercentage: 20,
-            IconComponent: TrendingUp,
-          },
-          {
-            title: "Discount",
-            amount: "200.00",
-            changePercentage: -10,
-            IconComponent: TrendingDown,
-          },
-        ]}
-      />
-    </div>
-  );
-};
+  console.log("step !")
+  if (!userId) redirect("/sign-in");
 
-export default Dashboard;
+  console.log("step 2")
+
+  const token = await getToken();
+  const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+  if (!apiUrl) throw new Error("NEXT_PUBLIC_API_BASE_URL is not defined");
+
+  const res = await fetch(`${apiUrl}/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+
+  console.log("token:", token);
+
+  if (!res.ok) redirect("/sign-in");
+
+  const me = await res.json();
+
+  // ✅ gate onboarding once (server-side)
+  if (!me?.onboardedAt) redirect("/onboarding");
+
+  return <DashboardClient />;
+}

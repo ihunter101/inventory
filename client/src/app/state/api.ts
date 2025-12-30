@@ -312,7 +312,16 @@ export const api = createApi({
   reducerPath: "api",
   baseQuery: fetchBaseQuery({
     baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL,
-    credentials: "include", //for authentication and authorization 
+    credentials: "include", //for authentication and authorization ,
+    prepareHeaders: async (headers) => {
+      if (typeof window !== 'undefined') {
+        const token = await window.Clerk?.session?.getToken();
+        if (token) {
+          headers.set("authorization", `Bearer ${token}`);
+      }
+      return headers;
+      }
+    }
   }),
   tagTypes: [
     "DashboardMetrics", "Products", "Users", "Expenses",
