@@ -3,6 +3,7 @@ import { url } from "inspector";
 import page from "../(private)/sales/page";
 import { FulfillStockRequestResponse, Paginated, ReviewStockRequestBody, StockRequestDetailResponse, StockRequestListQuery, StockRequestListResponse, StockRequestStatus } from "./stockSheetSlice";
 import { parseAppSegmentConfig } from "next/dist/build/segment-config/app/app-segment-config";
+import { Role } from "@lab/shared/userRoleUtils";
 
 // ----------------------
 // Interfaces
@@ -96,17 +97,6 @@ export interface DashboardMetrics {
   purchaseSummary: PurchaseSummary[];
   expenseSummary: ExpenseSummary[];
   expenseByCategorySummary: ExpenseByCategorySummary[];
-}
-
-export interface User {
-  clerkId: string;
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  location: string;
-  createdAt: string;
-  lastLogin: string;
 }
 
 export type ExpenseGroup = 
@@ -301,6 +291,17 @@ export type PurchaseOrderFormPayload =
   | ExistingSupplierPOInput
   | NewSupplierPOInput;
 
+  export interface User {
+    id: string;
+    clerkId: string;
+    name: string | null;
+    email: string;
+    role: Role;
+    location: string;
+    createdAt: string;
+    lastLogin: string;
+    onboardedAt: string;
+  }
 
 
 
@@ -412,9 +413,38 @@ export const api = createApi({
     // Users
     getUsers: build.query<User[], void>({
       query: () => "/users",
-      providesTags: ["Users"],
+      providesTags: [{ type: "Users", id: "LIST"} ],
     }),
-
+    getUserById: build.query<User, string>({
+      query: (id) => `/users/${id}`,
+      providesTags: (_results, _err, id) => [{ type: "Users", id: "LIST"}, { type: "Users", id}]
+    }),
+    updateUser: build.mutation<User, { id: string; name?: string; location?: string }>({
+  query: ({ id, ...body }) => ({
+    url: `/users/${id}`,
+    method: "PATCH",
+    body, // body will be { name?: string; location?: string }
+  }),
+  invalidatesTags: (_result, _err, { id }) => [
+    { type: "Users", id: "LIST" },
+    { type: "Users", id },
+  ],
+  }),
+    updateUserRole: build.mutation<User, { id: string, role: Role }>({
+      query: ({ id, role }) => ({
+        url: `/users/${id}/role`,
+        method: "PATCH",
+        body: { role }
+      }),
+      invalidatesTags: (_result, _err, {id}) => [{type: "Users", id: "LIST"}, { type: "Users", id}]
+    }),
+    deleteUser: build.mutation<{success: boolean, message: string}, string>({
+      query: (id) => ({
+        url: `/users/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_results, _err, id) => [{ type: "Users", id: "LIST"}, { type: "Users", id}]
+    }),
     // Expenses
     getExpenses: build.query<Expense[], { category?: string; from?: string; to?: string } | void>({
     query: (params) => {
@@ -666,7 +696,12 @@ export const {
   useGetProductsQuery,
   useGetInventoryQuery,
   useCreateProductMutation,
+
   useGetUsersQuery,
+  useGetUserByIdQuery,
+  useUpdateUserMutation,
+  useUpdateUserRoleMutation,
+  useDeleteUserMutation,
 
   useAdjustInventoryMutation,
   useSetInventoryMutation,
