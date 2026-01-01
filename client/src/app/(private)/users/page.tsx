@@ -7,30 +7,112 @@ import {
   CardContent,
   CardHeader,
   Container,
-  IconButton,
-  Stack,
-  Tooltip,
   Typography,
   useTheme,
 } from "@mui/material";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
-import {
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Visibility as EyeIcon,
-} from "@mui/icons-material";
-
-import { useGetUsersQuery } from "@/app/state/api";
+import { 
+  useDeleteUserMutation, 
+  useGetUsersQuery, 
+  useUpdateUserMutation, 
+  useUpdateUserRoleMutation 
+} from "@/app/state/api";
+import { useUser } from "@clerk/nextjs";
+import { Role } from "@shared/dist/userRolesUtils";
+import { UserActions } from "@/app/(components)/users/UserAction";
+import { toast } from "sonner";
+import { EditUserDialog } from "@/app/(components)/users/EditUserDialog";
 
 export default function UsersPage() {
+  const { user: clerkUser } = useUser();
   const theme = useTheme();
+
+  const [editOpen, setEditOpen] = React.useState(false);
+  const [editingUser, setEditingUser] = React.useState<any | null>(null);
+
+
   const { data: users = [], isLoading, isError } = useGetUsersQuery();
+  const [updateUserRole, { isLoading: isUpdating }] = useUpdateUserRoleMutation();
+  const [deleteUser, { isLoading: isDeleting }] = useDeleteUserMutation();
+  const [updateUser, {isLoading: isChanging}] = useUpdateUserMutation();
+
+  // Get the current logged-in user's role from the users list
+  const currentUserData = users.find((u) => u.clerkId === clerkUser?.id);
+  const currentUserRole = (currentUserData?.role as Role) || Role.viewer;
+
+  const handleUpdateUserRole = async (userId: string, newRole: Role) => {
+    const toastId = toast.loading("Updating role...");
+
+    try {
+      await updateUserRole({ id: userId, role: newRole }).unwrap();
+      toast.success("Updated user role", { id: toastId });
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error?.data?.error || "Failed to update user", { id: toastId });
+    }
+  };
+
+  const handleOpenEdit = (user: any) => {
+    setEditingUser(user);
+    setEditOpen(true);
+  };
+
+   const handleDialogChange = (open: boolean) => {
+    setEditOpen(open);
+    if (!open) setEditingUser(null);
+  };
+
+
+
+  const handleSaveUserEdits = async (
+  userId: string,
+  updates: { name?: string; location?: string }
+) => {
+  const toastId = toast.loading("Updating user...");
+
+  try {
+    const updatedUser = await updateUser({ id: userId, ...updates }).unwrap();
+
+    const parts: string[] = [];
+
+    if (updates.name !== undefined) {
+      parts.push(`Name → ${updatedUser.name ?? "(empty)"}`);
+    }
+    if (updates.location !== undefined) {
+      parts.push(`Location → ${updatedUser.location ?? "(empty)"}`);
+    }
+
+    const label = updatedUser.name ?? updatedUser.email;
+    const msg = parts.length ? parts.join(" • ") : "Updated";
+
+    toast.success(`${label}: ${msg}`, { id: toastId });
+  } catch (error: any) {
+    console.error(error);
+    toast.error(error?.data?.error || "Failed to update user", { id: toastId });
+  }
+};
+
+
+  const handleDeleteUser = async (userId: string) => {
+    const toastId = toast.loading("Deleting user...");
+    
+    try {
+      await deleteUser(userId).unwrap();
+      toast.success("Successfully deleted user", { id: toastId });
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error?.data?.error || "Failed to delete user", { id: toastId });
+    }
+  };
 
   const rows = users.map((u: any) => ({
     id: u.id,
     name: u.name,
     email: u.email,
     role: u.role,
+    location: u.location,
+    lastLogin: u.lastLogin,
+    clerkId: u.clerkId,
   }));
 
   const [paginationModel, setPaginationModel] = React.useState({
@@ -44,12 +126,10 @@ export default function UsersPage() {
       headerName: "Name",
       flex: 1.2,
       minWidth: 200,
+      align: "left",
       renderCell: (params) => (
         <Box>
-          <Typography fontWeight={600}>{params.row.name}</Typography>
-          <Typography variant="caption" color="text.secondary">
-            {params.row.name}
-          </Typography>
+          <Typography fontWeight={600}>{params.row.name || "No name"}</Typography>
         </Box>
       ),
     },
@@ -58,10 +138,11 @@ export default function UsersPage() {
       headerName: "User ID",
       flex: 0.7,
       minWidth: 150,
+      align: "left",
       renderCell: (params) => (
         <Box>
-          <Typography fontWeight={600} variant="body2">
-            {params.row.id}
+          <Typography fontWeight={600} variant="body2" sx={{ fontFamily: 'monospace' }}>
+            {params.row.id.substring(0, 12)}...
           </Typography>
         </Box>
       ),
@@ -71,12 +152,15 @@ export default function UsersPage() {
       headerName: "Email",
       flex: 1.5,
       minWidth: 240,
+      align: "left",
     },
     {
       field: "role",
       headerName: "Role",
       flex: 1,
       minWidth: 150,
+      headerAlign: "center",
+      align: "center",
       renderCell: (params) => (
         <Typography
           fontWeight={600}
@@ -95,35 +179,44 @@ export default function UsersPage() {
       ),
     },
     {
+      field: "location",
+      headerName: "location",
+      flex: 0.5,
+      sortable: true,
+      filterable: true,
+      headerAlign: "center",
+      align: "center",
+      renderCell: (params) => (
+        <Typography variant="caption" color="ActiveText">{params.row.location}</Typography>
+      )
+    },
+    {
       field: "actions",
       headerName: "Actions",
       flex: 0.5,
       minWidth: 130,
       sortable: false,
       filterable: false,
-      renderCell: () => (
-        <Stack direction="row" spacing={1}>
-          <Tooltip title="View">
-            <IconButton size="small" sx={{ color: "#3b82f6" }}>
-              <EyeIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Edit">
-            <IconButton size="small" sx={{ color: "#10b981" }}>
-              <EditIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Delete">
-            <IconButton size="small" sx={{ color: "#ef4444" }}>
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Stack>
+      headerAlign: "right",
+      align: "right",
+      renderCell: (params) => (
+        <div className="flex justify-end w-full">
+          <UserActions
+            user={params.row}
+            currentUserRole={currentUserRole}
+            onUpdateRole={handleUpdateUserRole}
+            onDelete={handleDeleteUser}
+            isUpdating={isUpdating}
+            isDeleting={isDeleting}
+            onEdit={handleOpenEdit} 
+          />
+        </div>
       ),
     },
   ];
 
   return (
+    <>
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Typography variant="h4" fontWeight={700} gutterBottom>
         Users
@@ -161,7 +254,8 @@ export default function UsersPage() {
                   borderRadius: 2,
                   fontSize: "0.9rem",
                   "& .MuiDataGrid-row:hover": {
-                    backgroundColor: theme.palette.mode === "dark" ? "#334155" : "#f0fdfa",
+                    backgroundColor:
+                      theme.palette.mode === "dark" ? "#334155" : "#f0fdfa",
                   },
                 }}
               />
@@ -170,5 +264,15 @@ export default function UsersPage() {
         </CardContent>
       </Card>
     </Container>
+
+  <EditUserDialog
+      open={editOpen}
+      onOpenChange={handleDialogChange}
+      user={editingUser}
+      saving={isChanging}
+      onSave={handleSaveUserEdits}
+      />
+</>
+
   );
 }

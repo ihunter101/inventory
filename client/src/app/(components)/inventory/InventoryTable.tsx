@@ -13,16 +13,11 @@ import {
   Alert,
 } from "@mui/material";
 import { DataGrid, GridColDef, GridToolbar } from "@mui/x-data-grid";
-import {
-  Visibility as EyeIcon,
-  Edit as EditIcon,
-  Remove as RemoveIcon,
-  Add as PlusIcon,
-  Inventory2 as StocktakeIcon,
-} from "@mui/icons-material";
 
 import { expiryColor, statusChip } from "../../utils/stock";
 import { InventoryRow, formatNumber, deriveStatus } from "./InventoryTypes";
+import { InventoryAction } from "./InventoryRowActions";
+import { useRouter } from "next/navigation";
 
 type Props = {
   rows: InventoryRow[];
@@ -45,6 +40,10 @@ export const InventoryTable: React.FC<Props> = ({
   onQuickAdjust,
   onOpenStocktake,
 }) => {
+
+  const router = useRouter();
+
+  const [editRow, setEditRow] = React.useState({})
   const columns = React.useMemo<GridColDef<InventoryRow>[]>(
     () => [
       {
@@ -121,6 +120,8 @@ export const InventoryTable: React.FC<Props> = ({
       {
         field: "expiryDate",
         headerName: "Expiry",
+        description: "shows the date of expiry in MM/DD/YYYY",
+        headerAlign: "center",
         minWidth: 150,
         flex: 0.6,
         renderCell: (p) => {
@@ -176,6 +177,8 @@ export const InventoryTable: React.FC<Props> = ({
       {
         field: "status",
         headerName: "Status",
+        description: "the stock status is based on the Rorder-Point(RP) for 'Critical', minimum value for 'Low Stock' and otherwise 'In stock'",
+        headerAlign: "center",
         minWidth: 130,
         flex: 0.5,
         renderCell: (p) => statusChip(deriveStatus(p.row)),
@@ -184,85 +187,23 @@ export const InventoryTable: React.FC<Props> = ({
       {
         field: "actions",
         headerName: "Actions",
+
         minWidth: 220,
         flex: 0.7,
         sortable: false,
         filterable: false,
+        align: "center",
+        headerAlign: "center",
         renderCell: (p) => (
-          <Stack direction="row" spacing={1}>
-            <Tooltip title="-1">
-              <span>
-                <IconButton
-                  size="small"
-                  onClick={() => onQuickAdjust(p.row, -1, "Quick adjust -1")}
-                  disabled={adjusting}
-                  sx={{
-                    color: "#ef4444",
-                    bgcolor: "#fef2f2",
-                    "&:hover": { bgcolor: "#fee2e2" },
-                  }}
-                >
-                  <RemoveIcon fontSize="small" />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="+1">
-              <span>
-                <IconButton
-                  size="small"
-                  onClick={() => onQuickAdjust(p.row, +1, "Quick adjust +1")}
-                  disabled={adjusting}
-                  sx={{
-                    color: "#10b981",
-                    bgcolor: "#ecfdf5",
-                    "&:hover": { bgcolor: "#d1fae5" },
-                  }}
-                >
-                  <PlusIcon fontSize="small" />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Stocktake / Set">
-              <span>
-                <IconButton
-                  size="small"
-                  onClick={() => onOpenStocktake(p.row)}
-                  disabled={setting}
-                  sx={{
-                    color: "#1d4ed8",
-                    bgcolor: "#eff6ff",
-                    "&:hover": { bgcolor: "#dbeafe" },
-                  }}
-                >
-                  <StocktakeIcon fontSize="small" />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="View">
-              <IconButton
-                size="small"
-                sx={{
-                  color: "#3b82f6",
-                  bgcolor: "#eff6ff",
-                  "&:hover": { bgcolor: "#dbeafe" },
-                }}
-              >
-                <EyeIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Edit">
-              <IconButton
-                size="small"
-                sx={{
-                  color: "#10b981",
-                  bgcolor: "#ecfdf5",
-                  "&:hover": { bgcolor: "#d1fae5" },
-                }}
-              >
-                <EditIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Stack>
+          <InventoryAction 
+            row={p.row}
+            adjusting={adjusting}
+            setting={setting}
+            onQuickAdjust={onQuickAdjust}
+            onOpenStocktake={onOpenStocktake}
+            onView={(row) => router.push(`inventory/${row.productId}`)}
+            onEdit={(row) => setEditRow(row)}
+          />
         ),
       },
     ],
