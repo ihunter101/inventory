@@ -137,46 +137,53 @@ export default function PurchasesPage() {
   );
 
   // GRN draft from invoice
-  const openGRNFromInvoice = (invoice: SupplierInvoiceDTO) => {
-    const po = purchaseOrders.find((p) => p.id === invoice.poId);
-    const poId = invoice.poId ?? po?.id;
-    if (!poId) {
-      console.error("Cannot create GRN: invoice is not linked to a PO.");
-      return;
-    }
+const openGRNFromInvoice = (invoice: SupplierInvoiceDTO) => {
+  const po = purchaseOrders.find((p) => p.id === invoice.poId);
+  const poId = invoice.poId ?? po?.id;
+  if (!poId) return;
 
-    const draft: GoodsReceiptDTO = {
-      id: `LSC-GR-${new Date().toISOString().slice(0, 10)}`,
-      grnNumber: `LSC-GR-${new Date().toISOString().slice(0, 10)}`,
-      poId,
-      poNumber: po?.poNumber,
-      invoiceId: invoice.id,
-      invoiceNumber: invoice.invoiceNumber,
-      date: new Date().toISOString().slice(0, 10),
-      status: "DRAFT",
-      lines: (invoice.lines?.length ? invoice.lines : po?.items ?? []).map(
-        (ln: any) => {
-          console.log("Mapping line:", ln);
+  const poItems = po?.items ?? [];
 
-          return {
-            // Try to get draftProductId from multiple possible sources
-            draftProductId: ln.draftProductId ?? ln.productId ?? ln.id,
-            name: ln.name,
-            unit: ln.unit ?? "",
-            receivedQty: ln.quantity ?? 0,
-            unitPrice: ln.unitPrice,
-          };
-        }
-      ),
-    };
+  // map draftProductId -> poItemId (for recovery)
+  const poItemIdByDraftId = new Map<string, string>();
+  for (const it of poItems as any[]) {
+    if (it.productId && it.id) poItemIdByDraftId.set(it.productId, it.id);
+  }
 
-    console.log("lines Page:", draft.lines);
-    console.log("GRN Draft created:", draft);
-    console.log("Draft lines:", draft.lines);
+  const sourceLines = invoice.lines?.length ? invoice.lines : poItems;
 
-    setGrnDraft(draft);
-    setShowGRNModal(true);
+  const draft: GoodsReceiptDTO = {
+    id: `LSC-GR-${new Date().toISOString().slice(0, 10)}`,
+    grnNumber: `LSC-GR-${new Date().toISOString().slice(0, 10)}`,
+    poId,
+    poNumber: po?.poNumber,
+    invoiceId: invoice.id,
+    invoiceNumber: invoice.invoiceNumber,
+    date: new Date().toISOString().slice(0, 10),
+    status: "DRAFT",
+    lines: (sourceLines as any[]).map((ln) => {
+      const productDraftId = ln.draftProductId ?? ln.productId; // invoice line vs PO item
+      const poItemId =
+        ln.poItemId ??
+        (productDraftId ? poItemIdByDraftId.get(productDraftId) : undefined) ??
+        (ln.poId ? ln.id : undefined); // ONLY safe if this is a PO item
+
+      return {
+        productDraftId,
+        poItemId, // ✅
+        name: ln.name ?? ln.description ?? ln.product?.name ?? "",
+        unit: ln.unit ?? ln.uom ?? ln.product?.unit ?? "",
+        receivedQty: Number(ln.receivedQty ?? ln.quantity ?? 0),
+        unitPrice: Number(ln.unitPrice ?? 0),
+      };
+    }),
   };
+
+  setGrnDraft(draft);
+  setShowGRNModal(true);
+};
+
+
 
   // matching context
   const poForMatch: PurchaseOrderDTO | undefined = useMemo(() => {
@@ -276,8 +283,8 @@ export default function PurchasesPage() {
                 setMatchPOId(poId);
                 router.push(`/purchases?tab=match&po=${poId}`);
               }}
-              orders={[]}
-              invoices={[]}
+              orders={purchaseOrders}
+              invoices={invoices}
               postingId={postingId}
               onPost={handlePostGRN}
             />

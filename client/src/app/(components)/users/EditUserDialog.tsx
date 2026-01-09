@@ -52,6 +52,10 @@ type EditUserDialogProps = {
   onSave: (userId: string, updates: { name?: string; location?: Location }) => void | Promise<void>;
 };
 
+export function getLocationLabel(location: Location | string): string {
+  return LOCATION_LABELS[location as Location] || location;
+}
+
 export function EditUserDialog({
   open,
   onOpenChange,

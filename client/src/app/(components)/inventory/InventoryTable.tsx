@@ -122,6 +122,7 @@ export const InventoryTable: React.FC<Props> = ({
         headerName: "Expiry",
         description: "shows the date of expiry in MM/DD/YYYY",
         headerAlign: "center",
+        align: "center",
         minWidth: 150,
         flex: 0.6,
         renderCell: (p) => {
@@ -179,6 +180,7 @@ export const InventoryTable: React.FC<Props> = ({
         headerName: "Status",
         description: "the stock status is based on the Rorder-Point(RP) for 'Critical', minimum value for 'Low Stock' and otherwise 'In stock'",
         headerAlign: "center",
+        align: "center",
         minWidth: 130,
         flex: 0.5,
         renderCell: (p) => statusChip(deriveStatus(p.row)),

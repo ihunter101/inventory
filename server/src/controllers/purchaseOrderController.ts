@@ -31,8 +31,10 @@ function toPurchaseOrderDTO(po: any) {
     items: (po.items ?? []).map((it: any) => ({
       id: it.id,
       productId: it.productId,
+      draftProductId: it.productId,
+      poItemId: it.poItemId,
       sku: undefined,                                    // FE has optional sku
-      name: it.product?.name ?? it.name,                        // FE expects "name"
+      name: it.product?.name ?? it.name,    //draftproduct name     // FE expects "name"
       unit: it.unit ?? "",
       quantity: Number(it.quantity),
       unitPrice: Number(it.unitPrice),                   // Decimal -> number
@@ -90,9 +92,10 @@ export const getPurchaseOrder = async (req: Request, res: Response) => {
       where: { id },
       include: { 
         supplier: true, 
-        items: true, 
+        items: { include: { product: true } }, 
         invoices: true, 
-        grns: true 
+        grns: true,
+        _count: { select: { invoices: true } },
       },
     });
 
@@ -121,29 +124,38 @@ export const createPurchaseOrder = async (req: Request, res: Response) => {
       notes,
     } = req.body;
 
-    // ---- basic validation ----
     if ((!supplierId && !supplier) || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({
-        message: "supplierId or supplier, and items are required.",
-      });
+      return res.status(400).json({ message: "supplierId or supplier, and items are required." });
     }
 
-    if (!supplierId && supplier) {
-      if (!supplier.name?.trim()) {
-        return res.status(400).json({ message: "supplier.name is required." });
-      }
-    }
-
-    // validate numbers for each item
+    // validate numbers
     for (const it of items) {
       const qty = Number(it.quantity);
       const price = Number(it.unitPrice);
-
       if (!Number.isFinite(qty) || qty <= 0) {
         return res.status(400).json({ message: "Each item must have quantity > 0." });
       }
       if (!Number.isFinite(price) || price < 0) {
         return res.status(400).json({ message: "Each item must have unitPrice >= 0." });
+      }
+    }
+
+    // ✅ Validate draftProduct IDs ONCE (outside map)
+    const draftIds = Array.from(
+      new Set(
+        items
+          .map((it: any) => (typeof it.productId === "string" ? it.productId.trim() : ""))
+          .filter(Boolean)
+      )
+    );
+
+    if (draftIds.length) {
+      const found = await prisma.draftProduct.count({
+        where: { id: { in: draftIds } },
+      });
+
+      if (found !== draftIds.length) {
+        return res.status(400).json({ message: "One or more DraftProduct IDs are invalid." });
       }
     }
 
@@ -153,7 +165,6 @@ export const createPurchaseOrder = async (req: Request, res: Response) => {
     );
     const total = subtotal + Number(tax);
 
-    // ---- supplier relation (same as you had) ----
     const supplierRelation =
       supplierId
         ? { supplier: { connect: { supplierId } } }
@@ -182,7 +193,6 @@ export const createPurchaseOrder = async (req: Request, res: Response) => {
             },
           };
 
-    // ---- create purchase order + items ----
     const created = await prisma.purchaseOrder.create({
       data: {
         poNumber: poNumber ?? `PO-${Date.now()}`,
@@ -199,9 +209,6 @@ export const createPurchaseOrder = async (req: Request, res: Response) => {
             const quantity = Number(item.quantity);
             const unitPrice = Number(item.unitPrice);
 
-            // we expect the frontend to send either:
-            // - item.productId  (DraftProduct.id), or
-            // - item.name + item.unit to create a new DraftProduct
             const hasDraftId =
               typeof item.productId === "string" && item.productId.trim().length > 0;
 
@@ -209,10 +216,7 @@ export const createPurchaseOrder = async (req: Request, res: Response) => {
               typeof item.name === "string" && item.name.trim().length > 0;
 
             if (!hasDraftId && !hasName) {
-              // cleaner message than a Prisma relation error
-              throw new Error(
-                "DraftProduct missing: item has no productId and no name to create one."
-              );
+              throw new Error("DraftProduct missing: item has no productId and no name to create one.");
             }
 
             return {
@@ -222,9 +226,6 @@ export const createPurchaseOrder = async (req: Request, res: Response) => {
               unitPrice,
               lineTotal: quantity * unitPrice,
 
-              // 🔑 THIS MATCHES YOUR SCHEMA:
-              // productId is the FK to DraftProduct.id.
-              // We never set productId directly; Prisma fills it from this relation.
               product: hasDraftId
                 ? { connect: { id: item.productId.trim() } }
                 : {
@@ -233,39 +234,27 @@ export const createPurchaseOrder = async (req: Request, res: Response) => {
                       unit: String(item.unit ?? "").trim(),
                     },
                   },
-
-              // promotedProductId / promotedProduct:
-              // not set at creation time; you’ll fill these later when you “promote”
-              // promotedProduct: { connect: { productId: ... } }
             };
           }),
         },
       },
       include: {
         supplier: true,
-        // use relation names from schema:
-        items: {
-          include: {
-            product: true,           // DraftProduct
-            promotedProduct: true,   // Products (may be null initially)
-          },
-        },
+        items: { include: { product: true, promotedProduct: true } },
         _count: { select: { invoices: true } },
       },
     });
 
-    return res.status(201).json(created);
+    return res.status(201).json(toPurchaseOrderDTO(created));
   } catch (error: any) {
     console.error("createPurchaseOrder error:", error);
-
-    // more human-friendly error for our custom message above
     if (String(error?.message || "").includes("DraftProduct missing")) {
       return res.status(400).json({ message: error.message });
     }
-
     return res.status(500).json({ message: "Error creating purchase order." });
   }
 };
+
 
 export const updatePOStatus = async (req: Request, res: Response) => {
   try {
@@ -279,7 +268,11 @@ export const updatePOStatus = async (req: Request, res: Response) => {
     const updated = await prisma.purchaseOrder.update({
       where: { id },
       data: { status },
-      include: { supplier: true, items: true },
+      include: { 
+        supplier: true, 
+        items: { include: { product: true, promotedProduct: true } },
+        _count: { select: {invoices: true} },
+      },
     });
 
     return res.json(toPurchaseOrderDTO(updated));
@@ -390,6 +383,17 @@ export const updatePurchaseOrder = async (req: Request, res: Response) => {
       });
     }
 
+    const existing = await prisma.purchaseOrder.findUnique({
+      where: { id },
+      select: { _count: { select: { invoices: true, grns: true}}}
+    });
+
+    if (!existing) return res.status(404).json({ message: "PO not found"});
+
+    if ((existing._count.invoices > 0 || existing._count.grns > 0 ) && items.length > 0 ) {
+      return res.status(400).json({ message: " Cannot edit Purchase Order Items Lines after an invoice or Goods Receipt exist"})
+    }
+
     // Build the update data object
     const data: any = {};
 
@@ -441,9 +445,8 @@ export const updatePurchaseOrder = async (req: Request, res: Response) => {
         }
 
         // Validate quantity
-        if (quantity <= 0) {
-          throw new Error(`Item ${idx + 1}: Quantity must be greater than 0`);
-        }
+        if (!Number.isFinite(quantity) || quantity <= 0) throw new Error(`Item ${idx + 1}: Quantity must be > 0`);
+        if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new Error(`Item ${idx + 1}: Unit price must be >= 0`);
 
         // Map to PurchaseOrderItem fields (no 'name' field on item itself)
         const mappedItem: any = {
@@ -488,7 +491,7 @@ export const updatePurchaseOrder = async (req: Request, res: Response) => {
 
     console.log("Updated successfully. Items count:", updated.items.length);
 
-    res.status(200).json(updated);
+    res.status(200).json(toPurchaseOrderDTO(updated));
   } catch (error: any) {
     console.error("❌ updatePurchaseOrder error:", error);
     
@@ -513,6 +516,17 @@ export const deletePurchaseOrder = async (req: Request, res: Response) => {
   }
 
   try {
+
+    const existing = await prisma.purchaseOrder.findUnique({
+      where: {id: purchaseOrderId},
+      select: { _count: { select: { invoices: true, grns: true }}}
+    });
+
+    if (!existing) return res.status(404).json({ message: "PurchaseOrder not found"}
+    )
+    if (existing._count.invoices > 0 || existing._count.grns > 0) {
+      return res.status(400).json({ message: "Cannot delete a purchase order thatn has an invoice or goods receipt."})
+    }
     const result = await prisma.$transaction(async (tx) => {
       // Step 1: Get all items in this PO
       const items = await tx.purchaseOrderItem.findMany({

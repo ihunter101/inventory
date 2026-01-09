@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toaster";
@@ -36,6 +37,7 @@ export function CreateGRNDialog({
   onClose,
   onPosted,
 }: CreateGRNDialogProps) {
+  const router = useRouter();
   const { toast } = useToast();
   const [createGRN, { isLoading: creating }] = useCreateGRNMutation();
   const [postGRN, { isLoading: posting }] = usePostGRNMutation();
@@ -50,7 +52,7 @@ export function CreateGRNDialog({
     setSubmitting(true);
     try {
       // Validate lines have draftProductId
-      const invalidLines = draft.lines.filter((ln) => !ln.draftProductId);
+      const invalidLines = draft.lines.filter((ln) => !ln.productDraftId);
       if (invalidLines.length > 0) {
         toast({
           variant: "destructive",
@@ -61,12 +63,22 @@ export function CreateGRNDialog({
       }
 
       const linesPayload: GoodsReceiptLine[] = draft.lines.map((ln) => ({
-        draftProductId: ln.draftProductId,
+        productDraftId: ln.productDraftId,
+        poItemId: ln.poItemId,
         name: ln.name ?? "",
         unit: ln.unit,
         receivedQty: ln.receivedQty,
         unitPrice: ln.unitPrice ?? 0,
       }));
+
+      console.log("GRN CREATE payload", {
+        poId: draft.poId,
+        invoiceId: draft.invoiceId,
+        lines: linesPayload.map(l => ({ 
+          draftProductId: l.productDraftId, 
+          poItemId: l.poItemId 
+        }))
+      });
 
       const saved = await createGRN({
         grnNumber: draft.grnNumber,
@@ -75,6 +87,8 @@ export function CreateGRNDialog({
         date: draft.date,
         lines: linesPayload,
       }).unwrap();
+
+      console.log("Fulfilled:", saved);
 
       const updatedDraft: GoodsReceiptDTO = { ...draft, id: saved.id };
       onChange(updatedDraft);
@@ -108,6 +122,7 @@ export function CreateGRNDialog({
       }
 
       await postGRN({ id: idToPost }).unwrap();
+      //router.push(`/promotions?grnId=${encodeURIComponent(grnId)}`);
 
       toast({ title: "GRN posted successfully", description: draft.grnNumber });
       

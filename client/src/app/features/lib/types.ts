@@ -5,6 +5,7 @@ export type InvoiceFormProps = { onSuccess?: (invoiceNumber: string) => void };
 export type LineRow = {
   id: string;          // ✅ stable key, never use array index keys
   productId?: string;
+  poItemId?: string;
   name: string;
   unit: string;
   quantity: number;

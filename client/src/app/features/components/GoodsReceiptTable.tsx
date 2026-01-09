@@ -12,6 +12,7 @@ import {
 import { toYMD } from "../../../lib/date";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { GoodsReceiptAction } from "@/app/(components)/goodsReceipt/GoodReceiptActions";
 
 interface Props {
   data: GoodsReceiptDTO[];
@@ -116,7 +117,7 @@ export default function GRNTable({
                   <StatusBadge status={grn.status} />
                 </Td>
 
-                <Td className="text-right">
+                {/* <Td className="text-right">
                   {canPost ? (
                     <Button
                       size="sm"
@@ -128,6 +129,17 @@ export default function GRNTable({
                   ) : (
                     <span className="text-xs text-muted-foreground">-</span>
                   )}
+                </Td> */}
+                <Td>
+                  <GoodsReceiptAction
+                    orders={orders}
+                    invoices={invoices}
+                    goodsReceipt={grn}
+                    onPost={onPost}
+                    //onEdit={grn.id}
+                    isDeleting={false}
+                    isPosting={false}
+                  />
                 </Td>
               </tr>
             );

@@ -5,7 +5,8 @@ import { PERMS } from "@lab/shared";
 
 const router = Router();
 
-router.get("/", ...must(PERMS.READ_PRODUCTS), getProducts)
-router.post("/", ...must(PERMS.WRITE_PRODUCTS), createProduct)
+router.get("/", ...must(PERMS.READ_PRODUCTS), getProducts);
+router.post("/", ...must(PERMS.WRITE_PRODUCTS), createProduct);
+
 
 export default router;
