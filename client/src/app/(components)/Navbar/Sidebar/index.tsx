@@ -12,6 +12,8 @@ import {
   BarChart3,
   User,
   SlidersHorizontal,
+  PackageOpen,
+  Sparkles,
 } from "lucide-react"
 
 import {
@@ -31,6 +33,7 @@ import SidebarUserFooter from "./SideBaruserFooter"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { useClerk, useUser } from "@clerk/nextjs"
+import { hrtime } from "process"
 
 // Navigation items structure
 const navigation = {
@@ -52,6 +55,16 @@ const navigation = {
       href: "/products",
       icon: Clipboard,
     },
+    {
+      title: "Stock Requests",
+      href: "/stock-requests",
+      icon: PackageOpen,
+    },
+    {
+      title: "Pending Products",
+      href: "/pending-promotions",
+      icon: Sparkles,
+    }
   ],
   finance: [
     {
@@ -81,6 +94,7 @@ const navigation = {
       href: "/settings",
       icon: SlidersHorizontal,
     },
+
   ],
 }
 

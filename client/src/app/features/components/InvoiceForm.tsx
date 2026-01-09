@@ -1,3 +1,4 @@
+//client/src/app/features/components/invoiceeform.tsx
 "use client";
 
 import * as React from "react";
@@ -12,6 +13,7 @@ import {
   useCreateSupplierInvoiceMutation,
   useGetProductsQuery,
   SupplierInvoiceDTO,
+  CreateSupplierInvoiceDTO,
   InvoiceLine,
   PurchaseOrderDTO,
   useListPurchaseOrderQuery,
@@ -31,7 +33,7 @@ import InvoiceLinesSection from "@/app/(components)/invoices/InvoiceLineSection"
 /**
  * The data structure we send to the backend when creating/updating an invoice
  */
-export type SupplierInvoiceFormPayload = Partial<SupplierInvoiceDTO>;
+export type SupplierInvoiceFormPayload = CreateSupplierInvoiceDTO;
 
 /**
  * Props for the InvoiceForm component
@@ -146,6 +148,7 @@ export default function InvoiceForm({
     if (mode === "edit" && initial?.lines) {
       return initial.lines.map((line) => ({
         id: crypto.randomUUID(),
+        poItemId: undefined,
         productId: line.draftProductId || "",
         name: line.name || "",
         unit: line.unit || "",
@@ -158,8 +161,11 @@ export default function InvoiceForm({
 
   const [taxPct, setTaxPct] = React.useState<number>(0);
   const [poTax, setPoTax] = React.useState<number>(
-    mode === "edit" && initial ? (initial.amount - initial.lines.reduce((s, l) => s + l.lineTotal, 0)) : 0
+    mode === "edit" && initial 
+    ? Number(initial.amount ?? 0) - Number(initial.lines?.reduce((s, l) => s + (l.lineTotal ?? 0), 0) ?? 0) 
+    : 0
   );
+
 
   // ========================================
   // PREVENT DOUBLE SUBMISSION
@@ -181,21 +187,33 @@ export default function InvoiceForm({
   // PO SELECTION HANDLER
   // ========================================
 
-  const choosePO = React.useCallback((po: PurchaseOrderDTO) => {
+  const choosePO = React.useCallback(
+  (po: PurchaseOrderDTO) => {
     setSelectedPO(po);
     setPoTax(po.tax ?? 0);
 
-    const seeded: LineRow[] = (po.items ?? []).map((it) => ({
-      id: crypto.randomUUID(),
-      productId: it.productId,
-      name: it.name ?? "",
-      unit: it.unit ?? "",
-      quantity: it.quantity ?? 1,
-      unitPrice: it.unitPrice ?? 0,
-    }));
+    const seeded: LineRow[] = (po.items ?? []).map((it: any) => {
+      const draft = productIndex.byId.get(it.productId); // DraftProduct from cache
+
+      return {
+        id: crypto.randomUUID(),
+        poItemId: it.id,
+        productId: it.productId,
+
+        // ✅ reliable name + unit fallbacks
+        name: it.product?.name ?? draft?.name ?? it.description ?? it.name ?? "",
+        unit: it.unit ?? it.product?.unit ?? draft?.unit ?? "",
+
+        quantity: it.quantity ?? 1,
+        unitPrice: Number(it.unitPrice ?? 0),
+      };
+    });
 
     setRows(seeded.length ? seeded : [makeEmptyRow()]);
-  }, []);
+  },
+  [productIndex] // ✅ IMPORTANT so it has the latest drafts
+);
+
 
   const onClearPO = () => {
     if (mode === "edit") {
@@ -299,19 +317,21 @@ export default function InvoiceForm({
 
     try {
       const lines: InvoiceLine[] = rows.map((r) => {
-        const found = r.productId ? productIndex.byId.get(r.productId) : undefined;
+      const found = r.productId ? productIndex.byId.get(r.productId) : undefined;
 
-        return {
-          draftProductId: r.productId!,
-          productId: null,
-          sku: r.productId,
-          name: r.name || found?.name || "",
-          unit: r.unit || found?.unit || "",
-          quantity: Number(r.quantity) || 0,
-          unitPrice: Number(r.unitPrice) || 0,
-          lineTotal: (Number(r.quantity) || 0) * (Number(r.unitPrice) || 0),
-        };
-      });
+      return {
+        draftProductId: r.productId!,
+        poItemId: r.poItemId,              // ✅ ADD THIS
+        productId: null,
+        sku: r.productId,
+        name: r.name || found?.name || "",
+        unit: r.unit || found?.unit || "",
+        quantity: Number(r.quantity) || 0,
+        unitPrice: Number(r.unitPrice) || 0,
+        lineTotal: (Number(r.quantity) || 0) * (Number(r.unitPrice) || 0),
+      };
+    });
+
 
       const payload: SupplierInvoiceFormPayload = {
         invoiceNumber,
@@ -319,8 +339,6 @@ export default function InvoiceForm({
         poId: activePO?.id ?? initial?.poId ?? "",
         date,
         dueDate: dueDate || undefined,
-        status: initial?.status || "PENDING",
-        amount,
         lines,
       };
 

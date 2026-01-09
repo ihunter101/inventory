@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Prisma } from "@prisma/client";
+import { Department, Prisma } from "@prisma/client";
 import { getStatus } from '../utils/stock';
 import { prisma } from "../lib/prisma";
 
@@ -129,5 +129,26 @@ export const createProduct = async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Failed to create product" });
   }
 }
+
+export const getPendingArrivals = async (req: Request, res: Response) => {
+  try {
+    const products = await prisma.products.findMany({
+      where: {
+        OR: [
+          { category: null },
+          { Department: null },
+          { imageUrl: null},
+        ]
+      },
+      orderBy: { createdAt: "desc"},
+    });
+    return res.json(products)
+  } catch (error) {
+    console.error("Error retrieving products:", error);
+    return res.status(500).json({ message: "Error retrieving items" });
+  }
+}
+
+
 
 

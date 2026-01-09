@@ -1,3 +1,4 @@
+// client/sr/app/features/components/invoicetable.tsx
 "use client";
 
 import Link from "next/link";
@@ -18,7 +19,7 @@ function shortId(id?: string) {
   return id ? `${id.slice(0, 8)}…` : "-";
 }
 
-export default function InvoiceTable({
+export default function sInvoiceTable({
   data,
   goodsReceipts,
   onCreateGRN,
@@ -119,3 +120,4 @@ const Th = (p: any) => (
 const Td = (p: any) => (
   <td className={`px-6 py-4 ${p.className ?? ""}`}>{p.children}</td>
 );
+

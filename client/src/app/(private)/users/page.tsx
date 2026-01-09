@@ -21,7 +21,7 @@ import { useUser } from "@clerk/nextjs";
 import { Role } from "@shared/dist/userRolesUtils";
 import { UserActions } from "@/app/(components)/users/UserAction";
 import { toast } from "sonner";
-import { EditUserDialog } from "@/app/(components)/users/EditUserDialog";
+import { EditUserDialog, getLocationLabel } from "@/app/(components)/users/EditUserDialog";
 
 export default function UsersPage() {
   const { user: clerkUser } = useUser();
@@ -179,16 +179,24 @@ export default function UsersPage() {
       ),
     },
     {
-      field: "location",
+      field: "location", 
       headerName: "location",
       flex: 0.5,
       sortable: true,
       filterable: true,
       headerAlign: "center",
       align: "center",
+      //valueGetter: (value, row) => getLocationLabel(row.location),
       renderCell: (params) => (
-        <Typography variant="caption" color="ActiveText">{params.row.location}</Typography>
-      )
+        <Typography
+          sx={{
+            fontWeight: 500,
+            color: theme.palette.text.secondary,
+          }}
+        >
+          {getLocationLabel(params.row.location)}
+        </Typography>
+      ),
     },
     {
       field: "actions",

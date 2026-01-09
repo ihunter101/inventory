@@ -137,7 +137,9 @@ export type GRNStatus = "DRAFT" | "POSTED";
 
 export interface POItem {
   id?: string; 
-  productId: string; 
+  poItemId?: string;
+  productId?: string; // should be a draft product id and not a product id 
+  draftProductId: string;
   sku?: string; 
   name: string; 
   unit: string;
@@ -203,6 +205,7 @@ export interface NewPurchaseOrderDTO {
 export interface InvoiceLine {
   draftProductId: string;
   productId: string | null;
+  poItemId?: string;
   sku?: string;
   name: string;
   unit: string;
@@ -226,10 +229,28 @@ export interface SupplierInvoiceDTO {
   category?: string;
 
 }
+export interface CreateSupplierInvoiceDTO {
+  invoiceNumber: string;
+  supplierId: string;
+  poId?: string;
+  date?: string;
+  dueDate?: string;
+  lines: Array<{
+    draftProductId: string;
+    poItemId?: string;
+    unit: string;
+    quantity: number;
+    unitPrice: number;
+    description?: string;
+  }>;
+}
+
 
 export interface GoodsReceiptLine {
-  draftProductId: string;
+  productDraftId: string;
   //sku?: string;
+  productId?: string;
+  poItemId?: string;
   name: string;
   unit: string;
   receivedQty: number;
@@ -250,6 +271,20 @@ export interface GoodsReceiptDTO {
 
 
 }
+export interface CreateGRNDTO {
+  poId: string;
+  invoiceId?: string;
+  date?: string;
+  grnNumber: string;
+  lines: Array<{
+    productDraftId: string;
+    poItemId?: string;
+    receivedQty: number;
+    unitPrice?: number;
+    unit: string;
+  }>;
+}
+
 
 // shared core fields the form always sends
 export type POBaseInput = {
@@ -301,7 +336,19 @@ export type PurchaseOrderFormPayload =
     createdAt: string;
     lastLogin: string;
     onboardedAt: string;
-  }
+  };
+
+  export type DraftProductDTO = {
+  id: string;
+  name: string;
+  unit: string;
+  createdAt: string;   // ISO
+  updatedAt: string;   // ISO
+  receivedQty: number;
+  grnCount?: number;        // optional: how many GRNs
+  grnNumbers?: string[];
+};
+
 
 
 
@@ -409,7 +456,39 @@ export const api = createApi({
       }),
       invalidatesTags: ["Products", "Inventory"],
     }),
-
+    getPendingArrivals: build.query<DraftProductDTO[], { grnId: string }>({
+      query: ({ grnId }) => `/draft-products/pending-arrivals?grnId=${encodeURIComponent(grnId)}`,
+      providesTags: [{ type: "DraftProducts", id: "PENDING_ARRIVALS" }],
+    }),
+    finalizedProduct: build.mutation<Product, Partial<Product>>({
+      query: ({ productId, ...patch}) => ({
+        url: `products/${productId}/finalize`,
+        method: "PATCH",
+        body: patch,
+      }),
+      invalidatesTags: [{ type: "Products", id: "LIST" }, { type: "Inventory", id: "LIST" }]
+    }),
+    getPendingPromotionsCount: build.query<{ count: number }, void>({
+      query: () => "/draft-products/pending-promotions/count",
+      providesTags: [{ type: "DraftProducts", id: "PENDING_COUNT" }],
+    }),
+    getPendingPromotions: build.query<DraftProductDTO[], { grnId?: string } | void>({
+      query: (arg) => {
+        const grnId = arg && typeof arg === 'object' ? arg.grnId : undefined;
+        return grnId
+          ? `/draft-products/pending-promotions?grnId=${encodeURIComponent(grnId)}`
+          : `/draft-products/pending-promotions`;
+      },
+      providesTags: [{ type: "DraftProducts", id: "PENDING_LIST" }],
+    }),
+    bulkFinalizeProducts: build.mutation<any, { updates: Array<any> }>({
+      query: (body) => ({
+        url: "/draft-products/bulk-finalize",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["DraftProducts", "Products", "Inventory"],
+    }),
     // Users
     getUsers: build.query<User[], void>({
       query: () => "/users",
@@ -498,7 +577,7 @@ export const api = createApi({
     method: "PATCH",
     body,
   }),
-  invalidatesTags: (_r, _e, { id }) => [{ type: "PurchaseOrders", id }],
+  invalidatesTags: (_r, _e, { id }) => [{ type: "PurchaseOrders", id }, { type: "PurchaseOrders", id: "LIST" }],
 }),
   deletePurchaseOrder: build.mutation<void, { id: string }>({
     query: ({ id }) => ({
@@ -518,7 +597,7 @@ export const api = createApi({
     { type: "SupplierInvoices", id } 
   ]
 }),
-  createSupplierInvoice: build.mutation<SupplierInvoiceDTO, Partial<SupplierInvoiceDTO>>({
+  createSupplierInvoice: build.mutation<SupplierInvoiceDTO, CreateSupplierInvoiceDTO>({
     query: (body) => ({ url: "/invoices", method: "POST", body}),
     invalidatesTags: [{ type: "SupplierInvoices", id: "LIST"}, "SupplierInvoices", "PurchaseOrders", "DashboardMetrics"],
   }),
@@ -560,11 +639,11 @@ listGoodsReceipts: build.query<GoodsReceiptDTO[], void>({
         ]
       : [{ type: "GoodsReceipts", id: "LIST" }],
 }),
-getGoodsReceipt: build.query<GoodsReceiptDTO, {id: string}>({
+getGoodsReceipt: build.query<GoodsReceiptDTO,  string>({
   query: (id) => ({ url: `/grns/${id}` }),
-  providesTags: (_result, _error, {id}) => [{ type: "GoodsReceipts", id }],
+  providesTags: (_result, _error, id) => [{ type: "GoodsReceipts", id }],
 }),
-createGRN: build.mutation<GoodsReceiptDTO, Partial<GoodsReceiptDTO>>({
+createGRN: build.mutation<GoodsReceiptDTO, CreateGRNDTO>({
   query: (body) => ({ 
     url: "/grns",
     method: "POST", 
@@ -580,7 +659,7 @@ postGRN: build.mutation<void, { id: string }>({
   invalidatesTags: (_result, _error, { id }) => [
     { type: "GoodsReceipts", id },
     { type: "GoodsReceipts", id: "LIST" },
-    { type: "PurchaseOrders" }, // Also invalidate POs since they're affected
+    { type: "PurchaseOrders", id: "LIST" }, // Also invalidate POs since they're affected
   ],
 }),
 updateGRN: build.mutation<GoodsReceiptDTO, { id: string } & Partial<GoodsReceiptDTO>>({
@@ -693,10 +772,15 @@ deleteGoodsReceipt: build.mutation<void, {id: string}> ({
 
 export const {
   useGetDashboardMetricsQuery,
+  
   useGetProductsQuery,
-  useGetInventoryQuery,
+  useGetPendingArrivalsQuery,
+  useFinalizedProductMutation,
+  useBulkFinalizeProductsMutation,
   useCreateProductMutation,
-
+   useGetPendingPromotionsCountQuery,
+  useGetPendingPromotionsQuery,
+  
   useGetUsersQuery,
   useGetUserByIdQuery,
   useUpdateUserMutation,
@@ -705,6 +789,7 @@ export const {
 
   useAdjustInventoryMutation,
   useSetInventoryMutation,
+  useGetInventoryQuery,
 
   useGetExpensesQuery,
   useCreateExpenseMutation,

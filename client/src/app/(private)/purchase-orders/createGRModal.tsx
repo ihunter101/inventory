@@ -11,7 +11,7 @@ import {
   useCreateGRNMutation,
   usePostGRNMutation,
 } from "@/app/state/api";
-import AlertNote from "./AlertNote";
+import AlertNote from "@/app/features/components/AlertNote";
 
 type Props = {
   open: boolean;
