@@ -1,24 +1,28 @@
-//client/src/app/features/components/invoiceeform.tsx
+// client/src/app/features/components/invoiceeform.tsx
 "use client";
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
 import { useToast } from "@/components/ui/toaster";
 import { Loader2 } from "lucide-react";
 
 import {
-  useGetPurchaseOrdersQuery,
-  useCreateSupplierInvoiceMutation,
-  useGetProductsQuery,
   SupplierInvoiceDTO,
   CreateSupplierInvoiceDTO,
   InvoiceLine,
   PurchaseOrderDTO,
+  useGetPurchaseOrdersQuery,
   useListPurchaseOrderQuery,
   useGetDraftProductsQuery,
-  useGetPurchaseOrderQuery,
 } from "@/app/state/api";
 
 import type { LineRow } from "@/app/features/lib/types";
@@ -41,16 +45,16 @@ export type SupplierInvoiceFormPayload = CreateSupplierInvoiceDTO;
 type InvoiceFormProps = {
   /** Whether we're creating a new invoice or editing an existing one */
   mode: "create" | "edit";
-  
+
   /** The existing invoice data (only used when mode is "edit") */
   initial?: SupplierInvoiceDTO;
 
   /** Linked Purchase order tied to the created invoice */
   linkedPO?: PurchaseOrderDTO | null;
-  
+
   /** Function called when user submits the form */
   onSubmit: (data: SupplierInvoiceFormPayload) => Promise<void>;
-  
+
   /** Whether the form is currently being submitted */
   submitting?: boolean;
 
@@ -58,20 +62,22 @@ type InvoiceFormProps = {
   onSuccess?: (invoiceNumber: string) => void;
 };
 
+function toYMD(d: Date): string {
+  // YYYY-MM-DD
+  return d.toISOString().slice(0, 10);
+}
+
 /**
  * InvoiceForm - A form for creating or editing supplier invoices
- * 
- * Features:
- * - Select purchase order (create mode) or display linked PO (edit mode)
- * - Add/remove line items with draft products
- * - Calculate subtotal, tax, and total automatically
- * - Validates all required fields before submission
+ *
+ * Pattern used:
+ * - UI uses Date | undefined for calendar pickers
+ * - Payload converts Date -> "YYYY-MM-DD" right before submit
  */
-export default function InvoiceForm({ 
-  mode, 
-  initial, 
+export default function InvoiceForm({
+  mode,
+  initial,
   onSubmit,
-  
   submitting = false,
   onSuccess,
   linkedPO = null,
@@ -80,24 +86,20 @@ export default function InvoiceForm({
   const { toast } = useToast();
 
   // ========================================
-  // FORM STATE - These hold all the form data
+  // FORM STATE
   // ========================================
 
-  /** The invoice number */
   const [invoiceNumber, setInvoiceNumber] = React.useState(
     mode === "edit" && initial ? initial.invoiceNumber : genInvoiceNumber()
   );
 
-  /** Invoice date (YYYY-MM-DD format) */
-  const [date, setDate] = React.useState(
-    mode === "edit" && initial 
-      ? initial.date.slice(0, 10) 
-      : new Date().toISOString().slice(0, 10)
+  // ✅ UI state is Date-based for shadcn Calendar
+  const [date, setDate] = React.useState<Date | undefined>(
+    mode === "edit" && initial?.date ? new Date(initial.date) : new Date()
   );
 
-  /** When payment is due (YYYY-MM-DD format) */
-  const [dueDate, setDueDate] = React.useState(
-    mode === "edit" && initial ? initial.dueDate?.slice(0, 10) || "" : ""
+  const [dueDate, setDueDate] = React.useState<Date | undefined>(
+    mode === "edit" && initial?.dueDate ? new Date(initial.dueDate) : undefined
   );
 
   // ========================================
@@ -112,18 +114,12 @@ export default function InvoiceForm({
 
   const searchActive = poSearch.trim().length > 0;
 
-  const { data: poResults = [], isFetching: poSearching } =
-    useGetPurchaseOrdersQuery(searchActive ? { q: poSearch } : undefined, {
-      refetchOnMountOrArgChange: true,
-    });
+  const { data: poResults = [], isFetching: poSearching } = useGetPurchaseOrdersQuery(
+    searchActive ? { q: poSearch } : undefined,
+    { refetchOnMountOrArgChange: true }
+  );
 
   const { data: allPOResults = [] } = useListPurchaseOrderQuery();
-
-  // Get the linked PO for edit mode
-  // const { data: linkedPO } = useGetPurchaseOrderQuery(
-  //   mode === "edit" && initial?.poId ? initial.poId : "",
-  //   { skip: mode !== "edit" || !initial?.poId }
-  // );
 
   // Show searched results if searching, otherwise show all
   const basePOs = searchActive ? poResults : allPOResults;
@@ -133,7 +129,7 @@ export default function InvoiceForm({
   );
 
   // ========================================
-  // PRODUCTS
+  // PRODUCTS (Draft Products)
   // ========================================
 
   const { data } = useGetDraftProductsQuery();
@@ -160,12 +156,15 @@ export default function InvoiceForm({
   });
 
   const [taxPct, setTaxPct] = React.useState<number>(0);
-  const [poTax, setPoTax] = React.useState<number>(
-    mode === "edit" && initial 
-    ? Number(initial.amount ?? 0) - Number(initial.lines?.reduce((s, l) => s + (l.lineTotal ?? 0), 0) ?? 0) 
-    : 0
-  );
 
+  const [poTax, setPoTax] = React.useState<number>(
+    mode === "edit" && initial
+      ? Number(initial.amount ?? 0) -
+          Number(
+            initial.lines?.reduce((s, l) => s + (l.lineTotal ?? 0), 0) ?? 0
+          )
+      : 0
+  );
 
   // ========================================
   // PREVENT DOUBLE SUBMISSION
@@ -188,38 +187,37 @@ export default function InvoiceForm({
   // ========================================
 
   const choosePO = React.useCallback(
-  (po: PurchaseOrderDTO) => {
-    setSelectedPO(po);
-    setPoTax(po.tax ?? 0);
+    (po: PurchaseOrderDTO) => {
+      setSelectedPO(po);
+      setPoTax(po.tax ?? 0);
 
-    const seeded: LineRow[] = (po.items ?? []).map((it: any) => {
-      const draft = productIndex.byId.get(it.productId); // DraftProduct from cache
+      const seeded: LineRow[] = (po.items ?? []).map((it: any) => {
+        const draft = productIndex.byId.get(it.productId); // DraftProduct from cache
 
-      return {
-        id: crypto.randomUUID(),
-        poItemId: it.id,
-        productId: it.productId,
+        return {
+          id: crypto.randomUUID(),
+          poItemId: it.id,
+          productId: it.productId,
 
-        // ✅ reliable name + unit fallbacks
-        name: it.product?.name ?? draft?.name ?? it.description ?? it.name ?? "",
-        unit: it.unit ?? it.product?.unit ?? draft?.unit ?? "",
+          // ✅ reliable name + unit fallbacks
+          name: it.product?.name ?? draft?.name ?? it.description ?? it.name ?? "",
+          unit: it.unit ?? it.product?.unit ?? draft?.unit ?? "",
 
-        quantity: it.quantity ?? 1,
-        unitPrice: Number(it.unitPrice ?? 0),
-      };
-    });
+          quantity: it.quantity ?? 1,
+          unitPrice: Number(it.unitPrice ?? 0),
+        };
+      });
 
-    setRows(seeded.length ? seeded : [makeEmptyRow()]);
-  },
-  [productIndex] // ✅ IMPORTANT so it has the latest drafts
-);
-
+      setRows(seeded.length ? seeded : [makeEmptyRow()]);
+    },
+    [productIndex]
+  );
 
   const onClearPO = () => {
     if (mode === "edit") {
-      toast({ 
-        variant: "destructive", 
-        title: "Cannot change PO in edit mode" 
+      toast({
+        variant: "destructive",
+        title: "Cannot change PO in edit mode",
       });
       return;
     }
@@ -233,10 +231,7 @@ export default function InvoiceForm({
   // LINE ITEM HANDLERS
   // ========================================
 
-  const addRow = React.useCallback(
-    () => setRows((prev) => [...prev, makeEmptyRow()]), 
-    []
-  );
+  const addRow = React.useCallback(() => setRows((prev) => [...prev, makeEmptyRow()]), []);
 
   const patchRow = React.useCallback((rowId: string, patch: Partial<LineRow>) => {
     setRows((prev) => prev.map((r) => (r.id === rowId ? { ...r, ...patch } : r)));
@@ -255,15 +250,9 @@ export default function InvoiceForm({
     [rows]
   );
 
-  const tax = React.useMemo(
-    () => subtotal * (money(taxPct) / 100), 
-    [subtotal, taxPct]
-  );
+  const tax = React.useMemo(() => subtotal * (money(taxPct) / 100), [subtotal, taxPct]);
 
-  const amount = React.useMemo(
-    () => subtotal + tax, 
-    [subtotal, tax]
-  );
+  const amount = React.useMemo(() => subtotal + tax, [subtotal, tax]);
 
   // ========================================
   // RESET FORM (CREATE MODE ONLY)
@@ -271,8 +260,8 @@ export default function InvoiceForm({
 
   const reset = React.useCallback(() => {
     setInvoiceNumber(genInvoiceNumber());
-    setDate(new Date().toISOString().slice(0, 10));
-    setDueDate("");
+    setDate(new Date());
+    setDueDate(undefined);
     setRows([makeEmptyRow()]);
     setSelectedPO(null);
     setPoSearch("");
@@ -284,25 +273,29 @@ export default function InvoiceForm({
   // ========================================
 
   function validate(): boolean {
-  if (!activePOId) {
-    toast({
-      variant: "destructive",
-      title: mode === "edit" ? "No PO linked" : "Select a PO first",
-    });
-    return false;
+    if (!activePOId) {
+      toast({
+        variant: "destructive",
+        title: mode === "edit" ? "No PO linked" : "Select a PO first",
+      });
+      return false;
+    }
+
+    if (!rows.length || rows.some((r) => !r.productId || r.quantity <= 0)) {
+      toast({
+        variant: "destructive",
+        title: "Add at least one valid line (product + quantity)",
+      });
+      return false;
+    }
+
+    if (!date) {
+      toast({ variant: "destructive", title: "Invoice date is required" });
+      return false;
+    }
+
+    return true;
   }
-
-  if (!rows.length || rows.some((r) => !r.productId || r.quantity <= 0)) {
-    toast({
-      variant: "destructive",
-      title: "Add at least one valid line (product + quantity)",
-    });
-    return false;
-  }
-
-  return true;
-}
-
 
   // ========================================
   // FORM SUBMISSION
@@ -310,44 +303,44 @@ export default function InvoiceForm({
 
   const handleSubmit = React.useCallback(async () => {
     if (isSubmitting || submitting) return;
-
     if (!validate()) return;
 
     setIsSubmitting(true);
 
     try {
       const lines: InvoiceLine[] = rows.map((r) => {
-      const found = r.productId ? productIndex.byId.get(r.productId) : undefined;
+        const found = r.productId ? productIndex.byId.get(r.productId) : undefined;
 
-      return {
-        draftProductId: r.productId!,
-        poItemId: r.poItemId,              // ✅ ADD THIS
-        productId: null,
-        sku: r.productId,
-        name: r.name || found?.name || "",
-        unit: r.unit || found?.unit || "",
-        quantity: Number(r.quantity) || 0,
-        unitPrice: Number(r.unitPrice) || 0,
-        lineTotal: (Number(r.quantity) || 0) * (Number(r.unitPrice) || 0),
-      };
-    });
-
+        return {
+          draftProductId: r.productId!,
+          poItemId: r.poItemId, // ✅ keep link
+          productId: null,
+          sku: r.productId,
+          name: r.name || found?.name || "",
+          unit: r.unit || found?.unit || "",
+          quantity: Number(r.quantity) || 0,
+          unitPrice: Number(r.unitPrice) || 0,
+          lineTotal: (Number(r.quantity) || 0) * (Number(r.unitPrice) || 0),
+        };
+      });
 
       const payload: SupplierInvoiceFormPayload = {
         invoiceNumber,
         supplierId: activePO?.supplierId ?? initial?.supplierId ?? "",
         poId: activePO?.id ?? initial?.poId ?? "",
-        date,
-        dueDate: dueDate || undefined,
+
+        // ✅ convert Date -> string for backend
+        date: date ? toYMD(date) : toYMD(new Date()),
+        dueDate: dueDate ? toYMD(dueDate) : undefined,
+
         lines,
       };
 
-
       await onSubmit(payload);
 
-      toast({ 
-        title: mode === "create" ? "Invoice created" : "Invoice updated", 
-        description: invoiceNumber 
+      toast({
+        title: mode === "create" ? "Invoice created" : "Invoice updated",
+        description: invoiceNumber,
       });
 
       if (mode === "create") {
@@ -366,19 +359,19 @@ export default function InvoiceForm({
   }, [
     isSubmitting,
     submitting,
-    selectedPO,
     rows,
     productIndex,
     invoiceNumber,
     date,
     dueDate,
-    amount,
-    onSubmit,
+    activePO,
     initial,
     mode,
+    onSubmit,
     onSuccess,
     reset,
     toast,
+    activePOId,
   ]);
 
   // ========================================
@@ -450,38 +443,31 @@ export default function InvoiceForm({
           onPatchRow={patchRow}
           onRemoveRow={removeRow}
           disabled={submitting || isSubmitting}
-          //mode={mode}
         />
       </CardContent>
 
       <CardFooter className="flex items-center justify-end gap-3 p-8 pt-4 md:p-10 md:pt-6">
-        <Button 
-          variant="outline" 
-          onClick={() => router.back()} 
-          disabled={submitting || isSubmitting}
-        >
+        <Button variant="outline" onClick={() => router.back()} disabled={submitting || isSubmitting}>
           Cancel
         </Button>
 
-          <Button 
-            type="button"
-            className="h-11 px-6 text-base" 
-            onClick={handleSubmit} 
-            disabled={
-              submitting || 
-              isSubmitting || 
-              !activePOId // Fixed condition
-            }
-          >
-            {submitting || isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {mode === "create" ? "Creating…" : "Saving…"}
-              </>
-            ) : (
-              mode === "create" ? "Create Invoice" : "Save Changes"
-            )}
-          </Button>
+        <Button
+          type="button"
+          className="h-11 px-6 text-base"
+          onClick={handleSubmit}
+          disabled={submitting || isSubmitting || !activePOId}
+        >
+          {submitting || isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {mode === "create" ? "Creating…" : "Saving…"}
+            </>
+          ) : mode === "create" ? (
+            "Create Invoice"
+          ) : (
+            "Save Changes"
+          )}
+        </Button>
       </CardFooter>
     </Card>
   );

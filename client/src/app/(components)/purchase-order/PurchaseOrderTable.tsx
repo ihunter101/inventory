@@ -12,6 +12,7 @@ export type DraftProductLite = { id: string; name: string; unit?: string };
 
 export type ItemRow = {
   draftProductId: string;
+  productId?: string;
   name?: string;
   unit?: string;
   quantity: number;

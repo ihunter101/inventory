@@ -19,5 +19,6 @@ export function safeNumber(n: unknown) {
 }
 
 export function todayYMD() {
-  return new Date().toISOString().slice(0, 10);
+  //return new Date().toISOString().slice(0, 10);
+  return new Date()
 }

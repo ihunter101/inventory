@@ -84,7 +84,7 @@ export default function UsersPage() {
 
     const label = updatedUser.name ?? updatedUser.email;
     const msg = parts.length ? parts.join(" • ") : "Updated";
-
+    console.log("User Loation: ", updates, updatedUser)
     toast.success(`${label}: ${msg}`, { id: toastId });
   } catch (error: any) {
     console.error(error);

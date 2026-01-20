@@ -19,15 +19,15 @@ import {
 // Option B: mirror the enum here or in shared
 export enum Location {
   Tapion = "Tapion",
-  blueCoral = "Blue Coral",
-  manoelStreet = "Manoel Street",
-  sunnyAcres = "Sunny Acres",
-  emCare = "Em-Care",
+  blueCoral = "blueCoral",
+  manoelStreet = "manoelStreet",
+  sunnyAcres = "sunnyAcres",
+  emCare = "emCare",
   RodneyBay = "RodneyBay",
-  memberCare = "Member Care",
-  vieuxFort = "Vieux-Fort",
-  soufriere = "Soufriere",
-  other = "Other",
+  memberCare = "memberCare",
+  vieuxFort = "vieuxFort",
+  soufriere = "soufriere",
+  other = "other",
 }
 
 // nice labels for UI

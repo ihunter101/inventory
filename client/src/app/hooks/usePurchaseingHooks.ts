@@ -84,7 +84,7 @@ export function usePurchasingFilters(
     return grns.filter((grn) => {
       const matchesSearch =
         (grn.grnNumber?.toLowerCase().includes(q) ?? false) ||
-        (grn.lines?.some(ln => (ln.sku || ln.name || "").toLowerCase().includes(q)) ?? false);
+        (grn.lines?.some(ln => ( ln.name || "").toLowerCase().includes(q)) ?? false);
 
       const matchesStatus = !grnStatusVal || grn.status === grnStatusVal;
       return matchesSearch && matchesStatus;

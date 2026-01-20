@@ -102,20 +102,21 @@ const ExpenseDashboard = () => {
         </Grid>
       </Grid>
 
-      {/* DONUT (GROUP) + BAR (CATEGORY) – SAME HEIGHT ROW */}
-      <Grid container spacing={2} sx={{ mt: 2 }}>
-        <Grid item xs={12} md={4} lg={4}>
-          <Box sx={{ height: "100%" }}>
+      {/* DONUT + BAR – force equal height */}
+      <Grid container spacing={2} sx={{ mt: 2 }} alignItems="stretch">
+        <Grid item xs={12} md={4} lg={4} sx={{ display: "flex" }}>
+          <Box sx={{ flex: 1 }}>
             <ExpenseGroupDonutCard expenses={filteredExpenses} />
           </Box>
         </Grid>
 
-        <Grid item xs={12} md={8} lg={8}>
-          <Box sx={{ height: "100%" }}>
+        <Grid item xs={12} md={8} lg={8} sx={{ display: "flex" }}>
+          <Box sx={{ flex: 1, minHeight: 360 }}>
             <BarChartCategoryAnalysis expenses={filteredExpenses} />
           </Box>
         </Grid>
       </Grid>
+
 
       {/* RECENT TRANSACTIONS TABLE */}
       <Card sx={{ mt: 4 }}>
