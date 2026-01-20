@@ -57,7 +57,7 @@ export default function sInvoiceTable({
                       href={`/purchases?tab=match&po=${encodeURIComponent(inv.poId!)}`}
                       className="text-primary hover:underline"
                       title={`Open PO ${poLabel}`}
-                      onClick={() => onOpenMatch?.(inv.poId!)}
+                      onClick={() => onOpenMatch?.(inv.poNumber)}
                     >
                       {poLabel}
                     </Link>

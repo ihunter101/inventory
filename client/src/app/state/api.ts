@@ -9,6 +9,65 @@ import { Role } from "@lab/shared/userRoleUtils";
 // Interfaces
 // ----------------------
 
+//------------------------
+// DashboardMetrics types
+//------------------------
+
+export type DateRange = "7d" | "30d" | "90d" | "1y";
+
+export interface RevenueAndProfitData {
+  chartData: Array<{
+    date: string;
+    revenue: number;
+    regularExpenses: number;
+    invoiceExpenses: number;
+    totalExpenses: number;
+    profit: number;
+  }>;
+  summary: {
+    totalRevenue: number;
+    totalRegularExpenses: number;
+    totalInvoiceExpenses: number;
+    totalExpenses: number;
+    totalProfit: number;
+    profitMargin: number;
+    revenueTrend: number | null;
+    profitTrend: number | null;
+    transactionCounts: {
+      salesCount: number;
+      expenseCount: number;
+      invoiceCount: number;
+    };
+  };
+  topExpenseCategories: Array<{
+    category: string;
+    amount: number;
+  }>;
+}
+
+export interface PurchaseBreakdownCategory {
+  category: string;
+  amount: number;
+}
+
+export interface PurchaseBreakdownDepartment {
+  department: string;
+  amount: number;
+}
+
+export interface PurchaseBreakdownProduct {
+  productId: string;
+  name: string;
+  amount: number;
+}
+
+export interface PurchaseBreakdown {
+  total: number;
+  byCategory: PurchaseBreakdownCategory[];
+  byDepartment: PurchaseBreakdownDepartment[];
+  topProducts: PurchaseBreakdownProduct[];
+}
+
 export interface ProductResponse {
   items: Product[];
   page: number;
@@ -56,6 +115,13 @@ export interface Inventory {
   lastCounted: string;
 }
 
+type UpdateInventoryMetaPayload = {
+  productId: string;
+  expiryDate?: string | null; // ISO string or null
+  minQuantity?: number;
+  reorderPoint?: number;
+};
+
 export interface NewProduct {
   name: string;
   rating?: number;
@@ -93,12 +159,13 @@ export interface ExpenseByCategorySummary {
 
 export interface DashboardMetrics {
   popularProducts: Product[];
-  salesSummary: SalesSummary[];
-  purchaseSummary: PurchaseSummary[];
-  expenseSummary: ExpenseSummary[];
+  salesSummary: Sales[];
+  purchaseSummary: SupplierInvoiceDTO[];
+  purchaseBreakdown: PurchaseBreakdown  // ✅ Single object, not array
+  expenseSummary: Expense[]
+  revenueAndProfit: Record<DateRange, RevenueAndProfitData>
   expenseByCategorySummary: ExpenseByCategorySummary[];
 }
-
 export type ExpenseGroup = 
   |"Clinical" 
   | "Equipment and Infrastructure"
@@ -177,8 +244,8 @@ export interface NewPurchaseOrderDTO {
   // server can assign this if you omit it
   poNumber?: string;
 
-  orderDate: string; // problem
-  dueDate?: string; //
+  orderDate: string | Date; // problem
+  dueDate?: string | Date; //
   notes?: string; //
 
   items: POItem[]; //unsure
@@ -268,8 +335,7 @@ export interface GoodsReceiptDTO {
   date: string;
   status: GRNStatus;
   lines: GoodsReceiptLine[];
-
-
+  notes?: string;
 }
 export interface CreateGRNDTO {
   poId: string;
@@ -349,8 +415,68 @@ export type PurchaseOrderFormPayload =
   grnNumbers?: string[];
 };
 
+export interface Sales {
+  id: number;
+  locationId: number;
+  salesDate: string;
+  hundredsCount: number;
+  fiftiesCount: number;
+  twentiesCount: number;
+  tensCount: number;
+  fivesCount: number;
+  cashTotal: string;
+  grandTotal: string;
+  creditCardTotal: string;
+  debitCardTotal: string;
+  chequeTotal: string;
+  notes?: string;
+  enteredBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSaleInput {
+  salesDate: string;
+  hundredsCount: number;
+  fiftiesCount: number;
+  twentiesCount: number;
+  tensCount: number;
+  fivesCount: number;
+  cashTotal: number;
+  creditCardTotal: number;
+  debitCardTotal: number;
+  chequeTotal: number;
+  grandTotal: number;
+  notes?: string;
+}
+
+export interface SalesAnalytics {
+  sales: Sales[];
+  analytics: {
+    totalSales: number;
+    totalCash: number;
+    totalCard: number;
+    salesByLocation: Array<{
+      locationId: number; // ✅ was string
+      totalSales: number;
+      count: number;
+    }>;
+  };
+}
 
 
+export interface GetSalesParams {
+  startDate?: string;
+  endDate?: string;
+  locationId?: number; // ✅ optional
+}
+
+
+interface PostGRNResponse {
+  ok: boolean;
+  grnId: string;
+  poId: string;
+}
 
 // ----------------------
 // API Setup
@@ -374,7 +500,8 @@ export const api = createApi({
   tagTypes: [
     "DashboardMetrics", "Products", "Users", "Expenses",
     "PurchaseOrders", "SupplierInvoices", "GoodsReceipts", 
-    "Suppliers", "Inventory", "DraftProducts", "StockSheet"
+    "Suppliers", "Inventory", "DraftProducts", "StockSheet",
+    "SalesAnalytics", "TodaySale", "Sales"
   ],
   endpoints: (build) => ({
     // Dashboard Metrics
@@ -396,7 +523,12 @@ export const api = createApi({
         ]
       : [{ type: "Inventory" as const, id: "LIST" }],
       }),
-
+    getInventoryWithoutExpiryDate: build.query<Inventory[], void>({
+      query: () => ({
+        url: 'inventory/expiry'
+      }),
+      providesTags: [{ type: "Inventory", id: "LIST"}]
+    }),
     adjustInventory: build.mutation<Inventory, { productId: string; delta: number; reason?: string }>({
       query: (body) => ({
         url: "/inventory/adjust",
@@ -429,7 +561,14 @@ export const api = createApi({
         { type: "Products", id: productId },
       ],
     }),
-
+    updateInventoryMeta: build.mutation<Inventory, UpdateInventoryMetaPayload>({
+      query: ({ productId, ...body }) => ({
+        url: `inventory/${productId}/meta`,
+        method: "PATCH",
+        body,
+      }),
+      invalidatesTags: [{ type: "Inventory", id: "LIST" }],
+    }),
     // Products
     getProducts: build.query<ProductResponse, GetProductsArgs | void>({
       query: (args) => {
@@ -498,16 +637,21 @@ export const api = createApi({
       query: (id) => `/users/${id}`,
       providesTags: (_results, _err, id) => [{ type: "Users", id: "LIST"}, { type: "Users", id}]
     }),
+    getMe: build.query<{ user: User }, void>({
+      query: () => "/users/me",
+      providesTags: [{ type: "Users", id: "ME" }],
+    }),
+
     updateUser: build.mutation<User, { id: string; name?: string; location?: string }>({
-  query: ({ id, ...body }) => ({
-    url: `/users/${id}`,
-    method: "PATCH",
-    body, // body will be { name?: string; location?: string }
-  }),
-  invalidatesTags: (_result, _err, { id }) => [
-    { type: "Users", id: "LIST" },
-    { type: "Users", id },
-  ],
+      query: ({ id, ...body }) => ({
+      url: `/users/${id}`,
+      method: "PATCH",
+      body, // body will be { name?: string; location?: string }
+    }),
+      invalidatesTags: (_result, _err, { id }) => [
+        { type: "Users", id: "LIST" },
+        { type: "Users", id },
+      ],
   }),
     updateUserRole: build.mutation<User, { id: string, role: Role }>({
       query: ({ id, role }) => ({
@@ -651,15 +795,16 @@ createGRN: build.mutation<GoodsReceiptDTO, CreateGRNDTO>({
   }),
   invalidatesTags: ["GoodsReceipts", "PurchaseOrders"],
 }),
-postGRN: build.mutation<void, { id: string }>({
+postGRN: build.mutation<PostGRNResponse, { id: string }>({
   query: ({ id }) => ({
     url: `/grns/${id}/post`,
     method: "POST",
   }),
-  invalidatesTags: (_result, _error, { id }) => [
+  invalidatesTags: (result, error, { id }) => [
     { type: "GoodsReceipts", id },
     { type: "GoodsReceipts", id: "LIST" },
-    { type: "PurchaseOrders", id: "LIST" }, // Also invalidate POs since they're affected
+    { type: "PurchaseOrders", id: result?.poId },
+    { type: "PurchaseOrders", id: "LIST" },
   ],
 }),
 updateGRN: build.mutation<GoodsReceiptDTO, { id: string } & Partial<GoodsReceiptDTO>>({
@@ -762,7 +907,71 @@ deleteGoodsReceipt: build.mutation<void, {id: string}> ({
       { type: "StockSheet", id },
       { type: "StockSheet", id: "LIST" },
     ],
-  })
+  }),
+  createSale: build.mutation<{ sale: Sales; message: string }, CreateSaleInput>({
+  query: (saleData) => ({
+    url: "/sales",
+    method: "POST",
+    body: saleData,
+  }),
+  invalidatesTags: [
+    { type: "Sales", id: "LIST" },
+    { type: "TodaySale", id: "SINGLE" },
+    { type: "SalesAnalytics", id: "LIST" },
+  ],
+}),
+
+updateSale: build.mutation<{ sale: Sales; message: string },{ id: number; data: CreateSaleInput }
+>({
+  query: ({ id, data }) => ({
+    url: `/sales/${id}`,
+    method: "PATCH",
+    body: data,
+  }),
+  invalidatesTags: [
+    { type: "Sales", id: "LIST" },
+    { type: "TodaySale", id: "SINGLE" },
+    { type: "SalesAnalytics", id: "LIST" },
+  ],
+}),
+
+getSalesByLocation: build.query<{ sales: Sales[] }, GetSalesParams>({
+  query: (params) => ({
+    // ✅ if your backend uses user.location, you likely want just "/sales/location"
+    url: `/sales/location`,
+    params: {
+      startDate: params.startDate,
+      endDate: params.endDate,
+    },
+  }),
+  providesTags: [{ type: "Sales", id: "LIST" }],
+}),
+
+getTodaySale: build.query<{ sale: Sales | null }, void>({
+  query: () => "/sales/today",
+  providesTags: [{ type: "TodaySale", id: "SINGLE" }],
+}),
+
+getSalesAnalystics: build.query<SalesAnalytics, GetSalesParams>({
+  query: (params) => ({
+    url: "/sales/analytics",
+    params, // { startDate, endDate, locationId? }
+  }),
+  providesTags: [{ type: "SalesAnalytics", id: "LIST" }],
+}),
+
+deleteSale: build.mutation<{ message: string }, number>({
+  query: (id) => ({
+    url: `/sales/${id}`, // ✅ missing slash fixed
+    method: "DELETE",
+  }),
+  invalidatesTags: [
+    { type: "Sales", id: "LIST" },
+    { type: "TodaySale", id: "SINGLE" },
+    { type: "SalesAnalytics", id: "LIST" },
+  ],
+}),
+
   }),
 });
 
@@ -772,13 +981,13 @@ deleteGoodsReceipt: build.mutation<void, {id: string}> ({
 
 export const {
   useGetDashboardMetricsQuery,
-  
+    
   useGetProductsQuery,
   useGetPendingArrivalsQuery,
   useFinalizedProductMutation,
   useBulkFinalizeProductsMutation,
   useCreateProductMutation,
-   useGetPendingPromotionsCountQuery,
+  useGetPendingPromotionsCountQuery,
   useGetPendingPromotionsQuery,
   
   useGetUsersQuery,
@@ -786,10 +995,13 @@ export const {
   useUpdateUserMutation,
   useUpdateUserRoleMutation,
   useDeleteUserMutation,
+  useGetMeQuery,
 
   useAdjustInventoryMutation,
   useSetInventoryMutation,
   useGetInventoryQuery,
+  useGetInventoryWithoutExpiryDateQuery,
+  useUpdateInventoryMetaMutation,
 
   useGetExpensesQuery,
   useCreateExpenseMutation,
@@ -828,6 +1040,13 @@ export const {
   useGetStockRequestByIdQuery,
   useReviewStockRequestMutation,
   useFulfillStockRequestMutation,
+
+  useCreateSaleMutation,
+  useUpdateSaleMutation,
+  useGetTodaySaleQuery,
+  useGetSalesByLocationQuery,
+  useGetSalesAnalysticsQuery,
+  useDeleteSaleMutation,
 } = api;
 
 

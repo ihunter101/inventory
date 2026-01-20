@@ -34,6 +34,7 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
+import StockRequestPDFDownload from "@/app/pdf/StockRequestPDFDownload";
 
 
 type StockLineOutcome = "PENDING" | "GRANTED" | "ADJUSTED" | "UNAVAILABLE";
@@ -193,20 +194,33 @@ export default function StockRequestDetailPage() {
     const toastId = toast.loading("Processing fulfillment...");
     
     try {
+      // ✅ SAVE REVIEW FIRST
+      const body = {
+        messageToRequester: messageToRequester.trim() || null,
+        expectedDeliveryAt: expectedDeliveryAt
+          ? new Date(expectedDeliveryAt).toISOString()
+          : null,
+        lines: linesState.map((l: any) => ({
+          lineId: l.id,
+          grantedQty: l.grantedQty,
+        })),
+      };
+        console.log("📤 SENDING TO BACKEND:", JSON.stringify(body, null, 2));
+      await review({ id, body }).unwrap();
+      
+      // ✅ THEN FULFILL
       const result = await fulfill(id).unwrap();
       
       console.log("Fulfill success:", result);
       
       toast.success("Request fulfilled successfully!", { id: toastId });
       
-      // Wait a bit for the cache to update
       setTimeout(() => {
         router.push("/stock-requests");
       }, 500);
       
     } catch (err: any) {
-     console.error(err)
-
+      console.error(err);
       toast.error("Error", { id: toastId });
     }
   };
@@ -337,9 +351,28 @@ export default function StockRequestDetailPage() {
       <Card>
         <CardHeader>
           <CardTitle>Requested Items ({linesState.length})</CardTitle>
-          <CardDescription>
-            Review and adjust quantities based on available stock
-          </CardDescription>
+            <div className="flex items-center gap-2 justify-between">
+              <CardDescription>
+                Review and adjust quantities based on available stock
+              </CardDescription>
+              <StockRequestPDFDownload
+                request={data}
+                // ensure PDF reflects your current edited state (important)
+                linesOverride={linesState.map((l: any) => ({
+                  id: l.id,
+                  grantedQty: l.grantedQty,
+                  outcome: l.outcome,
+                }))}
+                messageOverride={messageToRequester}
+                expectedDeliveryOverride={expectedDeliveryAt}
+                preparedBy="Hunter"
+                notes={
+                  hasIssues
+                    ? "Some line items were adjusted or unavailable. Please review outcomes before fulfillment."
+                    : undefined
+                }
+              />
+            </div>
         </CardHeader>
 
         <CardContent className="p-0">

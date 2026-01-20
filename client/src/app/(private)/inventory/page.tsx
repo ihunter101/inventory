@@ -20,6 +20,9 @@ import {
 } from "@/app/(components)/inventory/InventoryTypes";
 import {InventoryItem as PdfItem} from "@/app/pdf/InventoryDocument";
 import type {  Category } from "@/app/(components)/Products/CreateProductDialog";
+import { MissingExpiryTableCard } from "@/app/(components)/inventory/AddExpiryDate";
+
+
 
 export default function InventoryPage() {
   const { data = [], isLoading, isError, error, refetch } = useGetInventoryQuery();
@@ -120,11 +123,13 @@ export default function InventoryPage() {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
+      
       <InventoryHeader
         onAddItem={() => { }}
           pdfItems={pdfItems} 
       />
 
+    <MissingExpiryTableCard />
 
       <InventoryFilters
         status={status}

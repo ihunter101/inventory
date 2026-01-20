@@ -167,49 +167,71 @@ export const postGoodsReceipt = async (req: Request, res: Response) => {
     const goodsReceipt = await prisma.goodsReceipt.findUnique({
       where: { id },
       include: {
-        lines: true,              // must include poItemId + receivedQty + productDraftId
+        lines: true,
         po: { include: { items: true } },
       },
     });
 
     if (!goodsReceipt) {
-      return res.status(404).json({ message: "Goods receipt not found." });
-    }
-
-    if (goodsReceipt.status === GRNStatus.POSTED) {
-      return res.json({ ok: true });
-    }
-
-    // ✅ must have poItemId to update PO status reliably
-    const missingPoItemId = goodsReceipt.lines.some((ln) => !ln.poItemId);
-    if (missingPoItemId) {
-      return res.status(400).json({
-        message:
-          "Cannot POST this GRN because one or more lines are missing poItemId.",
+      return res.status(404).json({ 
+        message: "Goods receipt not found.",
+        ok: false 
       });
     }
 
-    // ✅ must have a draft product (since we are NOT promoting on post)
+    if (goodsReceipt.status === GRNStatus.POSTED) {
+      return res.json({ 
+        ok: true, 
+        grnId: goodsReceipt.id, 
+        poId: goodsReceipt.poId,
+        message: "Goods receipt already posted" 
+      });
+    }
+
+    // Validation checks
+    const missingPoItemId = goodsReceipt.lines.some((ln) => !ln.poItemId);
+    if (missingPoItemId) {
+      return res.status(400).json({
+        message: "Cannot POST this GRN because one or more lines are missing poItemId.",
+        ok: false,
+      });
+    }
+
     const missingDraft = goodsReceipt.lines.some((ln) => !ln.productDraftId);
     if (missingDraft) {
       return res.status(400).json({
-        message:
-          "Cannot POST this GRN because one or more lines are missing productDraftId.",
+        message: "Cannot POST this GRN because one or more lines are missing productDraftId.",
+        ok: false,
       });
     }
 
     await prisma.$transaction(async (tx) => {
-      // 1) mark GRN POSTED (no promotion, no inventory updates)
+      // 1) Mark GRN as POSTED
       await tx.goodsReceipt.update({
         where: { id: goodsReceipt.id },
         data: { status: GRNStatus.POSTED },
       });
 
-      // 2) recompute PO status based on all POSTED GRNs for this PO
+      // 2) Recompute PO status
       const posted = await tx.goodsReceipt.findMany({
         where: { poId: goodsReceipt.poId, status: GRNStatus.POSTED },
         include: { lines: true },
       });
+
+      for (const line of goodsReceipt.lines) {
+    // If this GRN line has a promoted productId, sync it to the invoice
+    if (line.productId && line.poItemId) {
+      await tx.supplierInvoiceItem.updateMany({
+        where: {
+          poItemId: line.poItemId,
+          productId: null, // Only update if not already linked
+        },
+        data: {
+          productId: line.productId,
+        },
+      });
+    }
+  }
 
       const receivedByPoItemId = new Map<string, number>();
 
@@ -230,14 +252,23 @@ export const postGoodsReceipt = async (req: Request, res: Response) => {
 
       await tx.purchaseOrder.update({
         where: { id: goodsReceipt.poId },
-        data: { status: "RECEIVED" },
+        data: { status: fullyReceived ? "RECEIVED" : "PARTIALLY_RECEIVED" },
       });
     });
 
-    return res.json({ ok: true, grnId: goodsReceipt.id, poId: goodsReceipt.poId });
+    return res.json({ 
+      ok: true, 
+      grnId: goodsReceipt.id, 
+      poId: goodsReceipt.poId,
+      message: "Goods receipt posted successfully"
+    });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Error posting goods receipt." });
+    console.error("Post GRN error:", error);
+    return res.status(500).json({ 
+      message: "Error posting goods receipt.",
+      ok: false,
+      error: error instanceof Error ? error.message : "Unknown error"
+    });
   }
 };
 

@@ -14,6 +14,7 @@ import { DeleteDialogue } from "../shared/DeleteDialogue";
 import { UpdatePurchasesStatus } from "../shared/UpdateStatus";
 import { PurchaseOrderDownloadButton } from "../shared/OrderDownloadButton";
 import { generatePDF, PurchaseOrderPDFData } from "../shared/PDFUtils";
+import { useSendDocumentEmail } from "@/app/hooks/useSendDocumentEmail";
 
 type PurchaseOrderProps = { purchaseOrder: PurchaseOrderDTO};
 
@@ -28,7 +29,7 @@ export function EditPurchaseOrder ({ purchaseOrder }: PurchaseOrderProps) {
     const [deletePurchaseOrder, {isLoading: isDeleting}] = useDeletePurchaseOrderMutation();
     const { data: orderNumber } = useGetPurchaseOrderQuery(purchaseOrder.id);
     const [updatePurchaseOrder, {isLoading: isUpdating}] = useUpdatePurchaseOrderStatusMutation();
-    
+    const { sendEmail, isLoading: isEmailing } = useSendDocumentEmail();
     // 2. DEPENDENT VALUES
     const title = orderNumber?.poNumber || "Unknown";
     
@@ -55,15 +56,33 @@ export function EditPurchaseOrder ({ purchaseOrder }: PurchaseOrderProps) {
         }
     }
 
-    const handleEmailSupplier = async ()=> {
-        const recipientEmail = purchaseOrder.supplier!.email
-        try {
-            resendEmail(purchaseOrder.id, purchaseOrder.poNumber, recipientEmail)
-            toast.success(`Purchase Order ${purchaseOrder.poNumber} successfully sent to ${recipientEmail}`)
-        } catch (error) {
-            toast.error(`Failed to send ${purchaseOrder.poNumber} to ${recipientEmail}`)
-        }
+    // const handleEmailSupplier = async ()=> {
+    //     const recipientEmail = purchaseOrder.supplier!.email
+    //     try {
+    //         await resendEmail(purchaseOrder.id, purchaseOrder.poNumber, recipientEmail)
+    //         toast.success(`Purchase Order ${purchaseOrder.poNumber} successfully sent to ${recipientEmail}`)
+    //     } catch (error) {
+    //         toast.error(`Failed to send ${purchaseOrder.poNumber} to ${recipientEmail}`)
+    //     }
         
+    // }
+
+    const handleEmailSupplier = async () => {
+        const recipientEmail = purchaseOrder.supplier?.email;
+        if (!recipientEmail) return toast.error("Supplier email not found");
+
+        const toastId = toast.loading(`Sending ${title}...`)
+        try {
+            await sendEmail({
+                docType: "purchase-order",
+                docId: purchaseOrder.id,
+                docNumber: purchaseOrder.poNumber,
+                recipientEmail: recipientEmail,
+            });
+            toast.success(`Purchase Order ${title} successfully sent to ${recipientEmail}`, { id: toastId });
+        } catch (error: any) {
+            toast.error( error?.message ||`Failed to send ${title} to ${recipientEmail}`, { id: toastId });
+        }
     }
 
     const handleDownloadPurchaseOrder = async () => {
@@ -115,7 +134,7 @@ export function EditPurchaseOrder ({ purchaseOrder }: PurchaseOrderProps) {
 
         },
         {
-            label: isSendingEmail ? "Emailing supplier" : "Email supplier",
+            label: isSendingEmail ? "Emailing Supplier" : "Email Supplier",
             onSelect: handleEmailSupplier,
             variant: "normal"
         },

@@ -320,6 +320,8 @@ export const reviewStockRequest = async (req: Request, res:Response) => {
 
         const requestId = req.params.id
         const body = req.body as ReviewStockRequestBody
+        console.log("📥 BACKEND RECEIVED:", JSON.stringify(body, null, 2));
+
 
         if (!body?.lines || !Array.isArray(body.lines) || body.lines.length === 0) {
             return res.status(400).json({message: "lines is required"});
@@ -347,8 +349,10 @@ export const reviewStockRequest = async (req: Request, res:Response) => {
             await prisma.$transaction(async (tx) => {
                 for (const l of body.lines) {
                     const current = lineById.get(l.lineId)!;
-                    const grantedQty = clamp(l.grantedQty, 0, current.requestedQty)
+                    //const grantedQty = clamp(l.grantedQty, 0, current.requestedQty)
+                    const grantedQty = Math.max(0, Math.floor(Number(l.grantedQty) || 0))
 
+                    console.log(`🔍 Line ${l.lineId}: received=${l.grantedQty}, calculated=${grantedQty}, requested=${current.requestedQty}`);
                     await tx.stockRequestLine.update({
                         where: {id: l.lineId},
                         data: {
@@ -409,27 +413,36 @@ export const fulfillStockRequest = async (req: Request, res: Response) => {
         const fulfilled = await prisma.$transaction(async (tx) => {
             // Fetch request with all related data
             const request = await tx.stockRequest.findUnique({
-                where: { id: requestId },
-                include: {
-                    lines: {
-                        include: {
-                            product: {
-                                select: {
-                                    name: true,
-                                    unit: true,
-                                    Department: true,
-                                    inventory: { 
-                                        select: { 
-                                            id: true, 
-                                            stockQuantity: true 
-                                        } 
-                                    },
-                                },
-                            },
-                        },
+              where: { id: requestId },
+              include: {
+                lines: {
+                  select: {
+                    id: true,
+                    productId: true,
+                    requestedQty: true,
+                    grantedQty: true,   // ✅ ensure it is present
+                    product: {
+                      select: {
+                        name: true,
+                        unit: true,
+                        Department: true,
+                        inventory: { select: { id: true, stockQuantity: true } },
+                      },
                     },
+                  },
                 },
+              },
             });
+
+            console.log(
+              "FULFILL lines snapshot:",
+              request?.lines.map(l => ({
+                id: l.id,
+                productId: l.productId,
+                requestedQty: l.requestedQty,
+                grantedQty: l.grantedQty,
+              }))
+            );
 
             if (!request) {
                 throw new Error("NOT_FOUND");
@@ -508,9 +521,9 @@ async function processStockRequestLine(
 ): Promise<LineResult> {
     const requestedQty = line.requestedQty;
     const desiredGranted = Math.max(
-        0,
-        Math.min(requestedQty, line.grantedQty ?? requestedQty)
-    );
+    0,
+    line.grantedQty ?? requestedQty
+);
 
     const inventory = line.product.inventory;
     const available = inventory?.stockQuantity ?? 0;

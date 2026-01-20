@@ -32,6 +32,9 @@ import {
   PurchaseOrderDTO,
   NewPurchaseOrderDTO,
 } from "@/app/state/api";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ChevronDownIcon } from "lucide-react";
 
 /**
  * The data structure we send to the backend when creating/updating a PO
@@ -85,20 +88,21 @@ export default function PurchaseOrderForm({
   // FORM STATE - These hold all the form data
   // ========================================
   
+  const [open, setOpen] = React.useState(false)
   /** The PO number (e.g., "PO-2024-001") */
   const [poNumber, setPoNumber] = React.useState(
     mode === "edit" && initial ? initial.poNumber : genPONumber()
   );
 
   /** When the PO was created (YYYY-MM-DD format) */
-  const [orderDate, setOrderDate] = React.useState(
-    mode === "edit" && initial ? initial.orderDate.slice(0, 10) : todayYMD()
-  );
+const [orderDate, setOrderDate] = React.useState<Date>(
+  mode === "edit" && initial?.orderDate ? new Date(initial.orderDate) : new Date()
+);
+/** When the PO was created (YYYY-MM-DD format) */
+const [dueDate, setDueDate] = React.useState<Date | undefined>(
+  mode === "edit" && initial?.dueDate ? new Date(initial.dueDate) : undefined
+);
 
-  /** When payment is due (YYYY-MM-DD format) */
-  const [dueDate, setDueDate] = React.useState(
-    mode === "edit" && initial ? initial.dueDate?.slice(0, 10) || "" : ""
-  );
 
   /** Any special notes or terms for this PO */
   const [notes, setNotes] = React.useState(
@@ -339,7 +343,7 @@ export default function PurchaseOrderForm({
   const reset = React.useCallback(() => {
     setPoNumber(genPONumber());
     setOrderDate(todayYMD());
-    setDueDate("");
+    setDueDate(new Date());
     setNotes("");
     setTaxPercent(0);
     setRows([{ quantity: 1, unitPrice: 0, unit: "", name: "", draftProductId: "" }]);
@@ -411,7 +415,8 @@ export default function PurchaseOrderForm({
           const quantity = safeNumber(r.quantity);
           const unitPrice = safeNumber(r.unitPrice);
           return {
-            productId: r.draftProductId, // Real DB ID
+            productId: r.productId ?? r.draftProductId, // Real DB ID
+            draftProductId: r.draftProductId,
             name: (r.name || "").trim(),
             unit: (r.unit || "").trim(),
             quantity,
@@ -538,25 +543,72 @@ export default function PurchaseOrderForm({
 
           <div>
             <Label className="text-sm font-medium text-slate-700">Order Date</Label>
-            <Input
+            {/* <Input
               type="date"
               className="mt-2 h-11 text-base"
               value={orderDate}
               onChange={(e) => setOrderDate(e.target.value)}
               disabled={submitting || isSubmitting}
-            />
+            /> */}
+            <div className="flex flex-col gap-3">
+              <Label htmlFor="date" className="px-1">
+                Order Date
+              </Label>
+              <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    id="date"
+                    className="w-48 justify-between font-normal"
+                  >
+                    {orderDate ? orderDate.toLocaleDateString() : "Select an Order Date"}
+                    <ChevronDownIcon />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto overflow-hidden p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={orderDate}
+                    captionLayout="dropdown"
+                    onSelect={(OrderDate) => {
+                      setOrderDate(orderDate)
+                      setOpen(false)
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
 
-          <div>
-            <Label className="text-sm font-medium text-slate-700">Due Date</Label>
-            <Input
-              type="date"
-              className="mt-2 h-11 text-base"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              disabled={submitting || isSubmitting}
-            />
-          </div>
+
+            <div className="flex flex-col gap-3">
+              <Label htmlFor="date" className="px-1">
+                Due Date
+              </Label>
+              <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    id="date"
+                    className="w-48 justify-between font-normal"
+                  >
+                    {dueDate ? dueDate.toLocaleDateString() : "Select a due date"}
+                    <ChevronDownIcon />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto overflow-hidden p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dueDate}
+                    captionLayout="dropdown"
+                    onSelect={(dueDate) => {
+                      setDueDate(dueDate)
+                      setOpen(false)
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
 
           <div>
             <Label className="text-sm font-medium text-slate-700">

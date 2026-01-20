@@ -40,7 +40,7 @@ function HamburgerIcon({ isOpen }: { isOpen: boolean }) {
           isOpen ? '-translate-y-1.5 -rotate-45' : ''
         }`}
       />
-    </div>
+    </div> 
   )
 }
 

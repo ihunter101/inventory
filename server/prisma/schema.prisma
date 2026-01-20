@@ -59,7 +59,7 @@ enum Location {
   manoelStreet
   sunnyAcres
   emCare
-  RodneyBay
+  RodneyBay // capitalize should be lower case 
   memberCare
   vieuxFort
   soufriere

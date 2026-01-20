@@ -234,4 +234,64 @@ export const deleteUser = async (req: Request, res: Response) => {
         return res.status(500).json({ error: "Failed to delete user"})
     }
 }
+/**
+ * GET /users/me
+ * Returns the logged-in user from your DB (role + location come from Prisma).
+ *
+ * Requires auth middleware to attach clerkId to req.auth (or similar).
+ */
+export const getMe = async (req: Request, res: Response) => {
+  try {
+    // Get Clerk ID from auth middleware
+    const clerkId =
+      (req as any).auth?.userId ||
+      (typeof (req as any).auth === "function" 
+        ? (req as any).auth()?.userId 
+        : undefined) ||
+      (req as any).userId;
+
+    if (!clerkId) {
+      return res.status(401).json({ 
+        message: "Unauthorized: missing Clerk userId" 
+      });
+    }
+
+    // Find user in database
+    const dbUser = await prisma.users.findUnique({
+      where: { clerkId },
+      select: {
+        id: true,
+        clerkId: true,
+        email: true,
+        name: true,
+        role: true,
+        location: true,
+        createdAt: true,
+        lastLogin: true,
+      },
+    });
+
+    if (!dbUser) {
+      // User exists in Clerk but not in DB - auto-provision
+      // You can either create the user here or return 404
+      return res.status(404).json({
+        message: "User not found in database. Please complete onboarding.",
+        clerkId, // Return clerkId so frontend knows who they are
+      });
+    }
+
+    // ✅ Update last login timestamp
+    await prisma.users.update({
+      where: { clerkId },
+      data: { lastLogin: new Date() },
+    });
+
+    return res.json({ user: dbUser });
+  } catch (err) {
+    console.error("getMe error:", err);
+    return res.status(500).json({ 
+      message: "Failed to fetch current user" 
+    });
+  }
+};
 
