@@ -33,7 +33,6 @@ import SidebarUserFooter from "./SideBaruserFooter"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { useClerk, useUser } from "@clerk/nextjs"
-import { hrtime } from "process"
 
 // Navigation items structure
 const navigation = {
@@ -94,7 +93,6 @@ const navigation = {
       href: "/settings",
       icon: SlidersHorizontal,
     },
-
   ],
 }
 
@@ -111,9 +109,7 @@ export function AppSidebar() {
   }
 
   const handleLogout = async () => {
-    // Clear sidebar state before signing out
     try {
-      localStorage.removeItem("sidebar:state")
       await signOut({ redirectUrl: "/sign-in" })
     } catch (error) {
       console.error("Logout error:", error)
@@ -176,11 +172,6 @@ export function AppSidebar() {
                     asChild 
                     isActive={isActive(item.href)} 
                     tooltip={item.title}
-                    className={cn(
-                      "hover:bg-accent hover:text-accent-foreground",
-                      "data-[active=true]:bg-accent data-[active=true]:text-accent-foreground data-[active=true]:font-medium",
-                      "focus-visible:ring-2 focus-visible:ring-primary/30"
-                    )}
                   >
                     <Link href={item.href}>
                       <item.icon />
@@ -206,11 +197,6 @@ export function AppSidebar() {
                     asChild 
                     isActive={isActive(item.href)} 
                     tooltip={item.title}
-                    className={cn(
-                      "hover:bg-accent hover:text-accent-foreground",
-                      "data-[active=true]:bg-accent data-[active=true]:text-accent-foreground data-[active=true]:font-medium",
-                      "focus-visible:ring-2 focus-visible:ring-primary/30"
-                    )}
                   >
                     <Link href={item.href}>
                       <item.icon />
@@ -236,11 +222,6 @@ export function AppSidebar() {
                     asChild 
                     isActive={isActive(item.href)} 
                     tooltip={item.title}
-                    className={cn(
-                      "hover:bg-accent hover:text-accent-foreground",
-                      "data-[active=true]:bg-accent data-[active=true]:text-accent-foreground data-[active=true]:font-medium",
-                      "focus-visible:ring-2 focus-visible:ring-primary/30"
-                    )}
                   >
                     <Link href={item.href}>
                       <item.icon />
@@ -280,11 +261,6 @@ export function AppSidebar() {
                     asChild 
                     isActive={isActive(item.href)} 
                     tooltip={item.title}
-                    className={cn(
-                      "hover:bg-accent hover:text-accent-foreground",
-                      "data-[active=true]:bg-accent data-[active=true]:text-accent-foreground data-[active=true]:font-medium",
-                      "focus-visible:ring-2 focus-visible:ring-primary/30"
-                    )}
                   >
                     <Link href={item.href}>
                       <item.icon />
