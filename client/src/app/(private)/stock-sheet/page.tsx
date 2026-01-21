@@ -1,5 +1,3 @@
-// File location: app/(private)/stock-sheet/page.tsx
-
 "use client";
 
 import { useAppDispatch, useAppSelector } from "@/app/redux";
@@ -24,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useCreateStockSheetMutation } from "@/app/state/api";
+import { useEffect, useTransition } from "react";
 
 export default function StockSheetPage() {
   const router = useRouter();
@@ -31,32 +30,37 @@ export default function StockSheetPage() {
   const lines = useAppSelector(selectStockSheetLines);
   const totalCount = useAppSelector(selectStockSheetCount);
   const totalQuantity = useAppSelector(selectSheetTotalQuantity);
+  const [isPending, startTransition] = useTransition();
 
-  const [createStockRequest, {isLoading: isCreating}] = useCreateStockSheetMutation()
+  const [createStockRequest, {isLoading: isCreating}] = useCreateStockSheetMutation();
+
+  useEffect(() => {
+    console.log("Stock sheet page mounted");
+  }, []);
 
   const handleSubmitStockSheet = async () => {
-
-  const toastId = toast.loading("Submitting request...");
-  
-  try {
-    const payload = {
-      lines: lines.map((l) => ({ productId: l.productId, requestedQty: l.requestedQty }))
-    };
-
-    await createStockRequest(payload).unwrap();
-
-    // 2. UPDATE the existing toast instead of making a new one
-    toast.success("Request submitted successfully", { id: toastId });
+    const toastId = toast.loading("Submitting request...");
     
-    dispatch(clear());
-    router.push('/products');
-  } catch (e) {
-    console.error(e);
-    
-    // 3. UPDATE the existing toast to show the error
-    toast.error("Failed to submit request", { id: toastId });
-  }
-};
+    try {
+      const payload = {
+        lines: lines.map((l) => ({ productId: l.productId, requestedQty: l.requestedQty }))
+      };
+
+      await createStockRequest(payload).unwrap();
+
+      toast.success("Request submitted successfully", { id: toastId });
+      
+      dispatch(clear());
+      
+      // Use startTransition to make navigation non-blocking
+      startTransition(() => {
+        router.push('/products');
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to submit request", { id: toastId });
+    }
+  };
 
   const handleClearAll = () => {
     if (confirm("Are you sure you want to clear all items from the stock sheet?")) {
@@ -64,7 +68,6 @@ export default function StockSheetPage() {
       toast.success("Stock sheet cleared");
     }
   };
-  
 
   const handleExportCSV = () => {
     const headers = ["Product Name", "Unit", "Requested Quantity"];
@@ -90,6 +93,12 @@ export default function StockSheetPage() {
     toast.success("Opening print dialog");
   };
 
+  const handleBrowseProducts = () => {
+    startTransition(() => {
+      router.push("/products");
+    });
+  };
+
   if (lines.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -105,11 +114,12 @@ export default function StockSheetPage() {
               Add products from the Products page to create your stock request.
             </p>
             <Button
-              onClick={() => router.push("/products")}
+              onClick={handleBrowseProducts}
+              disabled={isPending}
               className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transition-all duration-300 px-8"
               size="lg"
             >
-              Browse Products
+              {isPending ? "Loading..." : "Browse Products"}
             </Button>
           </div>
         </div>
@@ -294,11 +304,12 @@ export default function StockSheetPage() {
               <span className="font-semibold text-emerald-700">{totalQuantity}</span> total units
             </div>
             <Button 
-              disabled={isCreating}
+              disabled={isCreating || isPending}
               onClick={handleSubmitStockSheet}
-              className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transition-all duration-300 gap-2">
+              className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transition-all duration-300 gap-2"
+            >
               <Clipboard className="h-4 w-4" />
-              {isCreating ? "Submitting..." : "submit Request"}
+              {isCreating || isPending ? "Submitting..." : "Submit Request"}
             </Button>
           </div>
         </div>

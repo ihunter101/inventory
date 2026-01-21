@@ -20,6 +20,8 @@ import Link from "next/link"
 import { useClerk } from "@clerk/nextjs"
 import { useAppSelector } from "@/app/redux"
 import { selectStockSheetCount } from "@/app/state/stockSheetSlice"
+import { useUser } from "@clerk/nextjs"
+import { useGetMeQuery } from "@/app/state/api"
 
 // Hamburger Menu Icon Component
 function HamburgerIcon({ isOpen }: { isOpen: boolean }) {
@@ -77,7 +79,12 @@ function getPageTitle(pathname: string) {
 
 export default function Navbar() {
   const router = useRouter()
+  const { user } = useUser();
   const { signOut } = useClerk()
+
+  const { data } = useGetMeQuery();
+
+  const userRole = data?.user.role
 
   const handleLogout = async () => {
     await signOut({ redirectUrl: "/sign-in" })
@@ -191,12 +198,12 @@ export default function Navbar() {
               <Avatar className="h-8 w-8">
                 <AvatarImage src="/placeholder-avatar.jpg" alt="User" />
                 <AvatarFallback className="bg-primary text-primary-foreground">
-                  JD
+                  {user?.imageUrl || "/placeholder-avatar.jpg"}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden flex-col items-start text-left lg:flex">
-                <span className="text-sm font-medium">John Doe</span>
-                <span className="text-xs text-muted-foreground">Admin</span>
+                <span className="text-sm font-medium">{user?.fullName}</span>
+                <span className="text-xs text-muted-foreground">{userRole}</span>
               </div>
               <ChevronDown className="hidden h-4 w-4 opacity-50 lg:block" />
             </Button>
@@ -204,15 +211,15 @@ export default function Navbar() {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>
               <div className="flex flex-col">
-                <span className="font-medium">John Doe</span>
-                <span className="text-xs text-muted-foreground">john@example.com</span>
+                <span className="font-medium">{user?.fullName}</span>
+                <span className="text-xs text-muted-foreground">{user?.primaryEmailAddress?.emailAddress}</span>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            {/* <DropdownMenuItem>
               <User className="mr-2 h-4 w-4" />
               Profile
-            </DropdownMenuItem>
+            </DropdownMenuItem> */}
             <DropdownMenuItem asChild>
               <Link href="/settings" className="flex items-center">
                 <Settings className="mr-2 h-4 w-4" />

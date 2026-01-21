@@ -7,6 +7,8 @@ import  InvoiceForm, { SupplierInvoiceFormPayload }  from "../../../features/com
 import { useRouter } from "next/navigation"
 import { SupplierInvoiceDTO, useCreateSupplierInvoiceMutation, useGetPurchaseOrderQuery } from "@/app/state/api";
 import { toast } from "sonner";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 export default function NewInvoicePage() {
     const router = useRouter();
@@ -47,13 +49,25 @@ export default function NewInvoicePage() {
   return (
     <div className="mx-auto max-w-5xl px-6 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink-900">
-          Create Supplier Invoice
-        </h1>
-        <p className="text-ink-400">
+        <div className="mb-5">
+          <p className="text-ink-400">
           Search a Purchase Order by its number; we’ll grab the supplier and you
           can refine the lines.
         </p>
+        </div>
+        
+        <div className="flex item-center justify-between">
+          <Link
+            href="/purchases"
+            className="inline-flex items-center text-blue-600 hover:underline"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Purchases
+          </Link>
+          <h1 className="text-2xl font-semibold text-ink-900">
+            Create Supplier Invoice
+          </h1>
+        </div>
       </div>
 
       <Suspense fallback={<InvoiceFormSkeleton />}>
