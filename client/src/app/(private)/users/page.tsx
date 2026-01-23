@@ -22,19 +22,25 @@ import { Role } from "@shared/dist/userRolesUtils";
 import { UserActions } from "@/app/(components)/users/UserAction";
 import { toast } from "sonner";
 import { EditUserDialog, getLocationLabel } from "@/app/(components)/users/EditUserDialog";
+import { RouteGuard } from "@/app/(components)/auth/RouteGaurd";
+import { Can } from "@/app/(components)/auth/Can";
+import { PERMS } from "@shared/dist";
+import { useAuth } from "@/app/hooks/useAuth";
 
 export default function UsersPage() {
   const { user: clerkUser } = useUser();
   const theme = useTheme();
+  //const { can } = useAuth();
 
   const [editOpen, setEditOpen] = React.useState(false);
   const [editingUser, setEditingUser] = React.useState<any | null>(null);
 
+  // ✅ Fetch users - RTKQ will handle caching and deduplication
+  const { data: users = [], isLoading, isError } = useGetUsersQuery()
 
-  const { data: users = [], isLoading, isError } = useGetUsersQuery();
   const [updateUserRole, { isLoading: isUpdating }] = useUpdateUserRoleMutation();
   const [deleteUser, { isLoading: isDeleting }] = useDeleteUserMutation();
-  const [updateUser, {isLoading: isChanging}] = useUpdateUserMutation();
+  const [updateUser, { isLoading: isChanging }] = useUpdateUserMutation();
 
   // Get the current logged-in user's role from the users list
   const currentUserData = users.find((u) => u.clerkId === clerkUser?.id);
@@ -57,41 +63,37 @@ export default function UsersPage() {
     setEditOpen(true);
   };
 
-   const handleDialogChange = (open: boolean) => {
+  const handleDialogChange = (open: boolean) => {
     setEditOpen(open);
     if (!open) setEditingUser(null);
   };
 
-
-
   const handleSaveUserEdits = async (
-  userId: string,
-  updates: { name?: string; location?: string }
-) => {
-  const toastId = toast.loading("Updating user...");
+    userId: string,
+    updates: { name?: string; location?: string }
+  ) => {
+    const toastId = toast.loading("Updating user...");
 
-  try {
-    const updatedUser = await updateUser({ id: userId, ...updates }).unwrap();
+    try {
+      const updatedUser = await updateUser({ id: userId, ...updates }).unwrap();
 
-    const parts: string[] = [];
+      const parts: string[] = [];
 
-    if (updates.name !== undefined) {
-      parts.push(`Name → ${updatedUser.name ?? "(empty)"}`);
+      if (updates.name !== undefined) {
+        parts.push(`Name → ${updatedUser.name ?? "(empty)"}`);
+      }
+      if (updates.location !== undefined) {
+        parts.push(`Location → ${updatedUser.location ?? "(empty)"}`);
+      }
+
+      const label = updatedUser.name ?? updatedUser.email;
+      const msg = parts.length ? parts.join(" • ") : "Updated";
+      toast.success(`${label}: ${msg}`, { id: toastId });
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error?.data?.error || "Failed to update user", { id: toastId });
     }
-    if (updates.location !== undefined) {
-      parts.push(`Location → ${updatedUser.location ?? "(empty)"}`);
-    }
-
-    const label = updatedUser.name ?? updatedUser.email;
-    const msg = parts.length ? parts.join(" • ") : "Updated";
-    console.log("User Loation: ", updates, updatedUser)
-    toast.success(`${label}: ${msg}`, { id: toastId });
-  } catch (error: any) {
-    console.error(error);
-    toast.error(error?.data?.error || "Failed to update user", { id: toastId });
-  }
-};
-
+  };
 
   const handleDeleteUser = async (userId: string) => {
     const toastId = toast.loading("Deleting user...");
@@ -180,13 +182,12 @@ export default function UsersPage() {
     },
     {
       field: "location", 
-      headerName: "location",
+      headerName: "Location",
       flex: 0.5,
       sortable: true,
       filterable: true,
       headerAlign: "center",
       align: "center",
-      //valueGetter: (value, row) => getLocationLabel(row.location),
       renderCell: (params) => (
         <Typography
           sx={{
@@ -208,79 +209,82 @@ export default function UsersPage() {
       headerAlign: "right",
       align: "right",
       renderCell: (params) => (
-        <div className="flex justify-end w-full">
-          <UserActions
-            user={params.row}
-            currentUserRole={currentUserRole}
-            onUpdateRole={handleUpdateUserRole}
-            onDelete={handleDeleteUser}
-            isUpdating={isUpdating}
-            isDeleting={isDeleting}
-            onEdit={handleOpenEdit} 
-          />
-        </div>
+        // ✅ Only show action buttons if user has WRITE permission
+        <Can perm={PERMS.WRITE_USERS}>
+          <div className="flex justify-end w-full">
+            <UserActions
+              user={params.row}
+              currentUserRole={currentUserRole}
+              onUpdateRole={handleUpdateUserRole}
+              onDelete={handleDeleteUser}
+              isUpdating={isUpdating}
+              isDeleting={isDeleting}
+              onEdit={handleOpenEdit} 
+            />
+          </div>
+        </Can>
       ),
     },
   ];
 
   return (
+    // ✅ Page-level guard - triggers 404 if user lacks permission
     <>
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h4" fontWeight={700} gutterBottom>
-        Users
-      </Typography>
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Typography variant="h4" fontWeight={700} gutterBottom>
+          Users
+        </Typography>
 
-      <Card sx={{ borderRadius: "16px", boxShadow: 3 }}>
-        <CardHeader
-          title={<Typography fontWeight={700}>Users Table</Typography>}
-          sx={{
-            borderBottom: `1px solid ${theme.palette.divider}`,
-          }}
-        />
-        <CardContent>
-          {isLoading && <Typography>Loading users...</Typography>}
-          {isError && (
-            <Typography color="error">
-              Failed to load users from database.
-            </Typography>
-          )}
+        <Card sx={{ borderRadius: "16px", boxShadow: 3 }}>
+          <CardHeader
+            title={<Typography fontWeight={700}>Users Table</Typography>}
+            sx={{
+              borderBottom: `1px solid ${theme.palette.divider}`,
+            }}
+          />
+          <CardContent>
+            {isLoading && <Typography>Loading users...</Typography>}
+            {isError && (
+              <Typography color="error">
+                Failed to load users from database.
+              </Typography>
+            )}
 
-          {!isLoading && !isError && (
-            <div style={{ width: "100%" }}>
-              <DataGrid
-                rows={rows}
-                columns={columns}
-                autoHeight
-                rowHeight={64}
-                paginationModel={paginationModel}
-                onPaginationModelChange={setPaginationModel}
-                pageSizeOptions={[5, 10, 25]}
-                disableRowSelectionOnClick
-                getRowId={(r) => r.id}
-                sx={{
-                  border: 0,
-                  borderRadius: 2,
-                  fontSize: "0.9rem",
-                  "& .MuiDataGrid-row:hover": {
-                    backgroundColor:
-                      theme.palette.mode === "dark" ? "#334155" : "#f0fdfa",
-                  },
-                }}
-              />
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </Container>
+            {!isLoading && !isError && (
+              <div style={{ width: "100%" }}>
+                <DataGrid
+                  rows={rows}
+                  columns={columns}
+                  autoHeight
+                  rowHeight={64}
+                  paginationModel={paginationModel}
+                  onPaginationModelChange={setPaginationModel}
+                  pageSizeOptions={[5, 10, 25]}
+                  disableRowSelectionOnClick
+                  getRowId={(r) => r.id}
+                  sx={{
+                    border: 0,
+                    borderRadius: 2,
+                    fontSize: "0.9rem",
+                    "& .MuiDataGrid-row:hover": {
+                      backgroundColor:
+                        theme.palette.mode === "dark" ? "#334155" : "#f0fdfa",
+                    },
+                  }}
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </Container>
 
-  <EditUserDialog
-      open={editOpen}
-      onOpenChange={handleDialogChange}
-      user={editingUser}
-      saving={isChanging}
-      onSave={handleSaveUserEdits}
+      <EditUserDialog
+        open={editOpen}
+        onOpenChange={handleDialogChange}
+        user={editingUser}
+        saving={isChanging}
+        onSave={handleSaveUserEdits}
       />
-</>
-
+    </>
   );
 }

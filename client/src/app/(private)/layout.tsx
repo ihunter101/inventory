@@ -1,3 +1,4 @@
+// client/src/app/(private)/layout.tsx
 import DashboardWrapper from "./DashboardWrapper"
 import { auth } from "@clerk/nextjs/server"
 import { redirect } from "next/navigation"
@@ -18,27 +19,24 @@ export default async function PrivateLayout({ children }: { children: React.Reac
   }
 
   const res = await fetch(`${apiURL}/me`, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    },
-    cache: "no-cache"
-  })
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-cache",
+  });
 
-  if (!res.ok) {
-    redirect("/sign-in")
-  }
+  if (!res.ok) redirect("/sign-in");
 
-  const me = await res.json()
-  
-  if (!me?.onboardedAt) {
-    redirect("/onboarding")
-  }
+  const payload = await res.json();
+  const me = payload.user ?? payload;
 
-  // Read the sidebar state cookie - fix the comparison
+  if (!me?.onboardedAt) redirect("/onboarding");
+
+  // ✅ Read the cookie correctly
   const cookieStore = await cookies()
-  const sidebarState = cookieStore.get("sidebar_state")?.value
-  // If cookie is "true" or doesn't exist, sidebar should be open
-  const defaultOpen = sidebarState !== "false"
+  const sidebarCookie = cookieStore.get("sidebar_state")
+  
+  // If cookie exists and is "true", open. If "false", close. If doesn't exist, open by default.
+  const defaultOpen = sidebarCookie ? sidebarCookie.value === "true" : true
+  
 
-  return <DashboardWrapper defaultOpen={defaultOpen}>{children}</DashboardWrapper>
+  return <DashboardWrapper>{children}</DashboardWrapper>
 }
