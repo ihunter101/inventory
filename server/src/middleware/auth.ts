@@ -61,7 +61,7 @@ export function must(perm: Perm): RequestHandler[] {
         const hasPermission = hasPerm(user.role as Role, perm);
         
         if (!hasPermission) {
-          return res.status(403).json({ error: "Insufficient permissions" });
+          return  res. status(404).json({ erorr: "Page not found" }) || res.status(403).json({ error: "Insufficient permissions" });
         }
 
         // Optionally attach user to request for downstream use

@@ -40,7 +40,20 @@ export const getMe = async (req: Request, res: Response) => {
       }
     }
 
-    return res.json(user);
+
+    return res.status(200).json({
+      user: {
+        id: user.id,
+        clerkId: user.clerkId,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        location: user.location,
+        onboardedAt: user.onboardedAt,
+        lastLogin: user.lastLogin,
+        createdAt: user.createdAt,
+      },
+    });
   } catch (error) {
     console.error("Error fetching user:", error);
     return res.status(500).json({ error: "Failed to fetch user" });
