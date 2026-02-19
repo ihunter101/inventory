@@ -25,6 +25,7 @@ function toInvoiceDTO(inv: any) {
       draftProductId: it.draftProductId,
       productId: it.productId || null,
       poItemId: it.poItemId || undefined,
+      invoiceItemId: it.id,
       sku: undefined,                          // optional on FE
       name: it.draftProduct?.name ?? it.name,   // FE uses "name"
       unit: it.uom ?? it.unit ?? "",           // schema uses "uom"; tolerate "unit"
@@ -92,7 +93,7 @@ export const getInvoice = async (req: Request, res: Response) => {
           },
         },
         po: true,
-        GoodsReceipt: true,
+        goodsReceipt: true,
       }
     });
 
@@ -118,120 +119,246 @@ export const createInvoice = async (req: Request, res: Response) => {
     if (!invoiceNumber || !supplierId || !poId || !Array.isArray(lines) || lines.length === 0) {
       return res
         .status(400)
-        .json({ error: "invoiceNumber, supplierId and non-empty line items are required" });
-    }
-    
-    //validate that a Purchase ORder exist and has no attach invoice 
-    const po = await prisma.purchaseOrder.findUnique({
-      where: {id: poId},
-      select: { id: true, supplierId: true, _count: { select: { invoices: true } } }
-    })
-
-    if (!po) return res.status(404).json({message: "Prchase order not found."})
-
-    if (po._count.invoices > 0) {
-      return res.status(400).json({message: "this Purchase Order already has an invoice."})
-    }
-    const draftIds = lines
-      .map((l: any) => typeof l.draftProductId === "string" ? l.draftProductId.trim() : "")
-      .filter(Boolean);
-
-    const draftCount = await prisma.draftProduct.count({ where: { id: { in: draftIds } } });
-
-    if (draftCount !== draftIds.length) {
-      return res.status(400).json({ message: "One or more draftProductIds not found." });
+        .json({ message: "invoiceNumber, supplierId, poId and non-empty lines are required." });
     }
 
+    // Basic line validation (numbers + required ids)
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+      const qty = Number(l.quantity);
+      const unitPrice = Number(l.unitPrice);
 
-    if (po.supplierId !== supplierId) {
-      return res.status(400).json({message: "Invoice supplier does not match purchase order supplier"})
-    }
+      if (!l.draftProductId || typeof l.draftProductId !== "string" || !l.draftProductId.trim()) {
+        return res.status(400).json({ message: `Line ${i + 1}: draftProductId is required.` });
+      }
 
-    const poItemIds = lines.map((l: any) => typeof l.poItemId == "string" ? l.poItemId.trim() : "").filter(Boolean);
+      // If you want PO-driven invoicing (recommended): require poItemId for each line
+      if (!l.poItemId || typeof l.poItemId !== "string" || !l.poItemId.trim()) {
+        return res.status(400).json({
+          message: `Line ${i + 1}: poItemId is required when creating an invoice from a purchase order.`,
+        });
+      }
 
-    if (poItemIds.length) {
-      const count = await prisma.purchaseOrderItem.count({
-        where: {id: {in: poItemIds}, poId}
-      })
-
-      //validate that the number of purchase order items is equal to the invoice items
-      if (count !== poItemIds.length) {
-        return res.status(400).json({ message: " one or more poItemIds not found."})
+      if (!Number.isFinite(qty) || qty <= 0) {
+        return res.status(400).json({ message: `Line ${i + 1}: quantity must be > 0.` });
+      }
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+        return res.status(400).json({ message: `Line ${i + 1}: unitPrice must be >= 0.` });
       }
     }
-    const amount = lines.reduce(
-      (s: number, l: any) => s + Number(l.quantity) * Number(l.unitPrice),
-      0
+
+    // Normalize + de-dupe IDs for validation (IMPORTANT: avoid duplicates causing false mismatch)
+    const draftIds = Array.from(
+      new Set(
+        lines
+          .map((l: any) => (typeof l.draftProductId === "string" ? l.draftProductId.trim() : ""))
+          .filter(Boolean)
+      )
     );
 
-    console.log("REQ BODY:", req.body);
-    console.log("LINES TYPE:", Array.isArray(lines), lines);
+    const poItemIds = Array.from(
+      new Set(
+        lines
+          .map((l: any) => (typeof l.poItemId === "string" ? l.poItemId.trim() : ""))
+          .filter(Boolean)
+      )
+    );
 
-    const created = await prisma.supplierInvoice.create({
-      data: {
-        invoiceNumber,
-        supplierId,
-        poId: poId ?? null,
-        date: date ? new Date(date) : new Date(),
-        dueDate: dueDate ? new Date(dueDate) : null,
-        status: "PENDING",
-        amount,
-        items: {
-          create: lines.map((line: any) => ({
-            poItem: line.poItemId
-              ? { connect: { id: String(line.poItemId).trim() } }
-              : undefined,
-            //productId: line.productId || null,
-            draftProduct: {
-              connect: { id: line.draftProductId },
+    // Transaction to prevent race conditions (two invoices at once)
+    const created = await prisma.$transaction(
+      async (tx) => {
+        // Load PO + items (needed for remaining calculations)
+        const po = await tx.purchaseOrder.findUnique({
+          where: { id: poId },
+          select: {
+            id: true,
+            supplierId: true,
+            items: {
+              select: {
+                id: true,
+                productId: true, // DraftProduct id on PO item
+                quantity: true,
+              },
             },
-            description: line.description ?? line.name ?? "",
-            // schema field is "uom"
-            uom: line.unit ?? line.uom ?? "",
-            quantity: Number(line.quantity),
-            unitPrice: Number(line.unitPrice),
-            lineTotal: Number(line.quantity) * Number(line.unitPrice),
-          })),
-        },
-      },
-      
-      include: { 
-        supplier: true, 
-        items: { include: { 
-          draftProduct: true,
-          product: true,
-        } }, 
-        po: true,
-        GoodsReceipt: true,
-      },
-    }
-    
-  );
+          },
+        });
 
-    console.log("REQ BODY:", req.body);
-    console.log("LINES TYPE:", Array.isArray(lines), lines);
+        if (!po) {
+          const err: any = new Error("Purchase order not found.");
+          err.status = 404;
+          throw err;
+        }
 
+        if (po.supplierId !== supplierId) {
+          const err: any = new Error("Invoice supplier does not match purchase order supplier.");
+          err.status = 400;
+          throw err;
+        }
+
+        // Validate poItemIds belong to this PO
+        const poItemMap = new Map(po.items.map((it) => [it.id, it]));
+        for (const id of poItemIds) {
+          if (!poItemMap.has(id)) {
+            const err: any = new Error(`Invalid poItemId: ${id} (not found on this PO).`);
+            err.status = 400;
+            throw err;
+          }
+        }
+
+        // Validate draft products exist
+        const draftCount = await tx.draftProduct.count({
+          where: { id: { in: draftIds } },
+        });
+        if (draftCount !== draftIds.length) {
+          const err: any = new Error("One or more draftProductIds not found.");
+          err.status = 400;
+          throw err;
+        }
+
+        // Ensure each line draftProductId matches the PO item productId (prevents mismatched selection)
+        for (let i = 0; i < lines.length; i++) {
+          const l = lines[i];
+          const poItem = poItemMap.get(String(l.poItemId).trim());
+          if (!poItem) continue;
+
+          const draftId = String(l.draftProductId).trim();
+          if (poItem.productId !== draftId) {
+            const err: any = new Error(
+              `Line ${i + 1}: draftProductId does not match the PO item productId.`
+            );
+            err.status = 400;
+            throw err;
+          }
+        }
+
+        // Compute already-invoiced quantities per poItemId for this PO
+        // (only count invoice items that have poItemId set; that’s your truth source)
+        const invoicedAgg = await tx.supplierInvoiceItem.groupBy({
+          by: ["poItemId"],
+          where: {
+            poItemId: { in: poItemIds },
+            invoice: {
+              poId: poId,
+              // If you later add CANCELLED/VOID status, exclude them here.
+              // status: { notIn: ["CANCELLED", "VOID"] }
+            },
+          },
+          _sum: { quantity: true },
+        });
+
+        const alreadyInvoicedByPoItem = new Map<string, number>();
+        for (const row of invoicedAgg) {
+          const key = row.poItemId ?? "";
+          if (!key) continue;
+          alreadyInvoicedByPoItem.set(key, Number(row._sum.quantity ?? 0));
+        }
+
+        // Validate each new line does not exceed remaining quantity
+        for (let i = 0; i < lines.length; i++) {
+          const l = lines[i];
+          const poItemId = String(l.poItemId).trim();
+          const requestedQty = Number(l.quantity);
+
+          const poItem = poItemMap.get(poItemId);
+          if (!poItem) continue;
+
+          const already = alreadyInvoicedByPoItem.get(poItemId) ?? 0;
+          const remaining = Number(poItem.quantity) - already;
+
+          if (requestedQty > remaining) {
+            const err: any = new Error(
+              `Line ${i + 1}: quantity (${requestedQty}) exceeds remaining to invoice (${remaining}) for PO item ${poItemId}.`
+            );
+            err.status = 400;
+            throw err;
+          }
+        }
+
+        // Compute amount
+        const amount = lines.reduce((s: number, l: any) => {
+          const q = Number(l.quantity) || 0;
+          const p = Number(l.unitPrice) || 0;
+          return s + q * p;
+        }, 0);
+
+        // Create invoice + items
+        const createdInvoice = await tx.supplierInvoice.create({
+          data: {
+            invoiceNumber: String(invoiceNumber).trim(),
+            supplierId: String(supplierId).trim(),
+            poId: String(poId).trim(),
+            date: date ? new Date(date) : new Date(),
+            dueDate: dueDate ? new Date(dueDate) : null,
+            status: "PENDING",
+            amount,
+
+            items: {
+              create: lines.map((line: any) => ({
+                poItem: line.poItemId
+                  ? { connect: { id: String(line.poItemId).trim() } }
+                  : undefined,
+
+                draftProduct: {
+                  connect: { id: String(line.draftProductId).trim() },
+                },
+
+                description: line.description ?? line.name ?? "",
+                uom: line.unit ?? line.uom ?? "",
+                quantity: Number(line.quantity),
+                unitPrice: Number(line.unitPrice),
+                lineTotal: Number(line.quantity) * Number(line.unitPrice),
+              })),
+            },
+          },
+          include: {
+            supplier: true,
+            po: true,
+            items: {
+              include: {
+                draftProduct: true,
+                product: true,
+                poItem: true,
+              },
+            },
+            goodsReceipt: true,
+          },
+        });
+
+        return createdInvoice;
+      },
+      // If you're on Postgres, Serializable is ideal for this "remaining qty" concurrency problem.
+      // If Prisma/DB complains, remove the isolationLevel option.
+      { isolationLevel: "Serializable" as any }
+    );
 
     return res.status(201).json(toInvoiceDTO(created));
   } catch (error: any) {
     console.error("createInvoice error:", error);
-    if (error?.code === "P2002") {
-    return res.status(409).json({ message: "Duplicate invoice (unique constraint).", meta: error.meta });
-  }
-  if (error?.code === "P2003") {
-    return res.status(400).json({ message: "Invalid reference (FK).", meta: error.meta });
-  }
-  if (error?.code === "P2025") {
-    return res.status(404).json({ message: "Related record not found.", meta: error.meta });
-  }
 
-  return res.status(500).json({
-    message: "Error creating supplier invoice.",
-    // remove this in prod, keep in dev:
-    debug: error?.message,
-  });
+    const status = Number(error?.status) || undefined;
+    if (status) {
+      return res.status(status).json({ message: error.message });
+    }
+
+    if (error?.code === "P2002") {
+      return res
+        .status(409)
+        .json({ message: "Duplicate invoice (unique constraint).", meta: error.meta });
+    }
+    if (error?.code === "P2003") {
+      return res.status(400).json({ message: "Invalid reference (FK).", meta: error.meta });
+    }
+    if (error?.code === "P2025") {
+      return res.status(404).json({ message: "Related record not found.", meta: error.meta });
+    }
+
+    return res.status(500).json({
+      message: "Error creating supplier invoice.",
+      debug: error?.message,
+    });
   }
 };
+
 
 export const markInvoicePaid = async (req: Request, res: Response) => {
   try {
@@ -436,12 +563,12 @@ export const deleteInvoice = async (req: Request, res: Response) => {
     // ✅ Guard: don’t delete if GRN exists
     const existing = await prisma.supplierInvoice.findUnique({
       where: { id: invoiceId },
-      select: { id: true, GoodsReceipt: { select: { id: true } } }, // use your real field name
+      select: { id: true, goodsReceipt: { select: { id: true } } }, // use your real field name
     });
 
     if (!existing) return res.status(404).json({ message: "Invoice not found." });
 
-    if (existing.GoodsReceipt) {
+    if (existing.goodsReceipt) {
       return res.status(400).json({ message: "Cannot delete invoice with a GRN attached." });
     }
 
@@ -458,9 +585,9 @@ export const deleteInvoice = async (req: Request, res: Response) => {
       const orphanedProducts = await tx.draftProduct.findMany({
         where: {
           id: { in: productIds },
-          supplierItems: { none: {} },
+          invoiceItems: { none: {} },
           poItems: { none: {} },
-          goodsReciept: { none: {} }, // must match your schema field name exactly
+          grnItems: { none: {} }, // must match your schema field name exactly
         },
         select: { id: true },
       });
@@ -493,7 +620,26 @@ export const deleteInvoice = async (req: Request, res: Response) => {
   }
 };
 
+export const updateInvoiceStatus = async (req:Request, res:Response) => {
+  const { id } = req.params
+  const { status } = req.body
+  
+  try {
+    if (!id) return res.status(404).json({ message: "Invoice ID not found"})
 
+    const updatedStatus = await prisma.supplierInvoice.update({
+      where: { id },
+      data: {
+        status: status
+      }
+    })
+    
+    return res.status(200).json(updatedStatus)
+  } catch (error: any) {
+    console.error("updatedInvoiceStatusError:", error)
+    return res.status(500).json({error: "Failed to updated invoice status"})
+  }
+}
 
 // export const updateInvoice = async (req: Request, res: Response) => {
 //   const { id } = req.params;

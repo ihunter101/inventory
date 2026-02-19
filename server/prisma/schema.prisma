@@ -249,6 +249,8 @@ enum GRNStatus {
 
 enum InvoiceStatus {
   PENDING
+  READY_TO_PAY
+  PARTIALLY_PAID
   PAID
   OVERDUE
 }
@@ -271,9 +273,9 @@ model DraftProduct {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  poItems       PurchaseOrderItem[]
-  supplierItems SupplierInvoiceItem[]
-  goodsReciept  GoodsReceiptItem[]
+  poItems      PurchaseOrderItem[]
+  invoiceItems SupplierInvoiceItem[]
+  grnItems     GoodsReceiptItem[]
 }
 
 model PurchaseOrder {
@@ -288,12 +290,14 @@ model PurchaseOrder {
   notes     String?
 
   items    PurchaseOrderItem[]
-  invoices SupplierInvoice[] // convenience if you want reverse nav
+  invoices SupplierInvoice[]
   grns     GoodsReceipt[]
+  matches  ThreeWayMatch[]
 
-  subtotal Decimal @db.Decimal(14, 2)
-  tax      Decimal @db.Decimal(14, 2)
-  total    Decimal @db.Decimal(14, 2)
+  subtotal Decimal   @db.Decimal(14, 2)
+  tax      Decimal   @db.Decimal(14, 2)
+  total    Decimal   @db.Decimal(14, 2)
+  payments InvoicePayment[]
 
   @@index([supplierId])
   @@index([poNumber])
@@ -307,6 +311,7 @@ model PurchaseOrderItem {
   productId String
   product   DraftProduct @relation(fields: [productId], references: [id])
 
+  // becomes set the first time you post a GRN line for this draft product
   promotedProductId String?
   promotedProduct   Products? @relation(fields: [promotedProductId], references: [productId])
 
@@ -316,7 +321,6 @@ model PurchaseOrderItem {
   unitPrice   Decimal @db.Decimal(12, 2)
   lineTotal   Decimal @db.Decimal(14, 2)
 
-  // ✅ correct back-relations
   invoiceLines SupplierInvoiceItem[]
   grnLines     GoodsReceiptItem[]
 
@@ -325,26 +329,33 @@ model PurchaseOrderItem {
   @@index([promotedProductId])
 }
 
-
 model SupplierInvoice {
   id            String   @id @default(cuid())
   invoiceNumber String
   supplierId    String
   supplier      Supplier @relation(fields: [supplierId], references: [supplierId])
 
+  // OPTIONAL FOR MIGRATION, SHOULD BE REQUIRED LATER
   poId String?
-  po   PurchaseOrder? @relation(fields: [poId], references: [id]) //optional revamp
+  po   PurchaseOrder? @relation(fields: [poId], references: [id])
 
   status  InvoiceStatus @default(PENDING)
   date    DateTime      @default(now())
   dueDate DateTime?
 
-  items               SupplierInvoiceItem[]
-  amount              Decimal               @db.Decimal(14, 2)
-  GoodsReceipt        GoodsReceipt[]
+  items   SupplierInvoiceItem[]
+  matches ThreeWayMatch[]
+  amount  Decimal               @db.Decimal(14, 2)
 
-  @@unique([invoiceNumber, supplierId]) // avoid duplicates per supplier
+  // 1 invoice -> 0..1 GRN
+  goodsReceipt GoodsReceipt?
+
+  payments InvoicePayment[]
+  balanceRemaining Decimal? @db.Decimal(14, 2) //leave optional for now but later we will be updating it to not NULL
+
+  @@unique([invoiceNumber, supplierId])
   @@index([poId])
+  @@index([supplierId])
 }
 
 model SupplierInvoiceItem {
@@ -352,12 +363,15 @@ model SupplierInvoiceItem {
   invoiceId String
   invoice   SupplierInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
+  // keep as-is
   draftProductId String
   draftProduct   DraftProduct @relation(fields: [draftProductId], references: [id])
 
+  // OPTIONAL FOR MIGRATION, SHOULD BE REQUIRED LATER FOR YOUR FLOW
   poItemId String?
   poItem   PurchaseOrderItem? @relation(fields: [poItemId], references: [id])
 
+  // optional: if you already promoted, you can point here too
   productId String?
   product   Products? @relation(fields: [productId], references: [productId])
 
@@ -367,36 +381,54 @@ model SupplierInvoiceItem {
   unitPrice   Decimal @db.Decimal(12, 2)
   lineTotal   Decimal @db.Decimal(14, 2)
 
+  // back-link so GRN lines can map to invoice lines
+  grnLines GoodsReceiptItem[]
+
+  // (Optional but recommended) prevent duplicate PO-line entries per invoice
+  // Leave OFF during migration if existing data violates it.
+  // @@unique([invoiceId, poItemId])
+
   @@index([invoiceId])
-  @@index([productId])
   @@index([poItemId])
   @@index([draftProductId])
+  @@index([productId])
 }
 
 model GoodsReceipt {
   id        String @id @default(cuid())
   grnNumber String @unique
 
-  poId String
-  po   PurchaseOrder @relation(fields: [poId], references: [id]) //why?
+  // OPTIONAL FOR MIGRATION, SHOULD BE REQUIRED LATER
+  poId String?
+  po   PurchaseOrder? @relation(fields: [poId], references: [id])
 
-  invoiceId String?
-  invoice   SupplierInvoice? @relation(fields: [invoiceId], references: [id]) //why?
+  // invoice comes with shipment, GRN after count (your spec)
+  invoiceId String? //make required later
+  invoice   SupplierInvoice? @relation(fields: [invoiceId], references: [id]) //make required later 
 
   date   DateTime  @default(now())
   status GRNStatus @default(DRAFT)
 
-  lines GoodsReceiptItem[]
+  lines   GoodsReceiptItem[]
+  matches ThreeWayMatch[]
 
+  // this enforces 1 invoice -> max 1 GRN
   @@unique([invoiceId])
   @@index([poId])
+  @@index([invoiceId])
 }
 
 model GoodsReceiptItem {
   id    String       @id @default(cuid())
   grnId String
-  Grn   GoodsReceipt @relation(fields: [grnId], references: [id], onDelete: Cascade) //why?
+  grn   GoodsReceipt @relation(fields: [grnId], references: [id], onDelete: Cascade)
 
+  // NEW: direct link to the invoice line that this receipt line is reconciling
+  // OPTIONAL FOR MIGRATION, SHOULD BE REQUIRED LATER
+  invoiceItemId String?
+  invoiceItem   SupplierInvoiceItem? @relation(fields: [invoiceItemId], references: [id])
+
+  // OPTIONAL FOR MIGRATION, SHOULD BE REQUIRED LATER
   poItemId String?
   poItem   PurchaseOrderItem? @relation(fields: [poItemId], references: [id])
 
@@ -410,10 +442,20 @@ model GoodsReceiptItem {
   receivedQty Int
   unitPrice   Decimal @db.Decimal(12, 2)
 
+  // (Optional but recommended) prevent duplicate invoice-line mapping in same GRN
+  // @@unique([grnId, invoiceItemId])
+
   @@index([grnId])
+  @@index([invoiceItemId])
+  @@index([poItemId])
   @@index([productDraftId])
   @@index([productId])
-  @@index([poItemId])
+}
+
+model GrnCounter {
+  dateKey   String   @id // "20260126"
+  next      Int      @default(1)
+  updatedAt DateTime @updatedAt
 }
 
 model StockLedger {
@@ -512,4 +554,102 @@ model StockRequestLine {
 
   @@index([stockRequestId])
   @@index([productId])
+}
+
+enum MatchStatus {
+  DRAFT
+  READY_TO_PAY
+  //may need to delete payment
+  PAID
+  VOID
+  //APPROVED
+  //DISPUTED
+}
+
+model ThreeWayMatch {
+  id        String @id @default(cuid())
+  poId      String
+  invoiceId String
+  //may need to comment out grnId if one invoice can have multiple grns
+  grnId     String
+
+  status MatchStatus @default(DRAFT)
+
+  // totals snapshot
+  payableTotal Decimal @default(0)
+  currency     String? @default("EXD")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lines MatchLine[]
+
+  po      PurchaseOrder   @relation(fields: [poId], references: [id])
+  invoice SupplierInvoice @relation(fields: [invoiceId], references: [id])
+  grn     GoodsReceipt    @relation(fields: [grnId], references: [id])
+
+  @@unique([poId, invoiceId, grnId]) // prevent duplicates
+  @@unique([invoiceId])
+  @@unique([grnId]) // we leave unique for now but later we will change it if one invoice may come in separate ships to be a bit lineient on the system 
+}
+
+model MatchLine {
+  id      String @id @default(cuid())
+  matchId String
+
+  poItemId      String?
+  invoiceItemId String?
+  grnLineId     String?
+
+  // snapshot identity
+  name String?
+  unit String?
+
+  // snapshot values
+  poQty        Int      @default(0)
+  grnQty       Int      @default(0)
+  invUnitPrice Decimal?
+
+  payableQty    Int     @default(0)
+  payableAmount Decimal @default(0)
+
+  notes String?
+
+  createdAt DateTime @default(now())
+
+  match ThreeWayMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@index([matchId])
+}
+
+model InvoicePayment {
+  id String @id @default(cuid())
+
+  invoiceId String
+  invoice   SupplierInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  poId String?
+  po   PurchaseOrder? @relation(fields: [poId], references: [id])
+
+  amount   Decimal @db.Decimal(14, 2)
+  currency String? @default("XCD")
+
+  paidAt DateTime @default(now())
+
+  method    String? //cash, cheque, wire..
+  reference String? //tax # or receipt #
+  status    PaymentStatus @default(POSTED)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt()
+
+  //@@unique([invoiceId]) //commented out to support parital invoice payment (multiple rows)
+  @@index([poId])
+  @@index([paidAt])
+}
+
+enum PaymentStatus {
+  PARTIALLY_PAID
+  POSTED
+  VOID
 }

@@ -187,7 +187,7 @@ function toMoney(n: number) {
 // Updated section for getDashbaordMetrics function
 // Replace the purchaseBreakdown section in your controller with this:
 
-export const getDashbaordMetrics = async (req: Request, res: Response): Promise<void> => {
+export const getDashboardMetrics = async (req: Request, res: Response): Promise<void> => {
   try {
     const popularProducts = await prisma.products.findMany({
       take: 15,
@@ -195,7 +195,6 @@ export const getDashbaordMetrics = async (req: Request, res: Response): Promise<
     });
 
     // ✅ 1. FETCH INVOICES WITH THE PROMOTION CHAIN
-    // We fetch the Invoice -> Items -> (Product OR PO Item -> Promoted Product)
     const invoices = await prisma.supplierInvoice.findMany({
       take: 50,
       orderBy: { date: "desc" },
@@ -203,11 +202,11 @@ export const getDashbaordMetrics = async (req: Request, res: Response): Promise<
         supplier: true,
         items: {
           include: {
-            product: true, // Link to real product if it exists
-            draftProduct: true, // Fallback for names
+            product: true,
+            draftProduct: true,
             poItem: {
               include: {
-                promotedProduct: true, // Link to real product via the PO promotion
+                promotedProduct: true,
               },
             },
           },
@@ -228,21 +227,13 @@ export const getDashbaordMetrics = async (req: Request, res: Response): Promise<
 
         totalPurchases += lineTotal;
 
-        // FIND THE "IDENTITY" OF THE ITEM
-        // It's either linked directly on the invoice, or linked via the PO promotion
         const realProduct = it.product || it.poItem?.promotedProduct;
-
-        // EXTRACT METADATA (Category is a string, Department is an Enum on Products)
         const category = realProduct?.category?.trim() || "Draft Items";
         const department = (realProduct as any)?.Department || "Unassigned";
 
-        // Aggregate Categories
         byCategory.set(category, (byCategory.get(category) ?? 0) + lineTotal);
-        
-        // Aggregate Departments
         byDepartment.set(department, (byDepartment.get(department) ?? 0) + lineTotal);
 
-        // Aggregate Products
         const pId = realProduct?.productId || it.draftProductId || `unknown-${it.id}`;
         const pName = realProduct?.name || it.draftProduct?.name || it.description || "Unknown Item";
         
@@ -282,18 +273,71 @@ export const getDashbaordMetrics = async (req: Request, res: Response): Promise<
       "1y": await computeRevenueAndProfit("1y"),
     };
 
+    // ✅ 4. NEW: PURCHASE ORDER METRICS
+    const [totalPOs, closedPOs] = await Promise.all([
+      prisma.purchaseOrder.count(),
+      prisma.purchaseOrder.count({
+        where: { status: "CLOSED" }
+      })
+    ]);
+
+    const activePOs = totalPOs - closedPOs;
+
+    const [allInvoices, invoiceAggregates] = await Promise.all([
+      prisma.supplierInvoice.findMany({
+        select: {
+          status: true,
+          amount: true,
+        }
+      }),
+      prisma.supplierInvoice.groupBy({
+        by: ['status'],
+        _count: {
+          id: true
+        },
+        _sum: {
+          amount: true
+        }
+      })
+    ]);
+
+    const totalInvoices = allInvoices.length;
+    
+    const pendingInvoiceData = invoiceAggregates.find(agg => agg.status === 'PENDING');
+    const paidInvoiceData = invoiceAggregates.find(agg => agg.status === 'PAID');
+    
+    const pendingInvoices = pendingInvoiceData?._count.id || 0;
+    const paidInvoices = paidInvoiceData?._count.id || 0;
+    
+    const pendingInvoicesAmount = Number(pendingInvoiceData?._sum.amount || 0);
+    const paidInvoicesAmount = Number(paidInvoiceData?._sum.amount || 0);
+    const totalInvoicesAmount = pendingInvoicesAmount + paidInvoicesAmount;
+
+    const purchaseOrderMetrics = {
+      totalPOs,
+      closedPOs,
+      activePOs,
+      totalInvoices,
+      pendingInvoices,
+      paidInvoices,
+      pendingInvoicesAmount,
+      paidInvoicesAmount,
+      totalInvoicesAmount,
+    };
+
+    // ✅ 5. RETURN ALL METRICS INCLUDING NEW PURCHASE ORDER METRICS
     res.json({
       popularProducts,
       purchaseBreakdown,
       expenseSummary,
       revenueAndProfit,
-      // Mapping invoices for the summary table
+      purchaseOrderMetrics, // ✅ Add this
       purchaseSummary: invoices.map(inv => ({
-          id: inv.id,
-          invoiceNumber: inv.invoiceNumber,
-          amount: Number(inv.amount),
-          date: inv.date.toISOString(),
-          supplier: inv.supplier?.name
+        id: inv.id,
+        invoiceNumber: inv.invoiceNumber,
+        amount: Number(inv.amount),
+        date: inv.date.toISOString(),
+        supplier: inv.supplier?.name
       }))
     });
 
@@ -302,6 +346,7 @@ export const getDashbaordMetrics = async (req: Request, res: Response): Promise<
     res.status(500).json({ message: "Error retrieving dashboard metrics" });
   }
 };
+
 
 
 

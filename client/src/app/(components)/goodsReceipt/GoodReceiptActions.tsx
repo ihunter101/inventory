@@ -7,7 +7,8 @@ import {
   usePostGRNMutation, 
   useUpdateGRNMutation,
   PurchaseOrderDTO,
-  SupplierInvoiceDTO
+  SupplierInvoiceDTO,
+  GoodsReceiptLine
 } from "@/app/state/api";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -18,6 +19,7 @@ import { toast } from "sonner";
 import { useSendDocumentEmail } from "@/app/hooks/useSendDocumentEmail";
 import { generateGoodsReceiptPDF, GoodsReceiptPDFData } from "../shared/GRNUtils";
 import { generatePDF } from "../shared/PDFUtils";
+import { EditGoodsReceiptDialog } from "./EditGRNDialog";
 
 type GoodsReceiptProps = { 
   goodsReceipt: GoodsReceiptDTO;
@@ -63,16 +65,33 @@ export function GoodsReceiptAction({
   const canPost = goodsReceipt.status === "DRAFT";
 
   const handleDelete = async () => {
-    const toastId = toast.loading(`Deleting ${title}...`)
+    const id = goodsReceipt?.id?.trim();
+
+    if (!id) {
+      toast.error("Missing GRN id. Cannot delete.");
+      return;
+    }
+
+    const toastId = toast.loading(`Deleting ${title}...`);
+
     try {
-      await deleteGoodsReceipt({ id: goodsReceipt.id }).unwrap();
-      setIsDeleteDialogOpen(false)
+      await deleteGoodsReceipt({ id }).unwrap();
+      setIsDeleteDialogOpen(false);
       toast.success("Goods Receipt deleted successfully", { id: toastId });
-    } catch (error) {
-      console.error("Delete error:", error)
-      toast.error("Failed to delete goods receipt", { id: toastId });
+    } catch (err: any) {
+      console.error("Delete error:", err);
+
+      const msg =
+        err?.data?.message ||
+        err?.data?.error ||
+        err?.error ||
+        err?.message ||
+        "Failed to delete goods receipt";
+
+      toast.error(msg, { id: toastId });
     }
   };
+
 
   const handleEmailGoodsReceipt = async () => {
     const toastId = toast.loading(`Emailing ${title}...`)
@@ -114,9 +133,37 @@ export function GoodsReceiptAction({
     }
   }
 
-  const handleEditGoodsReceipt = async () => {
-    // Implement edit logic
-  };
+  const handleSaveEditedGRN = async (draft: GoodsReceiptDTO) => {
+  const id = goodsReceipt.id?.trim();
+  if (!id) {
+    toast.error("Missing GRN id.");
+    return 
+  }
+
+  const toastId = toast.loading("Saving GRN changes...");
+
+  try {
+    await updateGoodsReceipt({
+      id,
+      date: draft.date,
+      lines: draft.lines.map((ln: any) => ({
+        invoiceItemId: ln.invoiceItemId,
+        poItemId: ln.poItemId,
+        productDraftId: ln.productDraftId,
+        name: ln.name,
+        unit: ln.unit,
+        receivedQty: Number(ln.receivedQty ?? 0),
+        unitPrice: Number(ln.unitPrice ?? 0),
+      })),
+    }).unwrap();
+
+    toast.success("GRN updated", { id: toastId });
+    setIsEditDialogOpen(false);
+  } catch (error: any) {
+    toast.error(error?.data?.message || "Failed to update GRN", { id: toastId });
+  }
+};
+
 
   const handleDownloadGoodsReceipt = async () => {
   if (isDownloading) return;
@@ -216,15 +263,16 @@ export function GoodsReceiptAction({
         id={goodsReceipt.id}
       />
       
-      <UpdatePurchasesStatus 
-        title={title}
+      <EditGoodsReceiptDialog
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
-        onConfirm={handleEditGoodsReceipt}
-        id={goodsReceipt.id}
-        isUpdating={isUpdating}
-        source="Goods Receipt"
+        title={`Edit ${title}`}
+        grn={goodsReceiptNote ?? null}
+        loading={isLoading}
+        saving={isUpdating}
+        onSave={handleSaveEditedGRN}
       />
+
     </>
   )
 }

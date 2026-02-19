@@ -1,4 +1,4 @@
-import { MoreHorizontal, Edit, Trash2, CheckCircle, Mail, Download, ClipboardCheck } from "lucide-react";
+import { MoreHorizontal, Edit, Trash2, CheckCircle, Mail, Download, ClipboardCheck, ViewIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -23,6 +23,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
     "Download Invoice": Download,
     "Download Goods Receipt": Download,
     "Create Goods Receipt": ClipboardCheck,
+    "View Order Details": ViewIcon,
 };
 
 export type ActionItems = {

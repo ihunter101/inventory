@@ -44,6 +44,9 @@ export async function getGoodsReceiptDetails(grnId: string): Promise<GrnData> {
       receivedQty: Number(l.receivedQty),
     }
   })
+  if (!grn.poId) {
+    throw new Error("This goods receipt is missing a purchase order id")
+  }
   
   const matchedPO = await prisma.purchaseOrder.findUnique({
     where: { id: grn.poId},

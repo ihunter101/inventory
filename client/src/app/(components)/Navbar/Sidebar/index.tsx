@@ -55,7 +55,7 @@ const navigation = {
     { title: "Inventory", href: "/inventory", icon: Package, permission: PERMS.READ_INVENTORY },
     { title: "Products", href: "/products", icon: ShoppingCart, permission: PERMS.READ_PRODUCTS },
     { title: "Stock Requests", href: "/stock-requests", icon: ClipboardList, permission: PERMS.READ_STOCK_SHEET },
-    { title: "Pending Products", href: "/pending-products", icon: Sparkles, permission: PERMS.READ_PRODUCT_DRAFT },
+    { title: "Pending Products", href: "/pending-promotions", icon: Sparkles, permission: PERMS.READ_PRODUCT_DRAFT },
   ] satisfies NavItem[],
 
   finance: [

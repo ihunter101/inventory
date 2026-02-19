@@ -126,6 +126,13 @@ export function EditPurchaseOrder ({ purchaseOrder }: PurchaseOrderProps) {
             variant: "normal"
         }, 
         {
+            label: "View Order Details",
+            onSelect: () => {
+                router.push(`/purchase-orders/view/${purchaseOrder.id}`)
+            },
+            variant: "normal"
+        },
+        {
             label: "Update Status",
             onSelect: () => {
                 setIsUpdateDialogOpen(true)

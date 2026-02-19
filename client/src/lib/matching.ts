@@ -1,120 +1,94 @@
-import {
-  GoodsReceiptDTO,
-  SupplierInvoiceDTO,
-  PurchaseOrderDTO,
-} from "@/app/state/api";
-
-export const PRICE_TOLERANCE = 0.01;
+// lib/matching.ts
 
 export type MatchRow = {
   key: string;
-  productId?: string;
-  sku?: string;
+  poItemId: string | null;
   name: string;
-  unit?: string;
-  poQty?: number;
-  invQty?: number;
-  grQty?: number;
-  poPrice?: number;
-  invPrice?: number;
-  lineOk: boolean;       // equality checks (ignores posted/not posted)
-  notes?: string;
+  sku: string | null;
+  unit: string | null;
+
+  poQty: number; // The limit
+  invQty: number; // What they are asking to be paid for
+  grQty: number; // What we actually got (specific to this shipment)
+
+  invUnitPrice: number;
+  
+  payableQty: number;
+  payableAmount: number;
+
+  status: "MATCHED" | "SHORT" | "OVER_BILLED" | "NO_GRN";
+  lineOk: boolean;
+  notes: string;
 };
 
-const n = (v: any) => (v == null || v === "" ? undefined : Number(v));
-const s = (v: any) =>
-  (v == null ? "" : String(v)).trim();
+export default function buildMatchRows(
+  po: any, 
+  invoice: any, 
+  grn: any
+): MatchRow[] {
+  const poItems = po?.items ?? [];
+  const invLines = invoice?.lines ?? [];
+  const grnLines = grn?.lines ?? [];
 
-// normalize a secondary key when productId missing
-const secondaryKey = (sku?: string, name?: string) =>
-  s(sku || name).toLowerCase();
+  // Helper to find PO Item details
+  const getPOItem = (id: string) => poItems.find((p: any) => p.id === id);
 
-/**
- * Build rows for three-way match.
- * - Prefer matching by productId (stable).
- * - Fall back to (sku || name) case-insensitive.
- * - A line is “lineOk” when units, quantities and price are consistent.
- *   The *table* will additionally require GRN.status === POSTED to show overall OK.
- */
-const buildMatchRows = (
-  po?: PurchaseOrderDTO,
-  inv?: SupplierInvoiceDTO,
-  grn?: GoodsReceiptDTO
-): MatchRow[] => {
-  if (!po) return [];
+  // We iterate through INVOICE lines because that is what we are paying
+  return invLines.map((invLine: any, index: number) => {
+    const poItemId = invLine.poItemId;
+    const poItem = poItemId ? getPOItem(poItemId) : null;
+    
+    // Find corresponding GRN line (matched by PO Item ID is safest)
+    // If your GRN lines have a direct invoiceLineId, use that instead.
+    const grnLine = grnLines.find((g: any) => 
+       (g.invoiceItemId === invLine.id) || // Strongest match
+       (poItemId && g.poItemId === poItemId) // Fallback match
+    );
 
-  // Build lookups by productId and secondary key
-  const invById = new Map<string, any>();
-  const invByKey = new Map<string, any>();
-  inv?.lines.forEach((ln) => {
-    if (ln.productId) invById.set(String(ln.productId), ln);
-    invByKey.set(secondaryKey(ln.sku, ln.name), ln);
-  });
+    const name = invLine.name ?? invLine.description ?? poItem?.product?.name ?? "Unknown";
+    const sku = poItem?.product?.sku ?? null;
+    const unit = invLine.unit ?? invLine.uom ?? poItem?.unit ?? "";
 
-  const grnById = new Map<string, any>();
-  const grnByKey = new Map<string, any>();
-  grn?.lines.forEach((ln) => {
-    if (ln.productId) grnById.set(String(ln.productId), ln);
-    grnByKey.set(secondaryKey(ln.sku, ln.name), ln);
-  });
+    const poQty = Number(poItem?.quantity ?? 0);
+    const invQty = Number(invLine.quantity ?? 0);
+    const grQty = Number(grnLine?.receivedQty ?? 0);
+    const invUnitPrice = Number(invLine.unitPrice ?? 0);
 
-  return po.items.map((p) => {
-    const pid = p.productId ? String(p.productId) : undefined;
+    // LOGIC: Payable is the lesser of Invoiced or Received
+    const payableQty = Math.min(invQty, grQty);
+    const payableAmount = payableQty * invUnitPrice;
 
-    const invLn =
-      (pid && invById.get(pid)) ||
-      invByKey.get(secondaryKey(p.sku as any, p.name));
+    const notes: string[] = [];
+    let status: MatchRow["status"] = "MATCHED";
 
-    const grnLn =
-      (pid && grnById.get(pid)) ||
-      grnByKey.get(secondaryKey(p.sku as any, p.name));
+    if (!grn) {
+      status = "NO_GRN";
+      notes.push("Waiting for Goods Receipt");
+    } else if (grQty < invQty) {
+      status = "SHORT";
+      notes.push(`Short delivery: Invoiced ${invQty} but received ${grQty}`);
+    } else if (invQty > poQty) {
+      // Use this carefully, sometimes over-delivery is allowed
+      notes.push(`Warning: Invoiced qty > Original PO qty`);
+    }
 
-    const sameUnit =
-      !p.unit || !invLn?.unit
-        ? true
-        : s(p.unit).toLowerCase() === s(invLn.unit).toLowerCase();
-
-    const poPrice = n(p.unitPrice);
-    const invPrice = n(invLn?.unitPrice);
-    const priceOk =
-      invLn && poPrice != null && invPrice != null
-        ? Math.abs(invPrice - poPrice) <= PRICE_TOLERANCE
-        : true;
-
-    const poQty = n(p.quantity);
-    const invQty = n(invLn?.quantity);
-    const qtyOk = invLn ? invQty === poQty : true;
-
-    const expectedQty = invQty ?? poQty;
-    const grQty = n(grnLn?.receivedQty);
-    const grnOk = grnLn ? grQty === expectedQty : false;
-
-    const lineOk = Boolean(sameUnit && priceOk && qtyOk && grnOk);
-
-    const mismatches = [
-      sameUnit ? null : "Unit",
-      priceOk ? null : "Unit Price",
-      qtyOk ? null : "Quantity",
-      grnOk ? null : "Received Qty",
-    ]
-      .filter(Boolean)
-      .join(", ");
+    const lineOk = status === "MATCHED" && payableQty > 0;
 
     return {
-      key: pid ?? secondaryKey(p.sku as any, p.name),
-      productId: pid,
-      sku: (p as any).sku,
-      name: p.name,
-      unit: p.unit,
-      poQty: poQty,
-      invQty: invQty,
-      grQty: grQty,
-      poPrice: poPrice,
-      invPrice: invPrice,
+      key: invLine.id ? `${invLine.id}-${index}` : `row-${index}`,
+      poItemId: poItemId ?? null,
+      name,
+      sku,
+      unit,
+      poQty,
+      invQty,
+      grQty,
+      invUnitPrice,
+      payableQty,
+      payableAmount,
+      status,
       lineOk,
-      notes: !lineOk ? `Mismatch: ${mismatches}` : undefined,
+      notes: notes.join(" • "),
     };
   });
-};
-
-export default buildMatchRows;
+}

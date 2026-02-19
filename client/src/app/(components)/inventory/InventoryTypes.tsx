@@ -1,5 +1,5 @@
 import type { Status } from "../../utils/stock";
-import type { Category } from "@/app/(components)/Products/CreateProductDialog"
+import type { Category } from "@/app/(components)/Products/UpdateProductDialog"
 
 
 export type InventoryRow = {
