@@ -3,6 +3,8 @@ import { prisma } from "../lib/prisma";
 import { POStatus } from "@prisma/client";
 import it from "zod/v4/locales/it.js";
 import { create } from "domain";
+import { PhoneNumber } from "@clerk/backend";
+import { debug } from "console";
 
 //const prisma = new PrismaClient();
 
@@ -11,78 +13,185 @@ import { create } from "domain";
  **Cleans up the prisma messy response into a format compactible with the frontend.
 */
 function toPurchaseOrderDTO(po: any) {
+  // ----------------------------
+  // 1) Build map: poItemId -> total invoiced qty
+  // ----------------------------
+  const invoicedQtyByPoItemId = new Map<string, number>();
+
+  for (const inv of po.invoices ?? []) {
+    for (const invItem of inv.items ?? []) {
+      const poItemId = invItem.poItemId;
+      if (!poItemId) continue;
+
+      const prev = invoicedQtyByPoItemId.get(poItemId) ?? 0;
+      invoicedQtyByPoItemId.set(poItemId, prev + Number(invItem.quantity ?? 0));
+    }
+  }
+
+  // ----------------------------
+  // 2) Map PO items with remainingToInvoice
+  // ----------------------------
+  const items = (po.items ?? []).map((it: any) => {
+    const orderedQty = Number(it.quantity ?? 0);
+    const invoicedQty = invoicedQtyByPoItemId.get(it.id) ?? 0;
+
+    const remainingToInvoice = Math.max(0, orderedQty - invoicedQty);
+
+    return {
+      id: it.id,
+      productId: it.productId,
+      draftProductId: it.productId,
+
+      // ✅ your FE expects poItemId; your DB uses it.id
+      poItemId: it.id,
+
+      sku: undefined,
+      name: it.product?.name ?? it.name ?? "",
+      unit: it.unit ?? "",
+      quantity: orderedQty,
+      unitPrice: Number(it.unitPrice),
+      lineTotal: Number(it.lineTotal),
+
+      // ✅ NEW
+      remainingToInvoice,
+      invoicedQty,
+    };
+  });
+
+  // Optional PO-level summary (useful for hover UI)
+  const remainingToInvoiceCount = items.filter((x: any) => (x.remainingToInvoice ?? 0) > 0).length;
+  const remainingToInvoiceQty = items.reduce((s: number, x: any) => s + Number(x.remainingToInvoice ?? 0), 0);
+
   return {
     id: po.id,
     poNumber: po.poNumber,
     supplierId: po.supplierId,
     supplier: po.supplier
-    ? {
-      supplierId: po.supplier.supplierId,
-      name: po.supplier.name,
-      email: po.supplier.email,
-      phone: po.supplier.phone,
-      address: po.supplier.address
-      } 
-    : undefined,       // string for FE
+      ? {
+          supplierId: po.supplier.supplierId,
+          name: po.supplier.name,
+          email: po.supplier.email,
+          phone: po.supplier.phone,
+          address: po.supplier.address,
+        }
+      : undefined,
+
     status: po.status as POStatus,
     orderDate: po.orderDate instanceof Date ? po.orderDate.toISOString() : po.orderDate,
     dueDate: po.dueDate ? (po.dueDate instanceof Date ? po.dueDate.toISOString() : po.dueDate) : undefined,
     notes: po.notes ?? undefined,
-    items: (po.items ?? []).map((it: any) => ({
-      id: it.id,
-      productId: it.productId,
-      draftProductId: it.productId,
-      poItemId: it.poItemId,
-      sku: undefined,                                    // FE has optional sku
-      name: it.product?.name ?? it.name,    //draftproduct name     // FE expects "name"
-      unit: it.unit ?? "",
-      quantity: Number(it.quantity),
-      unitPrice: Number(it.unitPrice),                   // Decimal -> number
-      lineTotal: Number(it.lineTotal),
-    })),
+
+    items,
+
     subtotal: Number(po.subtotal),
     tax: Number(po.tax),
     total: Number(po.total),
+
     invoiceCount: po._count?.invoices ?? po.invoices?.length ?? 0,
+
+    // ✅ Optional but very handy for FE
+    remainingToInvoiceCount,
+    remainingToInvoiceQty,
   };
 }
+
 
 export const listPurchaseOrders = async (req: Request, res: Response) => {
   try {
     const { status, q } = req.query as Partial<{ status: string; q: string }>;
     const where: any = {};
 
-    // Normalize status to enum if provided & valid
-    if (status && ["DRAFT","APPROVED","SENT","PARTIALLY_RECEIVED","RECEIVED","CLOSED"].includes(status)) {
+    if (
+      status &&
+      ["DRAFT", "APPROVED", "SENT", "PARTIALLY_RECEIVED", "RECEIVED", "CLOSED"].includes(status)
+    ) {
       where.status = status as POStatus;
     }
 
     if (q && q.trim()) {
       where.OR = [
         { poNumber: { contains: q, mode: "insensitive" } },
-        { supplier: { is: { name: { contains: q, mode: "insensitive" } } } }, // canonical form
+        { supplier: { is: { name: { contains: q, mode: "insensitive" } } } },
       ];
     }
 
-    const rows = await prisma.purchaseOrder.findMany({
+        const rows = await prisma.purchaseOrder.findMany({
       where,
-      include: { 
-        supplier: true, 
-        items: {
-          include: { product: true} // so we can get the name
+      include: {
+        supplier: true,
+        items: { include: { product: true } },
+
+        // ✅ add this (minimal fields only)
+        invoices: {
+          select: {
+            id: true,
+            items: { select: { poItemId: true, quantity: true } },
+          },
         },
+
         grns: true,
         _count: { select: { invoices: true } },
       },
       orderBy: { orderDate: "desc" },
     });
 
-    return res.json(rows.map(toPurchaseOrderDTO));
+    // ✅ Compute per PO item: invoicedQty + remainingToInvoice
+    const mapped = rows.map((po) => {
+      const invoicedByPoItemId = new Map<string, number>();
+
+      for (const inv of po.invoices ?? []) {
+        for (const it of inv.items ?? []) {
+          if (!it.poItemId) continue;
+          const prev = invoicedByPoItemId.get(it.poItemId) ?? 0;
+          invoicedByPoItemId.set(it.poItemId, prev + Number(it.quantity ?? 0));
+        }
+      }
+
+      const itemsWithRemaining = po.items.map((poi) => {
+        const orderedQty = Number(poi.quantity ?? 0);
+        const invoicedQty = invoicedByPoItemId.get(poi.id) ?? 0;
+        const remainingToInvoice = Math.max(0, orderedQty - invoicedQty);
+
+        return {
+          ...poi,
+          orderedQty,
+          invoicedQty,
+          remainingToInvoice,
+          fullyInvoiced: remainingToInvoice === 0,
+        };
+      });
+
+      const hasRemainingToInvoice = itemsWithRemaining.some((i) => i.remainingToInvoice > 0);
+
+      return {
+        ...toPurchaseOrderDTO(po),
+        // ✅ add fields the picker/UI can use
+        items: itemsWithRemaining.map((x) => ({
+          id: x.id,
+          name: x.product?.name,
+          unit: x.unit,
+          quantity: Number(x.quantity),
+          unitPrice: Number(x.unitPrice ?? 0),
+          lineTotal: Number(x.lineTotal ?? 0),
+          productId: x.productId,
+          draftProductId: x.promotedProductId,
+          // ✅ extra computed fields
+          orderedQty: x.orderedQty,
+          invoicedQty: x.invoicedQty,
+          remainingToInvoice: x.remainingToInvoice,
+          fullyInvoiced: x.fullyInvoiced,
+        })),
+        hasRemainingToInvoice,
+      };
+    });
+
+    return res.json(mapped);
   } catch (error) {
     console.error("listPurchaseOrders error:", error);
     return res.status(500).json({ message: "Error retrieving purchase orders." });
   }
 };
+
 
 export const getPurchaseOrder = async (req: Request, res: Response) => {
   try {
@@ -111,6 +220,66 @@ export const getPurchaseOrder = async (req: Request, res: Response) => {
   }
 };
 
+export const getPurchaseOrderById = async(req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id || "").trim();
+    if (!id) return res.status(400).json({ message: "id is required." });
+
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id },
+      include: {
+        supplier: true,
+        _count: { select: { invoices: true, grns: true } },
+        items: {
+          include: {
+            product: true, 
+            promotedProduct: true,
+            invoiceLines: {
+              include: { invoice: true },
+            },
+            grnLines: {
+              include: { grn: true },
+            },
+          },
+        },
+        invoices: {
+          orderBy: { date: "desc"},
+          include: {
+            goodsReceipt: true,
+            items: {
+              include: {
+                draftProduct: true,
+                product: true,
+                poItem: true,
+              },
+            },
+          },
+        },
+        grns: {
+          orderBy: { date: "desc" },
+          include: {
+            invoice: true,
+            lines: {
+              include: {
+                product: true,
+                poItem: true,
+                invoiceItem: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!po) return res.status(404).json({ message: "Purchase Order not found."})
+
+      return res.json(po)
+  } catch (error: any) {
+    console.error("getPurchaseOrderById error:", error);
+    return res.status(500).json({ message: "Error retrieving purchase order.", debug: error?.message });
+  }
+}
+
 export const createPurchaseOrder = async (req: Request, res: Response) => {
   try {
     const {
@@ -122,59 +291,98 @@ export const createPurchaseOrder = async (req: Request, res: Response) => {
       orderDate,
       dueDate,
       notes,
+      // ignore subtotal/total from client (compute server-side)
     } = req.body;
 
+    // -----------------------------
+    // Basic validation
+    // -----------------------------
     if ((!supplierId && !supplier) || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ message: "supplierId or supplier, and items are required." });
-    }
-
-    // validate numbers
-    for (const it of items) {
-      const qty = Number(it.quantity);
-      const price = Number(it.unitPrice);
-      if (!Number.isFinite(qty) || qty <= 0) {
-        return res.status(400).json({ message: "Each item must have quantity > 0." });
-      }
-      if (!Number.isFinite(price) || price < 0) {
-        return res.status(400).json({ message: "Each item must have unitPrice >= 0." });
-      }
-    }
-
-    // ✅ Validate draftProduct IDs ONCE (outside map)
-    const draftIds = Array.from(
-      new Set(
-        items
-          .map((it: any) => (typeof it.productId === "string" ? it.productId.trim() : ""))
-          .filter(Boolean)
-      )
-    );
-
-    if (draftIds.length) {
-      const found = await prisma.draftProduct.count({
-        where: { id: { in: draftIds } },
+      return res.status(400).json({
+        message: "supplierId or supplier, and items are required.",
       });
-
-      if (found !== draftIds.length) {
-        return res.status(400).json({ message: "One or more DraftProduct IDs are invalid." });
-      }
     }
 
-    const subtotal = items.reduce(
-      (sum: number, item: any) => sum + Number(item.quantity) * Number(item.unitPrice),
-      0
-    );
-    const total = subtotal + Number(tax);
+    const taxNum = Number(tax);
+    if (!Number.isFinite(taxNum) || taxNum < 0) {
+      return res.status(400).json({ message: "Tax must be a number >= 0." });
+    }
 
+    // -----------------------------
+    // Validate and normalize item inputs
+    // Your schema requires DraftProduct relation, so every item must have a draft id.
+    // Support both shapes:
+    // - item.draftProductId (preferred)
+    // - item.productId (legacy, but in your PO world it means DraftProduct.id)
+    // -----------------------------
+    const normalizedItems = items.map((it: any, idx: number) => {
+      const draftIdRaw =
+        typeof it.draftProductId === "string"
+          ? it.draftProductId
+          : typeof it.productId === "string"
+          ? it.productId
+          : "";
+
+      const draftProductId = String(draftIdRaw || "").trim();
+
+      const quantity = Number(it.quantity);
+      const unitPrice = Number(it.unitPrice);
+
+      if (!draftProductId) {
+        throw new Error(`Line ${idx + 1} is missing draftProductId (or productId).`);
+      }
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        throw new Error(`Line ${idx + 1} quantity must be > 0.`);
+      }
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+        throw new Error(`Line ${idx + 1} unitPrice must be >= 0.`);
+      }
+
+      return {
+        draftProductId,
+        description: typeof it.description === "string" ? it.description : null,
+        unit: typeof it.unit === "string" ? it.unit : null,
+        quantity: Math.trunc(quantity),
+        unitPrice,
+        lineTotal: quantity * unitPrice,
+      };
+    });
+
+    // -----------------------------
+    // Validate DraftProduct IDs exist
+    // -----------------------------
+    const draftIds = Array.from(new Set(normalizedItems.map((x) => x.draftProductId)));
+    const foundCount = await prisma.draftProduct.count({
+      where: { id: { in: draftIds } },
+    });
+
+    if (foundCount !== draftIds.length) {
+      return res.status(400).json({
+        message: "One or more DraftProduct IDs are invalid.",
+      });
+    }
+
+    // -----------------------------
+    // Compute totals server-side
+    // -----------------------------
+    const subtotal = normalizedItems.reduce((sum, it) => sum + it.lineTotal, 0);
+    const total = subtotal + taxNum;
+
+    // -----------------------------
+    // Supplier relation
+    // NOTE: connectOrCreate(where: { email }) only works if Supplier.email is UNIQUE.
+    // If email is not unique in your schema, remove connectOrCreate and always create.
+    // -----------------------------
     const supplierRelation =
-      supplierId
-        ? { supplier: { connect: { supplierId } } }
+      supplierId && String(supplierId).trim()
+        ? { supplier: { connect: { supplierId: String(supplierId).trim() } } }
         : supplier?.email?.trim()
         ? {
             supplier: {
               connectOrCreate: {
-                where: { email: supplier.email.trim() },
+                where: { email: supplier.email.trim() }, // must be unique in Prisma
                 create: {
-                  name: supplier.name.trim(),
+                  name: String(supplier.name ?? "").trim(),
                   email: supplier.email.trim(),
                   phone: supplier.phone?.trim() || "",
                   address: supplier.address?.trim() || "",
@@ -185,57 +393,38 @@ export const createPurchaseOrder = async (req: Request, res: Response) => {
         : {
             supplier: {
               create: {
-                name: supplier.name.trim(),
-                email: supplier.email?.trim() || "",
-                phone: supplier.phone?.trim() || "",
-                address: supplier.address?.trim() || "",
+                name: String(supplier?.name ?? "").trim(),
+                email: supplier?.email?.trim() || "",
+                phone: supplier?.phone?.trim() || "",
+                address: supplier?.address?.trim() || "",
               },
             },
           };
 
+    // -----------------------------
+    // Create PO + Items
+    // -----------------------------
     const created = await prisma.purchaseOrder.create({
       data: {
-        poNumber: poNumber ?? `PO-${Date.now()}`,
+        poNumber: poNumber?.trim?.() ? poNumber.trim() : `PO-${Date.now()}`,
         orderDate: orderDate ? new Date(orderDate) : new Date(),
         dueDate: dueDate ? new Date(dueDate) : null,
-        notes: notes || null,
-        status: "DRAFT",
+        notes: notes?.trim?.() ? notes.trim() : null,
+        status: POStatus.DRAFT,
         subtotal,
-        tax: Number(tax),
+        tax: taxNum,
         total,
         ...supplierRelation,
         items: {
-          create: items.map((item: any) => {
-            const quantity = Number(item.quantity);
-            const unitPrice = Number(item.unitPrice);
-
-            const hasDraftId =
-              typeof item.productId === "string" && item.productId.trim().length > 0;
-
-            const hasName =
-              typeof item.name === "string" && item.name.trim().length > 0;
-
-            if (!hasDraftId && !hasName) {
-              throw new Error("DraftProduct missing: item has no productId and no name to create one.");
-            }
-
-            return {
-              description: item.description ?? "",
-              unit: item.unit ?? "",
-              quantity,
-              unitPrice,
-              lineTotal: quantity * unitPrice,
-
-              product: hasDraftId
-                ? { connect: { id: item.productId.trim() } }
-                : {
-                    create: {
-                      name: String(item.name).trim(),
-                      unit: String(item.unit ?? "").trim(),
-                    },
-                  },
-            };
-          }),
+          create: normalizedItems.map((it) => ({
+            description: it.description,
+            unit: it.unit,
+            quantity: it.quantity,
+            unitPrice: it.unitPrice,
+            lineTotal: it.lineTotal,
+            // IMPORTANT: match your schema field names
+            product: { connect: { id: it.draftProductId } }, // DraftProduct relation
+          })),
         },
       },
       include: {
@@ -248,9 +437,13 @@ export const createPurchaseOrder = async (req: Request, res: Response) => {
     return res.status(201).json(toPurchaseOrderDTO(created));
   } catch (error: any) {
     console.error("createPurchaseOrder error:", error);
-    if (String(error?.message || "").includes("DraftProduct missing")) {
-      return res.status(400).json({ message: error.message });
+
+    // user-facing validation errors
+    const msg = String(error?.message || "");
+    if (msg.startsWith("Line ") || msg.includes("DraftProduct")) {
+      return res.status(400).json({ message: msg });
     }
+
     return res.status(500).json({ message: "Error creating purchase order." });
   }
 };
@@ -550,10 +743,10 @@ export const deletePurchaseOrder = async (req: Request, res: Response) => {
             none: {}, // No remaining PO items
           },
           // Also check they're not used in supplier invoices or goods receipts
-          supplierItems: {
+          invoiceItems: {
             none: {},
           },
-          goodsReciept: {
+          grnItems: {
             none: {},
           },
         },
@@ -597,4 +790,3 @@ export const deletePurchaseOrder = async (req: Request, res: Response) => {
     });
   }
 };
-

@@ -88,7 +88,9 @@ export default function PurchaseOrderForm({
   // FORM STATE - These hold all the form data
   // ========================================
   
-  const [open, setOpen] = React.useState(false)
+ const [orderDateOpen, setOrderDateOpen] = React.useState(false);
+const [dueDateOpen, setDueDateOpen] = React.useState(false);
+
   /** The PO number (e.g., "PO-2024-001") */
   const [poNumber, setPoNumber] = React.useState(
     mode === "edit" && initial ? initial.poNumber : genPONumber()
@@ -342,8 +344,8 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
    */
   const reset = React.useCallback(() => {
     setPoNumber(genPONumber());
-    setOrderDate(todayYMD());
-    setDueDate(new Date());
+    setOrderDate(new Date());
+    setDueDate(undefined);
     setNotes("");
     setTaxPercent(0);
     setRows([{ quantity: 1, unitPrice: 0, unit: "", name: "", draftProductId: "" }]);
@@ -428,8 +430,8 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
         // Build base payload
         const base: NewPurchaseOrderDTO = {
           poNumber,
-          orderDate,
-          dueDate: dueDate || undefined,
+          orderDate: orderDate.toISOString(),
+          dueDate: dueDate ? dueDate.toISOString() : undefined,
           notes: notes || undefined,
           items,
           subtotal,
@@ -554,7 +556,7 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
               <Label htmlFor="date" className="px-1">
                 Order Date
               </Label>
-              <Popover open={open} onOpenChange={setOpen}>
+              <Popover open={orderDateOpen} onOpenChange={setOrderDateOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
@@ -570,9 +572,9 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
                     mode="single"
                     selected={orderDate}
                     captionLayout="dropdown"
-                    onSelect={(OrderDate) => {
-                      setOrderDate(orderDate)
-                      setOpen(false)
+                    onSelect={(d) => {
+                      if (d) setOrderDate(d);
+                      setOrderDateOpen(false);
                     }}
                   />
                 </PopoverContent>
@@ -585,7 +587,7 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
               <Label htmlFor="date" className="px-1">
                 Due Date
               </Label>
-              <Popover open={open} onOpenChange={setOpen}>
+              <Popover open={dueDateOpen} onOpenChange={setDueDateOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
@@ -603,7 +605,7 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
                     captionLayout="dropdown"
                     onSelect={(dueDate) => {
                       setDueDate(dueDate)
-                      setOpen(false)
+                      setDueDateOpen(false)
                     }}
                   />
                 </PopoverContent>

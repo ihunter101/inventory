@@ -78,6 +78,7 @@ export const InvoiceActions = ({
         router.push(`/invoices/${supplierInvoice.id}`)
       },
       variant: "normal",
+      disabled: hasGoodsReceipt(supplierInvoice)
     },
     {
       label: "Download Invoice",
@@ -100,7 +101,7 @@ export const InvoiceActions = ({
       label: "Delete Invoice",
       onSelect: () => setIsDeleteDialogOpen(true),
       variant: "danger",
-      disabled: isDeleting
+      disabled: isDeleting || hasGoodsReceipt(supplierInvoice)
     },
   ]
 

@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  useCreateProductMutation,
   useGetProductsQuery,
+  useUpdateProductMutation,
 } from "../../state/api";
 import { PlusCircle, SearchIcon, Star } from "lucide-react";
 import Header from "../../(components)/Header";
-import { CreateProductDialog } from "../../(components)/Products/CreateProductDialog";
+import { UpdateProductDialog } from "../../(components)/Products/UpdateProductDialog"; // keep your import path for now
 import { toast } from "sonner";
 import ProductsPagination from "@/app/(components)/Products/ProductsPagination";
 import {
@@ -24,16 +24,20 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 interface ProductFormData {
+  // IMPORTANT: for update, we need a productId coming from the dialog
+  productId: string;
+
   name: string;
   stockQuantity: number;
   rating: number;
-  supplier?: string;
-  minQuantity?: number;
-  unit?: string;
-  category?: string;
-  expiryDate?: string;
-  imageUrl?: string;
-  Department?: string;
+  supplier?: string | null;
+  minQuantity?: number | null;
+  unit?: string | null;
+  category?: string | null;
+  expiryDate?: string | null;
+  imageUrl?: string | null;
+  Department?: string | null;
+  sku?: string | null;
 }
 
 const Products = () => {
@@ -90,19 +94,36 @@ const Products = () => {
   const totalItems = data?.totalItems ?? 0;
   const pageSize = data?.pageSize ?? 20;
 
-  const [createProduct, { isLoading: isCreating }] =
-    useCreateProductMutation();
+  const [updateProduct, { isLoading: isUpdating }] =
+    useUpdateProductMutation();
 
-  const handleCreateProduct = async (productData: ProductFormData) => {
-    const toastId = toast.loading("Creating product...");
+  const handleUpdateProduct = async (productData: ProductFormData) => {
+    const toastId = toast.loading("Updating product...");
 
     try {
-      await createProduct(productData).unwrap();
-      toast.success("Product created successfully!", { id: toastId });
+      // Adjust this payload to match your backend update controller fields
+      await updateProduct({
+        productId: productData.productId,
+        body: {
+          name: productData.name,
+          stockQuantity: productData.stockQuantity,
+          rating: productData.rating,
+          supplier: productData.supplier ?? null,
+          minQuantity: productData.minQuantity ?? null,
+          unit: productData.unit ?? null,
+          category: productData.category ?? null,
+          expiryDate: productData.expiryDate ? new Date(productData.expiryDate).toISOString() : null,
+          imageUrl: productData.imageUrl ?? null,
+          Department: productData.Department ?? null,
+          sku: productData.sku ?? null,
+        },
+      }).unwrap();
+
+      toast.success("Product updated successfully!", { id: toastId });
       setIsModalOpen(false);
     } catch (error) {
-      console.error("Create product error:", error);
-      toast.error("Failed to create product", { id: toastId });
+      console.error("Update product error:", error);
+      toast.error("Failed to update product", { id: toastId });
     }
   };
 
@@ -191,13 +212,13 @@ const Products = () => {
             <option value="Cytology">Cytology</option>
           </select>
 
-          {/* Create button */}
+          {/* Button (kept as-is; you can rename label later) */}
           <button
             onClick={() => setIsModalOpen(true)}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 transition text-white font-medium py-2 px-4 rounded shadow-sm"
           >
             <PlusCircle className="w-5 h-5" />
-            Create Product
+            Update Product
           </button>
         </div>
       </div>
@@ -266,7 +287,7 @@ const Products = () => {
                 )}
               </div>
 
-              {/* Stock Sheet Controls - Modern Glassmorphism */}
+              {/* Stock Sheet Controls - unchanged */}
               <div className="mt-4">
                 {!line ? (
                   <Button
@@ -344,11 +365,11 @@ const Products = () => {
       </div>
 
       {/* Modal Dialog */}
-      <CreateProductDialog
+      <UpdateProductDialog
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onCreate={handleCreateProduct}
-        isCreating={isCreating}
+        onCreate={handleUpdateProduct}     // ✅ fixed
+        isCreating={isUpdating}            // ✅ update loading
       />
     </div>
   );

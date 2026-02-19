@@ -4,13 +4,15 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/toaster";
+import { toast } from "sonner";
+
 import {
   GoodsReceiptDTO,
   GoodsReceiptLine,
   useCreateGRNMutation,
   usePostGRNMutation,
 } from "@/app/state/api";
+
 import AlertNote from "@/app/features/components/AlertNote";
 
 type Props = {
@@ -22,13 +24,13 @@ type Props = {
   onPosted?: (poId: string) => void;
 };
 
-/**takes a value of whatever type its given, if its null it throws an error else it returns that value  */ 
+/** takes a value of whatever type its given, if its null it throws an error else it returns that value */
 function assertDefined<T>(v: T | null | undefined, msg: string): T {
   if (v == null) throw new Error(msg);
   return v;
 }
 
-/**a function that takes a string id and shorten it to 8 character else returns "-" */
+/** a function that takes a string id and shorten it to 8 character else returns "-" */
 function shortId(id?: string) {
   return id ? `${id.slice(0, 8)}…` : "-";
 }
@@ -40,10 +42,10 @@ export default function CreateGRNModal({
   onClose,
   onPosted,
 }: Props) {
-  const { toast } = useToast();
   const [createGRN, { isLoading: creating }] = useCreateGRNMutation();
   const [postGRN, { isLoading: posting }] = usePostGRNMutation();
   const [submitting, setSubmitting] = useState(false);
+
   const busy = creating || posting || submitting;
 
   // header: PO number/link + Invoice number
@@ -67,7 +69,8 @@ export default function CreateGRNModal({
       (draft.invoiceNumber ?? draft.invoiceId) && (
         <>
           {" "}
-          • Supplier Invoice: <span className="font-medium">{draft.invoiceNumber}</span>
+          • Supplier Invoice:{" "}
+          <span className="font-medium">{draft.invoiceNumber}</span>
         </>
       );
 
@@ -79,23 +82,28 @@ export default function CreateGRNModal({
     );
   }, [draft?.poId, draft?.poNumber, draft?.invoiceId, draft?.invoiceNumber]);
 
-  /** Save as DRAFT and return the saved GRN so callers get the id
-   ** creates GRN Line item payload and passes Purchase ord and Inv detail to the createGRN hook
+  /**
+   * Save as DRAFT and return the saved GRN so callers get the id
+   * Creates GRN Line item payload and passes Purchase order + Invoice detail to createGRN hook
    */
   async function handleSaveDraft(): Promise<GoodsReceiptDTO> {
     setSubmitting(true);
+
     try {
       const d = assertDefined(draft, "No GRN draft to save");
 
+      // IMPORTANT: include identifiers used by your new workflow:
+      // - poItemId (to reconcile against PO lines)
+      // - invoiceItemId (to reconcile against invoice lines)
       const linesPayload: GoodsReceiptLine[] = d.lines.map((ln) => ({
         productDraftId: ln.productDraftId,
-        //sku: ln.sku,
+        poItemId: ln.poItemId,               // ✅ keep
+        invoiceItemId: ln.invoiceItemId,     // ✅ keep
         name: ln.name ?? "",
         unit: ln.unit,
         receivedQty: ln.receivedQty,
         unitPrice: ln.unitPrice ?? 0,
       }));
-console.log("GRN LINES PAYLOAD:", linesPayload);
 
       const saved = await createGRN({
         grnNumber: d.grnNumber,
@@ -105,16 +113,20 @@ console.log("GRN LINES PAYLOAD:", linesPayload);
         lines: linesPayload,
       }).unwrap();
 
-      const next: GoodsReceiptDTO = { ...d, id: (saved).id };
+      // If your API returns the full GRN, prefer merging it:
+      // const next: GoodsReceiptDTO = { ...d, ...saved };
+      const next: GoodsReceiptDTO = { ...d, id: saved.id };
+
       onChange(next);
 
-      toast({ title: "GRN saved as draft", description: next.grnNumber });
+      toast.success("Draft saved", {
+        description: `GRN ${next.grnNumber} saved successfully.`,
+      });
+
       return next;
     } catch (e: any) {
-      toast({
-        variant: "destructive",
-        title: "Failed to save GRN",
-        description: e?.data?.message || "Please try again.",
+      toast.error("Failed to save draft", {
+        description: e?.data?.message || e?.message || "Please try again.",
       });
       throw e;
     } finally {
@@ -122,30 +134,35 @@ console.log("GRN LINES PAYLOAD:", linesPayload);
     }
   }
 
-  /** POST (increments stock and updates PO server-side) 
-   **Gets the draft id then pass it as an arg to PostGRN Hook
-  */
+  /**
+   * POST (increments stock and updates PO server-side)
+   * Gets the draft id then pass it as an arg to postGRN hook
+   */
   async function handlePost() {
     const d = assertDefined(draft, "No GRN draft to post");
     setSubmitting(true);
+
     try {
       // Ensure we have a real id to post
       let idToPost = d.id;
+
+      // If id is missing or still a temporary client-side string, save first
       if (!idToPost || idToPost.startsWith("LSC-GR-")) {
         const saved = await handleSaveDraft();
         idToPost = saved.id;
       }
 
-      await postGRN({ id: idToPost! }).unwrap();
+      await postGRN({ id: idToPost }).unwrap();
 
-      toast({ title: "GRN posted", description: d.grnNumber });
+      toast.success("GRN posted", {
+        description: `GRN ${d.grnNumber} posted successfully.`,
+      });
+
       onPosted?.(d.poId);
       onClose();
     } catch (e: any) {
-      toast({
-        variant: "destructive",
-        title: "Failed to post GRN",
-        description: e?.data?.message || "Please try again.",
+      toast.error("Failed to post GRN", {
+        description: e?.data?.message || e?.message || "Please try again.",
       });
     } finally {
       setSubmitting(false);
@@ -175,7 +192,6 @@ console.log("GRN LINES PAYLOAD:", linesPayload);
         <div className="space-y-6 p-6">
           {/* header fields */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-
             {/* GRN Date */}
             <Field label="GRN Date">
               <input
@@ -192,10 +208,7 @@ console.log("GRN LINES PAYLOAD:", linesPayload);
               <input
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-blue-500 transition focus:ring-2"
                 value={draft.grnNumber}
-                onChange={(e) =>
-                  onChange({ ...draft, grnNumber: e.target.value })
-                }
-                disabled={busy}
+                readOnly
               />
             </Field>
 
@@ -209,7 +222,7 @@ console.log("GRN LINES PAYLOAD:", linesPayload);
             </Field>
           </div>
 
-          {/* lines Headers*/}
+          {/* lines */}
           <div className="overflow-x-auto rounded-xl border">
             <table className="w-full text-sm">
               <thead className="bg-slate-50">
@@ -220,17 +233,13 @@ console.log("GRN LINES PAYLOAD:", linesPayload);
                   <Th>Unit Price</Th>
                 </tr>
               </thead>
-              {/* we use the index as a key, fine for now but better to use the draft.prodId or line.prodId */}
               <tbody>
                 {draft.lines.map((ln, idx) => (
                   <tr key={idx} className="border-t">
-                    
-                    {/* Item Name */}
                     <Td className="max-w-[22rem]">
                       <div className="truncate">{ln.name}</div>
                     </Td>
 
-                    {/* Unit  */}
                     <Td>{ln.unit ?? "-"}</Td>
 
                     <Td>
@@ -241,17 +250,17 @@ console.log("GRN LINES PAYLOAD:", linesPayload);
                         min={0}
                         onChange={(e) => {
                           const v = Number(e.target.value || 0);
-                          const next: GoodsReceiptDTO = {
+                          onChange({
                             ...draft,
                             lines: draft.lines.map((l, i) =>
                               i === idx ? { ...l, receivedQty: v } : l
                             ),
-                          };
-                          onChange(next);
+                          });
                         }}
                         disabled={busy}
                       />
                     </Td>
+
                     <Td>
                       <input
                         type="number"
@@ -260,13 +269,12 @@ console.log("GRN LINES PAYLOAD:", linesPayload);
                         value={ln.unitPrice ?? 0}
                         onChange={(e) => {
                           const v = Number(e.target.value || 0);
-                          const next: GoodsReceiptDTO = {
+                          onChange({
                             ...draft,
                             lines: draft.lines.map((l, i) =>
                               i === idx ? { ...l, unitPrice: v } : l
                             ),
-                          };
-                          onChange(next);
+                          });
                         }}
                         disabled={busy}
                       />
@@ -285,6 +293,7 @@ console.log("GRN LINES PAYLOAD:", linesPayload);
           <Button variant="outline" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
+
           <div className="space-x-2">
             <Button variant="secondary" onClick={handleSaveDraft} disabled={busy}>
               {submitting && !posting ? (
@@ -295,6 +304,7 @@ console.log("GRN LINES PAYLOAD:", linesPayload);
                 "Save Draft"
               )}
             </Button>
+
             <Button onClick={handlePost} disabled={busy}>
               {posting || submitting ? (
                 <>
@@ -325,4 +335,4 @@ const Th = (p: any) => (
     {p.children}
   </th>
 );
-const Td = (p: any) => <td className="px-4 py-2 align-top">{p.children}</td>;
+const Td = (p: any) => <td className={`px-4 py-2 align-top ${p.className ?? ""}`}>{p.children}</td>;

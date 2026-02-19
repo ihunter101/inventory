@@ -1,24 +1,24 @@
+// DashboardClient.tsx
 "use client";
 
-import { AlertCircle, CheckCircle, TrendingDown, TrendingUp } from "lucide-react";
-import { useGetPendingPromotionsCountQuery } from "@/app/state/api";
+import { AlertCircle } from "lucide-react";
+import { useGetPendingPromotionsCountQuery, useGetDashboardMetricsQuery } from "@/app/state/api";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import CardPopularProducts from "./CardPopularProducts";
 import CardRevenueAndProfit from "./CardRevenueSummary";
-
 import CardPurchaseSummary from "./CardPurchaseSummary";
 import CardSalesSummary from "./CardSalesSummary";
 import CardExpenseSummary from "./CardExpenseSummary";
-
 import CardPurchaseBreakdown from "./PurchaseBreakdown";
-import StatCard from "./StatCard";
+import CardOrderSummary from "./CardOrderSummary"; // ✅ NEW IMPORT
 
 export default function DashboardClient() {
   const router = useRouter();
   const { data: pendingCount } = useGetPendingPromotionsCountQuery();
+  const { data: dashboardMetrics, isLoading } = useGetDashboardMetricsQuery();
   const count = pendingCount?.count ?? 0;
 
   return (
@@ -81,24 +81,15 @@ export default function DashboardClient() {
           <CardExpenseSummary />
         </div>
 
-        {/* ROW 3 (whatever you want left) */}
+        {/* ROW 3 */}
         <div className="col-span-12 xl:col-span-8 h-full">
           <CardPurchaseBreakdown />
         </div>
 
+        {/* ✅ NEW: Order Summary Card */}
         <div className="col-span-12 xl:col-span-4 h-full">
-          <StatCard
-            title="Dues & Pending Orders"
-            primaryIcon={<CheckCircle className="text-blue-600 w-6 h-6" />}
-            dateRange="22 - 29 October 2023"
-            details={[
-              { title: "Dues", amount: "250.00", changePercentage: 131, IconComponent: TrendingUp },
-              { title: "Pending Orders", amount: "147", changePercentage: -56, IconComponent: TrendingDown },
-            ]}
-          />
+          <CardOrderSummary metrics={dashboardMetrics?.PurchaseMetrics} />
         </div>
-
-        {/* ROW 4+ (optional): add more cards; they’ll snap to the same row height */}
       </div>
     </div>
   );

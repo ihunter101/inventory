@@ -19,14 +19,14 @@ function shortId(id?: string) {
   return id ? `${id.slice(0, 8)}…` : "-";
 }
 
-export default function sInvoiceTable({
+export default function InvoiceTable({
   data,
   goodsReceipts,
   onCreateGRN,
   onOpenMatch,
 }: Props) {
   const hasGRNFor = (inv: SupplierInvoiceDTO) =>
-    goodsReceipts.some((g) => g.poId === inv.poId && g.invoiceId === inv.id);
+    goodsReceipts.some((g) => g.invoiceId === inv.id);
 
   return (
     <div className="w-full">
@@ -54,10 +54,11 @@ export default function sInvoiceTable({
                 <Td>
                   {hasPO ? (
                     <Link
-                      href={`/purchases?tab=match&po=${encodeURIComponent(inv.poId!)}`}
+                      href={`/purchases?tab=match&po=${encodeURIComponent(inv.poId!)}&inv=${encodeURIComponent(inv.id)}`}
                       className="text-primary hover:underline"
                       title={`Open PO ${poLabel}`}
-                      onClick={() => onOpenMatch?.(inv.poNumber)}
+                      onClick={() => onOpenMatch?.(inv.poId)}
+
                     >
                       {poLabel}
                     </Link>

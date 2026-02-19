@@ -4,6 +4,7 @@ import page from "../(private)/sales/page";
 import { FulfillStockRequestResponse, Paginated, ReviewStockRequestBody, StockRequestDetailResponse, StockRequestListQuery, StockRequestListResponse, StockRequestStatus } from "./stockSheetSlice";
 import { parseAppSegmentConfig } from "next/dist/build/segment-config/app/app-segment-config";
 import { Role } from "@lab/shared/userRoleUtils";
+import { string } from "zod";
 
 // ----------------------
 // Interfaces
@@ -95,6 +96,26 @@ export interface Product {
   department?: string;
   category?: string;
 }
+export type ProductDTO = {
+  productId: string;
+  name: string;
+  // price?: number; // keep only if your Prisma model actually has it
+  rating?: number | null;
+  stockQuantity: number;
+  minQuantity?: number | null;
+  reorderPoint?: number | null;
+  category?: string | null;
+  unit?: string | null;
+  supplier?: string | null;
+  expiryDate?: string | null; // ISO string
+  imageUrl?: string | null;
+  Department?: string | null;
+  sku?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type UpdateProductDTO = Partial<Omit<ProductDTO, "productId" | "createdAt" | "updatedAt">>;
 
 export interface ProductDraft {
   id: string; 
@@ -157,6 +178,17 @@ export interface ExpenseByCategorySummary {
   date: string;
 }
 
+export interface PurchaseMetrics {
+  totalPOs: number;
+  closedPOs: number;
+  activePOs: number;
+  totalInvoices: number;
+  pendingInvoices: number;
+  paidInvoices: number;
+  pendingInvoicesAmount: number;
+  paidInvoicesAmount: number;
+  totalInvoicesAmount: number;
+}
 export interface DashboardMetrics {
   popularProducts: Product[];
   salesSummary: Sales[];
@@ -165,6 +197,7 @@ export interface DashboardMetrics {
   expenseSummary: Expense[]
   revenueAndProfit: Record<DateRange, RevenueAndProfitData>
   expenseByCategorySummary: ExpenseByCategorySummary[];
+  PurchaseMetrics: PurchaseMetrics;
 }
 export type ExpenseGroup = 
   |"Clinical" 
@@ -199,20 +232,26 @@ export interface Supplier {
 
 export type POStatus =
   | "DRAFT" | "APPROVED" | "SENT" | "PARTIALLY_RECEIVED" | "RECEIVED" | "CLOSED";
-export type InvoiceStatus = "PENDING" | "PAID" | "OVERDUE"
+export type InvoiceStatus = "PENDING" | "PAID" | "OVERDUE" | "READY_TO_PAY" | "PARTIALLY_PAID" | "VOID";
 export type GRNStatus = "DRAFT" | "POSTED";
 
 export interface POItem {
-  id?: string; 
+  id?: string;
   poItemId?: string;
-  productId?: string; // should be a draft product id and not a product id 
+  productId?: string;
   draftProductId: string;
-  sku?: string; 
-  name: string; 
+  sku?: string;
+  name: string;
   unit: string;
-  quantity: number; 
-  unitPrice: number; 
-  lineTotal: number; 
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+
+  // ✅ computed fields (server-returned)
+  orderedQty?: number;
+  invoicedQty?: number;
+  remainingToInvoice?: number;
+  fullyInvoiced?: boolean;
 }
 
 export interface SupplierDTO {
@@ -225,19 +264,24 @@ export interface SupplierDTO {
 
 export interface PurchaseOrderDTO {
   id: string;
-  poNumber: string; 
-  supplierId: string; 
+  poNumber: string;
+  supplierId: string;
   supplier?: SupplierDTO;
-  status: POStatus; 
+  status: POStatus;
   orderDate: string;
   dueDate?: string;
   notes?: string;
-  items: POItem[]
+  items: POItem[];
   subtotal: number;
   tax: number;
   total: number;
   category?: string;
   invoiceCount?: number;
+
+  // computed
+  hasRemainingToInvoice?: boolean;
+  remainingToInvoiceCount?: number;
+  remainingToInvoiceQty?: number;
 }
 
 export interface NewPurchaseOrderDTO {
@@ -270,6 +314,7 @@ export interface NewPurchaseOrderDTO {
 
 
 export interface InvoiceLine {
+  id: string;  //added
   draftProductId: string;
   productId: string | null;
   poItemId?: string;
@@ -294,8 +339,9 @@ export interface SupplierInvoiceDTO {
   lines: InvoiceLine[];
   amount: number;
   category?: string;
-
+  balanceRemaining?: number;
 }
+
 export interface CreateSupplierInvoiceDTO {
   invoiceNumber: string;
   supplierId: string;
@@ -322,7 +368,7 @@ export interface GoodsReceiptLine {
   unit: string;
   receivedQty: number;
   unitPrice?: number;
-
+  invoiceItemId?: string;
 }
 
 export interface GoodsReceiptDTO {
@@ -343,6 +389,7 @@ export interface CreateGRNDTO {
   date?: string;
   grnNumber: string;
   lines: Array<{
+    invoiceItemId?: string;
     productDraftId: string;
     poItemId?: string;
     receivedQty: number;
@@ -478,6 +525,95 @@ interface PostGRNResponse {
   poId: string;
 }
 
+export type MatchStatus = "DRAFT" | "READY_TO_PAY" | "PAID" | "VOID";
+
+export type MatchLineDTO = {
+  id: string;
+  matchId: string;
+
+  poItemId?: string | null;
+  invoiceItemId?: string | null;
+  grnLineId?: string | null;
+
+  name: string;
+  sku?: string | null;
+  unit?: string | null;
+
+  poQty: number;
+  grnQty: number;
+  invUnitPrice: number | null;
+
+  payableQty: number;
+  payableAmount: number;
+
+  notes?: string | null;
+};
+
+export type MatchDTO = {
+  id: string;
+  poId: string;
+  invoiceId: string;
+  grnId: string;
+  status: MatchStatus;
+
+  payableTotal: number;
+  currency?: string | null;
+
+  createdAt: string;
+  updatedAt: string;
+
+  lines: MatchLineDTO[];
+};
+
+export type CreateMatchDTO = {
+  poId: string;
+  invoiceId: string;
+  grnId: string;
+};
+
+export type PaymentStatus = "POSTED" | "VOID"
+
+export type CreateInvoicePaymentBody =
+  Omit<Partial<InvoicePaymentDTO>, "amount"> & { amount: number };
+
+export type InvoicePaymentDTO = {
+  id: string; 
+  invoiceId: string;
+  poId?: string | null; // optional for now
+  amount: string;
+  currency: string | null; //optional for now
+  paidAt: string; 
+  method?: string | null; //optional for now 
+  reference?: string | null; //optional for now
+  notes?: string | null; //optional for now
+  status: PaymentStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type PoPaymentSummaryDTO = {
+  poId: string;
+  totalPayable: number;
+  totalPaid: number;
+  outstanding: number;
+};
+
+export type AllPoPaymentSummary = {
+  totalPayble: number;
+  totalPaid: number;
+  outstanding: number;
+  paidAt: string;
+}
+
+export type InvoicePaymentSummaryDTO = {
+  invoiceId: string;
+  payableTotal: number;
+  paidTotal: number;
+  outstanding: number
+  matchStatus: "DRAFT" | "READY_TO_PAY" | "PAID" | "VOID" | null;
+}
+
+
 // ----------------------
 // API Setup
 // ----------------------
@@ -501,7 +637,8 @@ export const api = createApi({
     "DashboardMetrics", "Products", "Users", "Expenses",
     "PurchaseOrders", "SupplierInvoices", "GoodsReceipts", 
     "Suppliers", "Inventory", "DraftProducts", "StockSheet",
-    "SalesAnalytics", "TodaySale", "Sales"
+    "SalesAnalytics", "TodaySale", "Sales", "Matches", "InvoicePayments", 
+    "PoPaymentSummary"
   ],
   endpoints: (build) => ({
     // Dashboard Metrics
@@ -585,7 +722,12 @@ export const api = createApi({
         }
         
       },
-      providesTags: ["Products"],
+      providesTags: (res) => res?.items
+      ? [
+          { type: "Products", id: "LIST" },
+          ...res.items.map((p: any) => ({ type: "Products" as const, id: p.productId })),
+        ]
+      : [{ type: "Products", id: "LIST" }],
     }),
     createProduct: build.mutation< Product, NewProduct>({
       query: (newProduct) => ({
@@ -594,6 +736,23 @@ export const api = createApi({
         body: newProduct,
       }),
       invalidatesTags: ["Products", "Inventory"],
+    }),
+    getProductById: build.query<ProductDTO, string>({
+      query: (productId) => ({ url: `/products/${productId}` }),
+      providesTags: (_res, _err, productId) => [{ type: "Products", id: productId }],
+    }),
+
+    updateProduct: build.mutation<ProductDTO, { productId: string; body: UpdateProductDTO }>({
+      query: ({ productId, body }) => ({
+        url: `/products/${productId}`,
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: (_res, _err, { productId }) => [
+        { type: "Products", id: productId },
+        { type: "Products", id: "LIST" },
+        "Products",
+      ],
     }),
     getPendingArrivals: build.query<DraftProductDTO[], { grnId: string }>({
       query: ({ grnId }) => `/draft-products/pending-arrivals?grnId=${encodeURIComponent(grnId)}`,
@@ -696,6 +855,13 @@ export const api = createApi({
     query: (poId) => `/purchase-orders/${poId}`,
     providesTags: (_r, _e, id) => [{ type: "PurchaseOrders", id }],
   }),
+  getPurchaseOrderById: build.query<any, string>({
+    query: (id) => ({
+      url: `/purchase-orders/${id}`,
+      method: "GET",
+    }),
+    providesTags: (_res, _err, id) => [{ type: "PurchaseOrders", id }],
+  }),
   listPurchaseOrder: build.query<PurchaseOrderDTO[], { q?: string } | void>({
     query: (arg) => ({
       url: "/purchase-orders",
@@ -732,19 +898,28 @@ export const api = createApi({
   }),
   // SupplierInvoice
   getSupplierInvoices: build.query<SupplierInvoiceDTO[], { status?: InvoiceStatus; q?: string } | void>({
-    query: (params) => ({ url: "/invoices", params: params ?? undefined}),
-    providesTags: [{ type: "SupplierInvoices", id: "LIST" }],
-  }),
+  query: (params) => ({ url: "/invoices", params: params ?? undefined }),
+  providesTags: (result) =>
+    result
+      ? [
+          { type: "SupplierInvoices", id: "LIST" },
+          ...result.map((inv) => ({ type: "SupplierInvoices" as const, id: inv.id })),
+        ]
+      : [{ type: "SupplierInvoices", id: "LIST" }],
+}),
+
   getSupplierInvoice: build.query<SupplierInvoiceDTO, string>({
   query: (id) =>  `/invoices/${id}`,
   providesTags: (_results, _error, id) => [
-    { type: "SupplierInvoices", id } 
+    { type: "SupplierInvoices", id },
+    { type: "SupplierInvoices", id: "LIST"}
   ]
 }),
   createSupplierInvoice: build.mutation<SupplierInvoiceDTO, CreateSupplierInvoiceDTO>({
     query: (body) => ({ url: "/invoices", method: "POST", body}),
     invalidatesTags: [{ type: "SupplierInvoices", id: "LIST"}, "SupplierInvoices", "PurchaseOrders", "DashboardMetrics"],
   }),
+  //MAY DELETE THIS 
   markInvoicePaid: build.mutation<SupplierInvoiceDTO, { id: string }>({
   query: ({ id }) => ({ url: `/invoices/${id}/status`, method: "PATCH" }),
   invalidatesTags: (_r, _e, { id }) =>
@@ -768,6 +943,17 @@ export const api = createApi({
     { type: "SupplierInvoices", id: "LIST" }, // Invalidate list
   ],
 }),
+  updateInvoiceStatus: build.mutation<any, { id: string; status: string }>({
+    query: ({ id, ...body }) => ({
+      url: `/invoices/${id}/status`, // make sure this matches your Express route
+      method: "PATCH",
+      body,
+    }),
+    invalidatesTags: (_err, _res, { id }) => [
+      { type: "SupplierInvoices", id },
+      { type: "SupplierInvoices", id: "LIST" }
+    ],
+  }),
   // Goods Receipt
   searchGoodsReceipts: build.query<GoodsReceiptDTO[], { q?: string } | void>({
   query: (params) => ({ url: "/grns", params: params ?? undefined }),
@@ -823,7 +1009,7 @@ deleteGoodsReceipt: build.mutation<void, {id: string}> ({
     url: `/grns/${id}`,
     method: "DELETE"
   }),
-  invalidatesTags: [{ type: "GoodsReceipts", id: "LIST"}]
+  invalidatesTags: (result, err, {id}) => [{ type: "GoodsReceipts", id: "LIST"}, { type: "GoodsReceipts", id}]
 }),
 // Expenses
   createExpense: build.mutation<Expense, Partial<Expense>>({
@@ -971,7 +1157,54 @@ deleteSale: build.mutation<{ message: string }, number>({
     { type: "SalesAnalytics", id: "LIST" },
   ],
 }),
+createMatch: build.mutation<MatchDTO, CreateMatchDTO>({
+  query: (body) => ({
+    url: "/matches",
+    method: "POST",
+    body,
+  }),
+  invalidatesTags: [{ type: "Matches", id: "LIST" }, { type: "SupplierInvoices"}],
+}),
 
+getMatchById: build.query<MatchDTO, string>({
+  query: (id) => ({ url: `/matches/${id}` }),
+  providesTags: (_res, _err, id) => [{ type: "Matches", id }],
+}),
+updateMatchStatus: build.mutation<MatchStatus, {id: string; status: MatchStatus}>({
+  query: ({id, status}) => ({
+    url: `/matches/${id}`,
+    method: "PATCH",
+    body: {status}
+  }),
+  invalidatesTags: (_err, _res, { id }) => [ { type: "Matches", id: "LIST" } ]
+}),
+addInvoicePayment: build.mutation<InvoicePaymentDTO, { invoiceId: string; body: CreateInvoicePaymentBody}>({
+  query: ({ invoiceId, body }) => ({
+    url: `/invoices/${invoiceId}/payments`,
+    method: "POST",
+    body,
+  }),
+  invalidatesTags: (_res, _err, args) => [
+  { type: "InvoicePayments", id: args.invoiceId },
+  { type: "SupplierInvoices", id: args.invoiceId },
+],
+}),
+getInvoicePayments: build.query<InvoicePaymentDTO[], string>({
+  query: (invoiceId) => ({
+    url: `/invoices/${invoiceId}/payments`,}),
+    providesTags: (_res, _err, invoiceId) => [
+      { type: "InvoicePayments", id: invoiceId },
+      { type: "InvoicePayments", id: "LIST"},
+    ],
+}),
+getPoPaymentSummary: build.query<PoPaymentSummaryDTO, string>({
+  query: (poId) => `/purchase-orders/${poId}/payments-summary`,
+  providesTags: (result, error, poId) => [{ type: "PoPaymentSummary", id: poId }],
+}),
+getAllPoPaymentsSummary: build.query<AllPoPaymentSummary, void>({
+  query: () => "/invoices/payment-summary", 
+  providesTags: () => [{ type: "PoPaymentSummary", id: "LIST" }],
+}),
   }),
 });
 
@@ -983,6 +1216,9 @@ export const {
   useGetDashboardMetricsQuery,
     
   useGetProductsQuery,
+  useGetProductByIdQuery,
+  useUpdateProductMutation, 
+
   useGetPendingArrivalsQuery,
   useFinalizedProductMutation,
   useBulkFinalizeProductsMutation,
@@ -1012,6 +1248,7 @@ export const {
   useListPurchaseOrderQuery,
   useGetPurchaseOrderQuery,
   useGetPurchaseOrdersQuery,
+  useGetPurchaseOrderByIdQuery,
   useCreatePurchaseOrderMutation,
   useUpdatePurchaseOrderStatusMutation,
   useUpdatePurchaseOrderMutation,
@@ -1022,7 +1259,9 @@ export const {
   useDeleteSupplierInvoiceMutation,
   useUpdateSupplierInvoiceMutation,
   useCreateSupplierInvoiceMutation,
+  //MIGHT DELETE the next line
   useMarkInvoicePaidMutation,
+  useUpdateInvoiceStatusMutation,
 
   useListGoodsReceiptsQuery, 
   useSearchGoodsReceiptsQuery,
@@ -1047,6 +1286,16 @@ export const {
   useGetSalesByLocationQuery,
   useGetSalesAnalysticsQuery,
   useDeleteSaleMutation,
+
+  useGetInvoicePaymentsQuery,
+  useGetPoPaymentSummaryQuery,
+  useGetAllPoPaymentsSummaryQuery,
+  useAddInvoicePaymentMutation,
+
+  useCreateMatchMutation,
+  useGetMatchByIdQuery,
+  //MightDelete the line below 
+  useUpdateMatchStatusMutation,
 } = api;
 
 

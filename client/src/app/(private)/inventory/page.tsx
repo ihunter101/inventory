@@ -19,7 +19,7 @@ import {
   deriveStatus,
 } from "@/app/(components)/inventory/InventoryTypes";
 import {InventoryItem as PdfItem} from "@/app/pdf/InventoryDocument";
-import type {  Category } from "@/app/(components)/Products/CreateProductDialog";
+import type {  Category } from "@/app/(components)/Products/UpdateProductDialog";
 import { MissingExpiryTableCard } from "@/app/(components)/inventory/AddExpiryDate";
 
 

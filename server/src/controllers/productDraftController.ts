@@ -172,7 +172,7 @@ export const bulkFinalizeProducts = async (req: Request, res: Response) => {
           where: {
             productDraftId: draftId,
             productId: null,
-            Grn: { status: "POSTED" },
+            grn: { status: "POSTED" },
           },
         });
 
@@ -183,7 +183,7 @@ export const bulkFinalizeProducts = async (req: Request, res: Response) => {
           where: {
             productDraftId: draftId,
             productId: null,
-            Grn: { status: "POSTED" },
+            grn: { status: "POSTED" },
           },
           data: { productId: realProductId },
         });
@@ -249,7 +249,7 @@ export const getPendingPromotions = async (req: Request, res: Response) => {
       where: {
         ...(grnId ? { grnId } : {}), // optional: filter by specific GRN
         productId: null,              // ✅ NOT promoted yet
-        Grn: { status: "POSTED" }     // ✅ only from POSTED GRNs
+        grn: { status: "POSTED" }     // ✅ only from POSTED GRNs
       },
       select: {
         id: true,
@@ -263,7 +263,7 @@ export const getPendingPromotions = async (req: Request, res: Response) => {
             unit: true 
           }
         },
-        Grn: {
+        grn: {
           select: {
             grnNumber: true,
             date: true
@@ -289,7 +289,7 @@ export const getPendingPromotions = async (req: Request, res: Response) => {
       if (!dp) continue;
 
       const prev = map.get(dp.id);
-      const grnNumber = ln.Grn?.grnNumber || 'Unknown';
+      const grnNumber = ln.grn?.grnNumber || 'Unknown';
       
       map.set(dp.id, {
         id: dp.id,
@@ -319,7 +319,7 @@ export const getPendingPromotionsCount = async (_req: Request, res: Response) =>
     const rows = await prisma.goodsReceiptItem.findMany({
       where: {
         productId: null,
-        Grn: { status: "POSTED" },
+        grn: { status: "POSTED" },
       },
       select: { productDraftId: true },
       distinct: ["productDraftId"],

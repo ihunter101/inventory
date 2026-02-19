@@ -33,14 +33,16 @@ type HeaderProps = {
   poCount: number;
   invoiceCount: number;
   grnCount: number;
-  totalPOSpend: number;
+  totalPayable: number;
+  totalPaid: number;
 };
 
 export function PurchasesHeader({
   poCount,
   invoiceCount,
   grnCount,
-  totalPOSpend,
+  totalPayable,
+  totalPaid,
 }: HeaderProps) {
   return (
     <>
@@ -103,9 +105,10 @@ export function PurchasesHeader({
         />
         <Stat
           icon={<CheckCircle className="w-5 h-5" />}
-          label="Total PO Spend"
-          value={currency(totalPOSpend)}
+          label="Payable / Paid"
+          value={`${currency(totalPayable)} / ${currency(totalPaid)}`}
         />
+
       </div>
     </>
   );

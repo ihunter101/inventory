@@ -1,16 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation"
+import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/toaster";
+import { toast } from "sonner";
+
 import {
   GoodsReceiptDTO,
   GoodsReceiptLine,
   useCreateGRNMutation,
   usePostGRNMutation,
 } from "@/app/state/api";
+
 import AlertNote from "./AlertNote";
 
 type CreateGRNDialogProps = {
@@ -18,18 +19,9 @@ type CreateGRNDialogProps = {
   draft: GoodsReceiptDTO | null;
   onChange: (grn: GoodsReceiptDTO) => void;
   onClose: () => void;
-  onPosted: (poId: string) => Promise<void>;
+  onPosted: (ctx: { poId: string; invoiceId?: string; grnId: string }) => Promise<void>;
 };
 
-/**
- * CreateGRNDialog - A dialog for creating Goods Receipt Notes from an invoice
- * 
- * This is a wrapper around the GRN creation logic that:
- * - Initializes GRN draft from invoice data
- * - Handles save draft and post operations
- * - Manages loading states
- * - Shows success/error toasts
- */
 export function CreateGRNDialog({
   open,
   draft,
@@ -37,8 +29,6 @@ export function CreateGRNDialog({
   onClose,
   onPosted,
 }: CreateGRNDialogProps) {
-  const router = useRouter();
-  const { toast } = useToast();
   const [createGRN, { isLoading: creating }] = useCreateGRNMutation();
   const [postGRN, { isLoading: posting }] = usePostGRNMutation();
   const [submitting, setSubmitting] = useState(false);
@@ -50,35 +40,31 @@ export function CreateGRNDialog({
     if (!draft) return null;
 
     setSubmitting(true);
+     console.log("Draft lines:", draft.lines?.map(ln => ({
+      invoiceItemId: ln.invoiceItemId,
+      productDraftId: ln.productDraftId,
+      hasInvoiceItemId: !!ln.invoiceItemId,
+      hasProductDraftId: !!ln.productDraftId,
+    })));
     try {
-      // Validate lines have draftProductId
-      const invalidLines = draft.lines.filter((ln) => !ln.productDraftId);
+      // Validate lines have productDraftId
+      const invalidLines = (draft.lines ?? []).filter((ln) => !ln.productDraftId);
       if (invalidLines.length > 0) {
-        toast({
-          variant: "destructive",
-          title: "Invalid lines",
-          description: "All lines must have a product selected",
+        toast.error("Invalid lines", {
+          description: "All lines must have a product selected.",
         });
         return null;
       }
 
-      const linesPayload: GoodsReceiptLine[] = draft.lines.map((ln) => ({
+      const linesPayload: GoodsReceiptLine[] = (draft.lines ?? []).map((ln) => ({
+        invoiceItemId: ln.invoiceItemId!,   // ✅ keep (new workflow)
         productDraftId: ln.productDraftId,
-        poItemId: ln.poItemId,
+        poItemId: ln.poItemId,             // ✅ keep
         name: ln.name ?? "",
         unit: ln.unit,
-        receivedQty: ln.receivedQty,
-        unitPrice: ln.unitPrice ?? 0,
+        receivedQty: Number(ln.receivedQty ?? 0),
+        unitPrice: Number(ln.unitPrice ?? 0),
       }));
-
-      console.log("GRN CREATE payload", {
-        poId: draft.poId,
-        invoiceId: draft.invoiceId,
-        lines: linesPayload.map(l => ({ 
-          draftProductId: l.productDraftId, 
-          poItemId: l.poItemId 
-        }))
-      });
 
       const saved = await createGRN({
         grnNumber: draft.grnNumber,
@@ -88,22 +74,24 @@ export function CreateGRNDialog({
         lines: linesPayload,
       }).unwrap();
 
-      console.log("Fulfilled:", saved);
-
       const updatedDraft: GoodsReceiptDTO = { ...draft, id: saved.id };
       onChange(updatedDraft);
 
-      toast({ title: "GRN saved as draft", description: updatedDraft.grnNumber });
+      // ✅ Sonner toast: draft saved
+      toast.success("Draft saved", {
+        description: `GRN ${updatedDraft.grnNumber} saved successfully.`,
+      });
+
+      onClose();
       return updatedDraft;
     } catch (e: any) {
-      toast({
-        variant: "destructive",
-        title: "Failed to save GRN",
-        description: e?.data?.message || "Please try again.",
+      toast.error("Failed to save GRN", {
+        description: e?.data?.message || e?.message || "Please try again.",
       });
       return null;
     } finally {
       setSubmitting(false);
+      
     }
   };
 
@@ -122,21 +110,24 @@ export function CreateGRNDialog({
       }
 
       await postGRN({ id: idToPost }).unwrap();
-      //router.push(`/promotions?grnId=${encodeURIComponent(grnId)}`);
 
-      toast({ title: "GRN posted successfully", description: draft.grnNumber });
-      
+      toast.success("GRN posted successfully", {
+        description: `GRN ${draft.grnNumber} posted.`,
+      });
+
       // Call onPosted with the PO ID
       if (draft.poId) {
-        await onPosted(draft.poId);
+        await onPosted({
+          poId: draft.poId,
+          invoiceId: draft.invoiceId,
+          grnId: idToPost,
+        });
       }
-      
+
       onClose();
     } catch (e: any) {
-      toast({
-        variant: "destructive",
-        title: "Failed to post GRN",
-        description: e?.data?.message || "Please try again.",
+      toast.error("Failed to post GRN", {
+        description: e?.data?.message || e?.message || "Please try again.",
       });
     } finally {
       setSubmitting(false);
@@ -190,8 +181,7 @@ export function CreateGRNDialog({
               <input
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-blue-500 transition focus:ring-2"
                 value={draft.grnNumber}
-                onChange={(e) => onChange({ ...draft, grnNumber: e.target.value })}
-                disabled={busy}
+                readOnly
               />
             </Field>
 
@@ -315,4 +305,7 @@ const Th = (p: any) => (
   </th>
 );
 
-const Td = (p: any) => <td className="px-4 py-2 align-top">{p.children}</td>;
+// allow className since you used it in another file sometimes
+const Td = ({ children, className = "" }: any) => (
+  <td className={`px-4 py-2 align-top ${className}`}>{children}</td>
+);

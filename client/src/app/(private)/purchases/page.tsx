@@ -13,6 +13,7 @@ import {
   useGetSupplierInvoicesQuery,
   useSearchGoodsReceiptsQuery,
   usePostGRNMutation,
+  useGetAllPoPaymentsSummaryQuery,
 } from "@/app/state/api";
 import { usePurchasingFilters } from "@/app/hooks/usePurchaseingHooks";
 import PurchaseTable from "@/app/features/components/PurchasesTable";
@@ -71,16 +72,23 @@ export default function PurchasesPage() {
   const [showGRNModal, setShowGRNModal] = useState(false);
   const [matchPOId, setMatchPOId] = useState<string | null>(null);
 
+  const [matchInvoiceId, setMatchInvoiceId] = useState<string | null>(null);
+
+
   // adopt URL params on first render
-  useEffect(() => {
-    const qTab = params.get("tab") as Tab | null;
-    const qStatus = params.get("status");
-    const qPO = params.get("po");
-    if (qTab) setActiveTab(qTab);
-    if (qStatus) setStatusFilter(qStatus);
-    if (qPO) setMatchPOId(qPO);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+useEffect(() => {
+  const qTab = params.get("tab") as Tab | null;
+  const qStatus = params.get("status");
+  const qPO = params.get("po");
+  const qInv = params.get("inv"); // 1. Get it here
+
+  if (qTab) setActiveTab(qTab);
+  if (qStatus) setStatusFilter(qStatus);
+  if (qPO) setMatchPOId(qPO);
+  if (qInv) setMatchInvoiceId(qInv); // 2. Set it here
+  
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
   // queries
   const {
@@ -89,9 +97,14 @@ export default function PurchasesPage() {
     isError: poError,
     refetch: refetchPOs,
   } = useGetPurchaseOrdersQuery(
-    { q: searchTerm, status: mapPOStatus(statusFilter) },
-    { refetchOnMountOrArgChange: true }
-  );
+  {
+    q: searchTerm,
+    status: activeTab === "purchases" || activeTab === "match"
+      ? mapPOStatus(statusFilter)
+      : undefined,
+  },
+  { refetchOnMountOrArgChange: true }
+);
 
   const {
     data: invoices = [],
@@ -99,9 +112,14 @@ export default function PurchasesPage() {
     isError: invError,
     refetch: refetchInvoices,
   } = useGetSupplierInvoicesQuery(
-    { q: searchTerm, status: mapInvoiceStatus(statusFilter) },
-    { refetchOnMountOrArgChange: true }
-  );
+  {
+    q: searchTerm,
+    status: activeTab === "invoices" || activeTab === "match"
+      ? mapInvoiceStatus(statusFilter)
+      : undefined,
+  },
+  { refetchOnMountOrArgChange: true }
+);
 
   const [postGRN] = usePostGRNMutation();
 
@@ -114,6 +132,8 @@ export default function PurchasesPage() {
     { q: searchTerm },
     { refetchOnMountOrArgChange: true }
   );
+
+  const {data: paymentSummary} = useGetAllPoPaymentsSummaryQuery();
 
   // derived flags
   const loading =
@@ -136,6 +156,11 @@ export default function PurchasesPage() {
     { search: searchTerm, status: statusFilter }
   );
 
+  //quering to find a match invoice 
+ 
+
+
+
   // GRN draft from invoice
 const openGRNFromInvoice = (invoice: SupplierInvoiceDTO) => {
   const po = purchaseOrders.find((p) => p.id === invoice.poId);
@@ -150,7 +175,9 @@ const openGRNFromInvoice = (invoice: SupplierInvoiceDTO) => {
     if (it.productId && it.id) poItemIdByDraftId.set(it.productId, it.id);
   }
 
-  const sourceLines = invoice.lines?.length ? invoice.lines : poItems;
+  const sourceLines = invoice.lines ?? [];
+    if (!sourceLines.length) return; // cannot create GRN without invoice lines in new workflow
+
 
   const draft: GoodsReceiptDTO = {
     id: `LSC-GR-${new Date().toISOString().slice(0, 10)}`,
@@ -165,10 +192,12 @@ const openGRNFromInvoice = (invoice: SupplierInvoiceDTO) => {
       const productDraftId = ln.draftProductId ?? ln.productId; // invoice line vs PO item
       const poItemId =
         ln.poItemId ??
-        (productDraftId ? poItemIdByDraftId.get(productDraftId) : undefined) ??
-        (ln.poId ? ln.id : undefined); // ONLY safe if this is a PO item
+        (productDraftId ? poItemIdByDraftId.get(productDraftId) : undefined)
 
+
+        //introduce the invoice item line id to address the concerns of the new  workflow 
       return {
+        invoiceItemId: ln.invoiceItemId,
         productDraftId,
         poItemId, // ✅
         name: ln.name ?? ln.description ?? ln.product?.name ?? "",
@@ -186,33 +215,40 @@ const openGRNFromInvoice = (invoice: SupplierInvoiceDTO) => {
 
 
   // matching context
+// 1. Identify the PO we are matching
   const poForMatch: PurchaseOrderDTO | undefined = useMemo(() => {
     const id = matchPOId ?? filteredPOs[0]?.id;
     return purchaseOrders.find((p) => p.id === id);
   }, [matchPOId, filteredPOs, purchaseOrders]);
 
-  const invForMatch: SupplierInvoiceDTO | undefined = useMemo(() => {
-    if (!poForMatch) return undefined;
-    return invoices.find((i) => i.poId === poForMatch.id);
+  // 2. Filter ALL invoices for this PO (Not just one)
+  const invoicesForMatch = useMemo(() => {
+    if (!poForMatch) return [];
+    return invoices.filter((i) => i.poId === poForMatch.id);
   }, [poForMatch, invoices]);
 
-  const grnForMatch: GoodsReceiptDTO | undefined = useMemo(() => {
-    if (!poForMatch) return undefined;
-    const byInvoice =
-      invForMatch &&
-      goodsReceipts.find(
-        (g) => g.poId === poForMatch.id && g.invoiceId === invForMatch.id
-      );
-    return byInvoice ?? goodsReceipts.find((g) => g.poId === poForMatch.id);
-  }, [poForMatch, invForMatch, goodsReceipts]);
+  // 3. Filter ALL GRNs for this PO (To be mapped in child)
+  const grnsForMatch = useMemo(() => {
+    if (!poForMatch) return [];
+    return goodsReceipts.filter(grn => grn.poId === poForMatch.id);
+  }, [poForMatch, goodsReceipts]);
+
 
   // after posting GRN
-  async function handlePosted(poId: string) {
-    await Promise.all([refetchGRNs(), refetchPOs(), refetchInvoices()]);
-    setActiveTab("match");
-    setMatchPOId(poId);
-    router.push(`/purchases?tab=match&po=${encodeURIComponent(poId)}`);
-  }
+ async function handlePosted(ctx: { poId: string; invoiceId?: string; grnId: string }) {
+  await Promise.all([refetchGRNs(), refetchPOs(), refetchInvoices()]);
+  setActiveTab("match");
+  setMatchPOId(ctx.poId);
+
+  if (ctx.invoiceId) setMatchInvoiceId(ctx.invoiceId);
+
+  const url = `/purchases?tab=match&po=${encodeURIComponent(ctx.poId)}${
+    ctx.invoiceId ? `&inv=${encodeURIComponent(ctx.invoiceId)}` : ""
+  }`;
+
+  router.push(url);
+}
+
 
   async function handlePostGRN(grnId: string) {
     setPostingId(grnId);
@@ -227,10 +263,8 @@ const openGRNFromInvoice = (invoice: SupplierInvoiceDTO) => {
     }
   }
 
-  const totalPOSpend = purchaseOrders.reduce(
-    (s, p) => s + Number(p.total ?? 0),
-    0
-  );
+  const totalPayable = Number(paymentSummary?.totalPayble ?? 0)
+  const totalPaid  = Number(paymentSummary?.totalPaid ?? 0)
 
   return (
     <div className="w-full">
@@ -238,7 +272,8 @@ const openGRNFromInvoice = (invoice: SupplierInvoiceDTO) => {
         poCount={purchaseOrders.length}
         invoiceCount={invoices.filter((i) => i.status === "PENDING").length}
         grnCount={goodsReceipts.length}
-        totalPOSpend={totalPOSpend}
+        totalPaid={totalPaid}
+        totalPayable={totalPayable}
       />
 
       <div className="rounded-2xl bg-card shadow-card ring-1 ring-border backdrop-blur mt-6">
@@ -293,8 +328,8 @@ const openGRNFromInvoice = (invoice: SupplierInvoiceDTO) => {
           {!loading && !errored && activeTab === "match" && (
             <MatchTable
               po={poForMatch}
-              invoice={invForMatch}
-              grn={grnForMatch}
+              relatedInvoices={invoicesForMatch} // ✅ Passed Array
+              relatedGRNs={grnsForMatch}         // ✅ Passed Array
               allPOs={purchaseOrders}
               currentPOId={matchPOId}
               onChangePO={(poId) => {
