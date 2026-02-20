@@ -24,6 +24,7 @@ router.get("/", ...must(PERMS.READ_PURCHASE_ORDERS), listPurchaseOrders);
 router.post("/", ...must(PERMS.WRITE_PURCHASE_ORDERS), createPurchaseOrder);
 
 /** ✅ PARAM + SUBROUTES (MORE SPECIFIC BEFORE LESS SPECIFIC) */
+router.get("/:id/payments", ...must(PERMS.READ_PURCHASE_ORDERS), getPoPaymentsSummary);
 router.get("/:id/payment-summary", ...must(PERMS.READ_PURCHASE_ORDERS), getPoPaymentsSummary);
 router.patch("/:id/status", ...must(PERMS.WRITE_PURCHASE_ORDERS), updatePOStatus);
 router.patch("/:id", ...must(PERMS.WRITE_PURCHASE_ORDERS), updatePurchaseOrder);

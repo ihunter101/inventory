@@ -590,6 +590,14 @@ export type InvoicePaymentDTO = {
   createdAt: string;
   updatedAt: string;
 }
+export type InvoicePaymentWithInvoiceDTO = InvoicePaymentDTO & {
+  invoice: {
+    id: string;
+    invoiceNumber: string;
+    balanceRemaining: string | null;
+    poId: string | null;
+  };
+};
 
 export type PoPaymentSummaryDTO = {
   poId: string;
@@ -1197,12 +1205,18 @@ getInvoicePayments: build.query<InvoicePaymentDTO[], string>({
       { type: "InvoicePayments", id: "LIST"},
     ],
 }),
+getPoInvoicePayments: build.query<InvoicePaymentWithInvoiceDTO[], {id: string | undefined }>({
+  query: ({id}) => ({
+    url: `/purchase-orders/${id}/payments`,
+  }),
+  providesTags: [ { type: "InvoicePayments", id: "LIST" }, { type: "SupplierInvoices", id:"LIST" } ],
+}),
 getPoPaymentSummary: build.query<PoPaymentSummaryDTO, string>({
   query: (poId) => `/purchase-orders/${poId}/payments-summary`,
   providesTags: (result, error, poId) => [{ type: "PoPaymentSummary", id: poId }],
 }),
 getAllPoPaymentsSummary: build.query<AllPoPaymentSummary, void>({
-  query: () => "/invoices/payment-summary", 
+  query: () => "/purchase-orders/payments-summary", 
   providesTags: () => [{ type: "PoPaymentSummary", id: "LIST" }],
 }),
   }),
@@ -1291,6 +1305,7 @@ export const {
   useGetPoPaymentSummaryQuery,
   useGetAllPoPaymentsSummaryQuery,
   useAddInvoicePaymentMutation,
+  useGetPoInvoicePaymentsQuery,
 
   useCreateMatchMutation,
   useGetMatchByIdQuery,
