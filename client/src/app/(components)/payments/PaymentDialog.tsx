@@ -33,10 +33,11 @@ import {
 
 type Props = {
   invoiceId: string;
-  invoice?: SupplierInvoiceDTO; // fallback
+  invoice?: SupplierInvoiceDTO;
+  children?: React.ReactNode; // fallback
 };
 
-export function PayInvoiceDialog({ invoiceId, invoice: initialInvoice }: Props) {
+export function PayInvoiceDialog({ invoiceId, invoice: initialInvoice, children }: Props) {
   const [open, setOpen] = useState(false);
 
   const {
