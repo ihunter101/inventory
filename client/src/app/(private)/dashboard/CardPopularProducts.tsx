@@ -23,7 +23,7 @@ const CardPopularProducts = () => {
         ) : (
           <div className="flex-1 overflow-y-auto pr-2">
             <div className="divide-y divide-slate-100">
-              {dashboardMetrics?.popularProducts?.map((product) => (
+              {dashboardMetrics?.popularIssuedProducts?.map((product) => (
                 <div
                   key={product.productId}
                   className="flex items-center justify-between gap-3 py-4"
@@ -50,10 +50,10 @@ const CardPopularProducts = () => {
 
                       <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
                         <span className="font-semibold text-blue-600">
-                          ${product.price}
+                          {/* ${product.price} */}
                         </span>
                         <span className="text-slate-300">|</span>
-                        <Rating rating={product.rating || 0} />
+                        <Rating rating={product.rate || 0} />
                       </div>
                     </div>
                   </div>
@@ -61,13 +61,13 @@ const CardPopularProducts = () => {
                   <div className="shrink-0">
                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-xs font-medium">
                       <ShoppingBagIcon className="w-4 h-4" />
-                      <span>{Math.round(product.stockQuantity / 100)}k issued</span>
+                      <span>{product.qtyIssued}</span>
                     </div>
                   </div>
                 </div>
               ))}
 
-              {!dashboardMetrics?.popularProducts?.length && (
+              {!dashboardMetrics?.popularIssuedProducts?.length && (
                 <div className="py-8 text-sm text-slate-500">
                   No popular products yet.
                 </div>

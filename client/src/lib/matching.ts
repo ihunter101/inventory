@@ -30,8 +30,13 @@ export default function buildMatchRows(
   const invLines = invoice?.lines ?? [];
   const grnLines = grn?.lines ?? [];
 
-  // Helper to find PO Item details
+  /**
+   * Helper function that find the PO item by ID
+   * @param id 
+   * @returns 
+   */
   const getPOItem = (id: string) => poItems.find((p: any) => p.id === id);
+
 
   // We iterate through INVOICE lines because that is what we are paying
   return invLines.map((invLine: any, index: number) => {
@@ -68,6 +73,7 @@ export default function buildMatchRows(
       status = "SHORT";
       notes.push(`Short delivery: Invoiced ${invQty} but received ${grQty}`);
     } else if (invQty > poQty) {
+      status = "OVER_BILLED"
       // Use this carefully, sometimes over-delivery is allowed
       notes.push(`Warning: Invoiced qty > Original PO qty`);
     }

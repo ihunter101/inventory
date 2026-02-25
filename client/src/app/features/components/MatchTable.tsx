@@ -160,8 +160,9 @@ function MatchCard({
           reference: p.reference,
           status: p.status,
         })),
-    [rawPayments, invoice.id]
+    [paymentsArray, invoice.id]
   );
+
 
   const rows = useMemo(() => {
     if (!po) return [];
@@ -184,6 +185,9 @@ function MatchCard({
   const canApprove =
     !!po && !!grn && isGrnPosted && allLinesMatch && !isAlreadyApproved;
 
+
+    
+
   // Greedy: mark lines as "paid" for partial payment UI
   const totalPaid = thisInvoicePayments.reduce((s, p) => s + p.amount, 0);
   const rowsWithState = useMemo(() => {
@@ -198,6 +202,26 @@ function MatchCard({
       return { ...row, _paid: false };
     });
   }, [rows, isPartiallyPaid, totalPaid, thisInvoicePayments]);
+
+   const selectedCount = useMemo(() => {
+  return rowsWithState.reduce((count, row: any) => {
+    const isSelected = !!checkedLines[row.key];
+    const isAlreadyPaid = !!row._paid || isPaid;
+    if (!isSelected || isAlreadyPaid) return count;
+    return count + 1;
+  }, 0);
+}, [rowsWithState, checkedLines, isPaid]);
+
+const selectedPayAmount = useMemo(() => {
+  return rowsWithState.reduce((sum, row: any) => {
+    const isSelected = !!checkedLines[row.key];
+    const isAlreadyPaid = !!row._paid || isPaid;
+    if (!isSelected || isAlreadyPaid) return sum;
+
+    return sum + Number(row.payableAmount ?? 0);
+  }, 0);
+}, [rowsWithState, checkedLines, isPaid]);
+
 
   const handleApproveMatch = async () => {
     if (!po || !grn) return;
@@ -314,7 +338,7 @@ function MatchCard({
             </div>
           )}
 
-          {/* Payment summary */}
+          {/* Payment summary for History */}
           {(isPaid || isPartiallyPaid) && thisInvoicePayments.length > 0 && (
             <PaymentSummaryPanel
               invoiceTotal={invoiceTotal}
@@ -484,7 +508,18 @@ function MatchCard({
                 </button>
               ) : isPartiallyPaid ? (
                 // PARTIALLY PAID — pay remaining
-                <PayInvoiceDialog invoiceId={invoice.id} invoice={invoice}>
+                 <PayInvoiceDialog
+                    invoiceId={invoice.id}
+                    invoice={invoice}
+                    payment={selectedPayAmount}
+                    disabled={selectedCount === 0 || isPaid}
+                    triggerLabel={
+                      selectedCount === 0
+                        ? "Select lines to pay"
+                        : `Pay Selected (${selectedCount}) — ${currency(selectedPayAmount)}`
+                    }
+                    onSuccess={() => setCheckedLines({})}   // ✅ clear checks after payment
+                  >
                   <button className="inline-flex items-center gap-2 rounded-lg bg-amber-500 hover:bg-amber-600 active:bg-amber-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors">
                     <Banknote size={15} />
                     Pay Remaining {currency(balanceRemaining)}
@@ -492,7 +527,18 @@ function MatchCard({
                 </PayInvoiceDialog>
               ) : isReadyToPay ? (
                 // APPROVED — pay invoice
-                <PayInvoiceDialog invoiceId={invoice.id} invoice={invoice} />
+                <PayInvoiceDialog
+                  invoiceId={invoice.id}
+                  invoice={invoice}
+                  payment={selectedPayAmount}
+                  disabled={selectedCount === 0 || isPaid}
+                  triggerLabel={
+                    selectedCount === 0
+                      ? "Select lines to pay"
+                      : `Pay Selected (${selectedCount}) — ${currency(selectedPayAmount)}`
+                  }
+                  onSuccess={() => setCheckedLines({})}   // ✅ clear checks after payment
+                />
               ) : (
                 // DEFAULT — approve match
                 <button

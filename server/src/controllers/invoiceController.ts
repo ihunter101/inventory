@@ -34,7 +34,8 @@ function toInvoiceDTO(inv: any) {
       lineTotal: Number(it.lineTotal),
     })),
     amount: Number(inv.amount),
-  };
+    balanceRemaining:
+      inv.balanceRemaining == null ? null : Number(inv.balanceRemaining),  };
 }
 
 export const listInvoices = async (req: Request, res: Response) => {
