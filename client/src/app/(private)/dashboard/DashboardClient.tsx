@@ -13,7 +13,7 @@ import CardPurchaseSummary from "./CardPurchaseSummary";
 import CardSalesSummary from "./CardSalesSummary";
 import CardExpenseSummary from "./CardExpenseSummary";
 import CardPurchaseBreakdown from "./PurchaseBreakdown";
-import CardOrderSummary from "./CardOrderSummary"; // ✅ NEW IMPORT
+import CardProcurementOverview from "./CardOrderSummary"; // ✅ NEW IMPORT
 
 export default function DashboardClient() {
   const router = useRouter();
@@ -88,7 +88,7 @@ export default function DashboardClient() {
 
         {/* ✅ NEW: Order Summary Card */}
         <div className="col-span-12 xl:col-span-4 h-full">
-          <CardOrderSummary metrics={dashboardMetrics?.PurchaseMetrics} />
+          <CardProcurementOverview />
         </div>
       </div>
     </div>
