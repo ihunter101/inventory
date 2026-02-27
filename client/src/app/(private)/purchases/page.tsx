@@ -221,6 +221,7 @@ const openGRNFromInvoice = (invoice: SupplierInvoiceDTO) => {
     return purchaseOrders.find((p) => p.id === id);
   }, [matchPOId, filteredPOs, purchaseOrders]);
 
+
   // 2. Filter ALL invoices for this PO (Not just one)
   const invoicesForMatch = useMemo(() => {
     if (!poForMatch) return [];

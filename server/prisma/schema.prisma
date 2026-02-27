@@ -1,11 +1,6 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-1.1.x"]
 }
 
 datasource db {
@@ -14,152 +9,110 @@ datasource db {
 }
 
 model Users {
-  name      String?
-  id        String    @unique @default(cuid())
-  clerkId   String?   @unique
-  email     String    @unique
-  role      Role      @default(viewer)
-  location  Location  @default(Tapion)
-  createdAt DateTime  @default(now())
-  lastLogin DateTime?
-
-  stockLedger StockLedger[]
-
-  session Sessions[]
-
+  name                  String?
+  email                 String         @unique
+  createdAt             DateTime       @default(now())
+  lastLogin             DateTime?
+  location              Location       @default(Tapion)
+  role                  Role           @default(viewer)
+  clerkId               String?        @unique
+  id                    String         @unique @default(cuid())
+  onboardedAt           DateTime?
+  session               Sessions?
+  stockLedger           StockLedger[]
   stockRequestsCreated  StockRequest[] @relation("StockRequestRequestedBy")
   stockRequestsReviewed StockRequest[] @relation("StockRequestReviewedBy")
-  onboardedAt           DateTime?
 }
 
 model Sessions {
   id        String   @default(cuid())
   userId    String   @unique
-  user      Users    @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
-
   ipAddress String?
   userAgent String
   sessionId String?
+  user      Users    @relation(fields: [userId], references: [id])
 
   @@index([userId, createdAt])
 }
 
-enum Role {
-  admin
-  inventoryClerk
-  labStaff
-  orderAgent
-  viewer
-}
-
-enum Location {
-  Tapion
-  blueCoral
-  manoelStreet
-  sunnyAcres
-  emCare
-  RodneyBay // capitalize should be lower case 
-  memberCare
-  vieuxFort
-  soufriere
-  other
-}
-
-enum Department {
-  Administration
-  SpecimenCollection
-  heamatology
-  Chemistry
-  Offlines
-  Cytology
-  Bacteriology
-  SpecialChemistry
-}
-
 model Products {
-  productId     String    @id @map("productId")
-  name          String
-  rating        Float?
-  stockQuantity Int
-  minQuantity   Int?      @default(0)
-  reorderPoint  Int?
-  category      String?
-  unit          String?
-  supplier      String?
-  expiryDate    DateTime?
-
-  imageUrl   String?
-  Department String?
-
-  sku String? @unique
-
-  Sales     Sales[]
-  Purchases Purchases[]
-
-  inventory Inventory?
-
-  poItems      PurchaseOrderItem[]
-  invoiceItems SupplierInvoiceItem[]
-  grnItems     GoodsReceiptItem[]
-  stockMoves   StockLedger[]
-  createdAt    DateTime?             @default(now())
-  updatedAt    DateTime              @default(now()) @updatedAt
-
+  productId         String                @id @map("productId")
+  name              String
+  rating            Float?
+  stockQuantity     Int
+  category          String?
+  minQuantity       Int?                  @default(0)
+  reorderPoint      Int?
+  supplier          String?
+  unit              String?
+  expiryDate        DateTime?
+  createdAt         DateTime?             @default(now())
+  sku               String?               @unique
+  updatedAt         DateTime              @default(now()) @updatedAt
+  imageUrl          String?
+  Department        String?
+  grnItems          GoodsReceiptItem[]
+  inventory         Inventory[]
+  poItems           PurchaseOrderItem[]
+  Purchases         Purchases[]
+  Sales             Sales[]
+  stockMoves        StockLedger[]
   stockRequestLines StockRequestLine[]
+  invoiceItems      SupplierInvoiceItem[]
 
   @@map("Products")
 }
 
 model Inventory {
-  id        String   @id @default(cuid())
-  productId String   @unique
-  product   Products @relation(fields: [productId], references: [productId])
-
-  stockQuantity Int       @default(0)
-  minQuantity   Int       @default(0)
-  reorderPoint  Int       @default(0)
+  id            String   @id @default(cuid())
+  productId     String
+ 
+  lotNumber     String?  // temporary optional
+  stockQuantity Int      @default(0)
+  minQuantity   Int      @default(0)
+  reorderPoint  Int      @default(0)
   lastCountedAt DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  product       Products @relation(fields: [productId], references: [productId])
+  supplierId    String?
+  supplier      Supplier? @relation(fields: [supplierId], references: [supplierId])
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  @@unique([supplierId, productId, lotNumber])
+  @@index([productId])
+  @@index([supplierId])
+  @@index([lotNumber])
 }
 
 model Sale {
-  id         Int      @id @default(autoincrement())
-  locationId Int
-  salesDate  DateTime
+  id              Int      @id @default(autoincrement())
+  locationId      Int
+  salesDate       DateTime
+  hundredsCount   Int      @default(0)
+  fiftiesCount    Int      @default(0)
+  twentiesCount   Int      @default(0)
+  tensCount       Int      @default(0)
+  fivesCount      Int      @default(0)
+  cashTotal       Decimal  @db.Decimal(10, 2)
+  grandTotal      Decimal  @db.Decimal(10, 2)
+  creditCardTotal Decimal  @default(0) @db.Decimal(10, 2)
+  debitCardTotal  Decimal  @default(0) @db.Decimal(10, 2)
+  chequeTotal     Decimal  @default(0) @db.Decimal(10, 2)
+  notes           String?
+  enteredBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  hundredsCount Int @default(0)
-  fiftiesCount  Int @default(0)
-  twentiesCount Int @default(0)
-  tensCount     Int @default(0)
-  fivesCount    Int @default(0)
-
-  cashTotal  Decimal @db.Decimal(10, 2)
-  grandTotal Decimal @db.Decimal(10, 2)
-
-  creditCardTotal Decimal @default(0) @db.Decimal(10, 2)
-  debitCardTotal  Decimal @default(0) @db.Decimal(10, 2)
-  chequeTotal     Decimal @default(0) @db.Decimal(10, 2)
-
-  notes     String?
-  enteredBy String
-  //VerifiedBy String shoul be a reference to a user
-  //verifiedAt DateTime
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([locationId, salesDate]) //one Entry Per Day
-  @@index([salesDate]) //@@index(locationId, createdAt)
+  @@unique([locationId, salesDate])
+  @@index([salesDate])
   @@map("dailySales")
 }
 
 model SalesAuditLog {
   id         Int      @id @default(autoincrement())
   salesId    Int
-  action     String   @db.VarChar(50) //Created, updated, deleted, verified
+  action     String   @db.VarChar(50)
   columnName String
   oldValue   String
   changedBy  String
@@ -171,12 +124,12 @@ model SalesAuditLog {
 }
 
 model Sales {
-  saleId      String   @id
   productId   String
   timestamp   DateTime
   quantity    Int
   unitPrice   Float
   totalAmount Float
+  saleId      String   @id
   product     Products @relation(fields: [productId], references: [productId])
 }
 
@@ -194,10 +147,10 @@ model Expenses {
   expenseId   String   @id @default(uuid())
   category    String
   amount      Float
-  date        DateTime @default(now())
-  group       String?
   description String?
   status      String   @default("pending")
+  date        DateTime @default(now())
+  group       String?
 }
 
 model SalesSummary {
@@ -230,9 +183,304 @@ model ExpenseByCategory {
   expenseSummary      ExpenseSummary @relation(fields: [expenseSummaryId], references: [expenseSummaryId])
 }
 
-// Purchases Page Data
+model Supplier {
+  supplierId     String            @id @default(cuid())
+  name           String
+  email          String            @unique
+  phone          String
+  address        String
+  purchaseOrders PurchaseOrder[]
+  invoices       SupplierInvoice[]
+  inventory     Inventory[]
+}
 
-// -- ENUMS --//
+model DraftProduct {
+  id           String                @id @default(cuid())
+  name         String                @unique
+  unit         String                @default("")
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  grnItems     GoodsReceiptItem[]
+  poItems      PurchaseOrderItem[]
+  invoiceItems SupplierInvoiceItem[]
+}
+
+model PurchaseOrder {
+  id         String              @id @default(cuid())
+  poNumber   String              @unique
+  supplierId String
+  status     POStatus            @default(DRAFT)
+  orderDate  DateTime            @default(now())
+  dueDate    DateTime?
+  notes      String?
+  subtotal   Decimal             @db.Decimal(14, 2)
+  tax        Decimal             @db.Decimal(14, 2)
+  total      Decimal             @db.Decimal(14, 2)
+  grns       GoodsReceipt[]
+  payments   InvoicePayment[]
+  supplier   Supplier            @relation(fields: [supplierId], references: [supplierId])
+  items      PurchaseOrderItem[]
+  invoices   SupplierInvoice[]
+  matches    ThreeWayMatch[]
+
+  @@index([supplierId])
+  @@index([poNumber])
+}
+
+model PurchaseOrderItem {
+  id                String                @id @default(cuid())
+  poId              String
+  productId         String
+  description       String?
+  unit              String?
+  quantity          Int
+  unitPrice         Decimal               @db.Decimal(12, 2)
+  lineTotal         Decimal               @db.Decimal(14, 2)
+  promotedProductId String?
+  grnLines          GoodsReceiptItem[]
+  po                PurchaseOrder         @relation(fields: [poId], references: [id], onDelete: Cascade)
+  product           DraftProduct          @relation(fields: [productId], references: [id])
+  promotedProduct   Products?             @relation(fields: [promotedProductId], references: [productId])
+  invoiceLines      SupplierInvoiceItem[]
+
+  @@index([poId])
+  @@index([productId])
+  @@index([promotedProductId])
+}
+
+model SupplierInvoice {
+  id               String                @id @default(cuid())
+  invoiceNumber    String
+  supplierId       String
+  poId             String?
+  status           InvoiceStatus         @default(PENDING)
+  date             DateTime              @default(now())
+  dueDate          DateTime?
+  amount           Decimal               @db.Decimal(14, 2)
+  balanceRemaining Decimal?              @db.Decimal(14, 2)
+  goodsReceipt     GoodsReceipt?
+  payments         InvoicePayment[]
+  po               PurchaseOrder?        @relation(fields: [poId], references: [id])
+  supplier         Supplier              @relation(fields: [supplierId], references: [supplierId])
+  items            SupplierInvoiceItem[]
+  matches          ThreeWayMatch?
+
+  @@unique([invoiceNumber, supplierId])
+  @@index([poId])
+  @@index([supplierId])
+}
+
+model SupplierInvoiceItem {
+  id             String             @id @default(cuid())
+  invoiceId      String
+  productId      String?
+  description    String?
+  uom            String?
+  quantity       Int
+  unitPrice      Decimal            @db.Decimal(12, 2)
+  lineTotal      Decimal            @db.Decimal(14, 2)
+  draftProductId String
+  poItemId       String?
+  grnLines       GoodsReceiptItem[]
+  draftProduct   DraftProduct       @relation(fields: [draftProductId], references: [id])
+  invoice        SupplierInvoice    @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  poItem         PurchaseOrderItem? @relation(fields: [poItemId], references: [id])
+  product        Products?          @relation(fields: [productId], references: [productId])
+
+  @@index([invoiceId])
+  @@index([poItemId])
+  @@index([draftProductId])
+  @@index([productId])
+}
+
+model GoodsReceipt {
+  id        String             @id @default(cuid())
+  grnNumber String             @unique
+  poId      String?
+  invoiceId String?            @unique
+  date      DateTime           @default(now())
+  status    GRNStatus          @default(DRAFT)
+  invoice   SupplierInvoice?   @relation(fields: [invoiceId], references: [id])
+  po        PurchaseOrder?     @relation(fields: [poId], references: [id])
+  lines     GoodsReceiptItem[]
+  matches   ThreeWayMatch?
+
+  @@index([poId])
+  @@index([invoiceId])
+}
+
+model GoodsReceiptItem {
+  id              String               @id @default(cuid())
+  grnId           String
+  productId       String?
+  unit            String?
+  receivedQty     Int
+  unitPrice       Decimal              @db.Decimal(12, 2)
+  productDraftId  String
+  poItemId        String?
+  invoiceItemId   String?
+  grn             GoodsReceipt         @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  invoiceItem     SupplierInvoiceItem? @relation(fields: [invoiceItemId], references: [id])
+  poItem          PurchaseOrderItem?   @relation(fields: [poItemId], references: [id])
+  product         DraftProduct         @relation(fields: [productDraftId], references: [id])
+  promotedProduct Products?            @relation(fields: [productId], references: [productId])
+
+  @@index([grnId])
+  @@index([invoiceItemId])
+  @@index([poItemId])
+  @@index([productDraftId])
+  @@index([productId])
+}
+
+model GrnCounter {
+  dateKey   String   @id
+  next      Int      @default(1)
+  updatedAt DateTime @updatedAt
+}
+
+model StockLedger {
+  id         String   @id @default(cuid())
+  productId  String
+  sourceType String
+  SourceId   String
+  qtyChange  Int
+  memo       String?
+  createdAt  DateTime @default(now())
+  userId     String?
+  product    Products @relation(fields: [productId], references: [productId])
+  user       Users?   @relation(fields: [userId], references: [id])
+
+  @@index([productId])
+  @@index([SourceId, sourceType])
+  @@index([userId])
+}
+
+model StockRequest {
+  id                  String             @id @default(cuid())
+  status              StockRequestStatus @default(SUBMITTED)
+  requestedByName     String
+  requestedByEmail    String
+  requestedByLocation Location
+  requestedByUserId   String?
+  reviewedByUserId    String?
+  expectedDeliveryAt  DateTime?
+  messageToRequester  String?
+  submittedAt         DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  requestedByUser     Users?             @relation("StockRequestRequestedBy", fields: [requestedByUserId], references: [id])
+  reviewedByUser      Users?             @relation("StockRequestReviewedBy", fields: [reviewedByUserId], references: [id])
+  lines               StockRequestLine[]
+
+  @@index([status])
+  @@index([requestedByLocation])
+  @@index([requestedByUserId])
+}
+
+model StockRequestLine {
+  id             String           @id @default(cuid())
+  stockRequestId String
+  productId      String
+  requestedQty   Int
+  grantedQty     Int?
+  outcome        StockLineOutcome @default(PENDING)
+  notes          String?
+  createdAt      DateTime         @default(now())
+  product        Products         @relation(fields: [productId], references: [productId])
+  stockRequest   StockRequest     @relation(fields: [stockRequestId], references: [id], onDelete: Cascade)
+
+  @@index([stockRequestId])
+  @@index([productId])
+}
+
+model ThreeWayMatch {
+  id           String          @id @default(cuid())
+  poId         String
+  invoiceId    String          @unique
+  grnId        String          @unique
+  status       MatchStatus     @default(DRAFT)
+  payableTotal Decimal         @default(0)
+  currency     String?         @default("EXD")
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  lines        MatchLine[]
+  grn          GoodsReceipt    @relation(fields: [grnId], references: [id])
+  invoice      SupplierInvoice @relation(fields: [invoiceId], references: [id])
+  po           PurchaseOrder   @relation(fields: [poId], references: [id])
+
+  @@unique([poId, invoiceId, grnId])
+}
+
+model MatchLine {
+  id            String        @id @default(cuid())
+  matchId       String
+  poItemId      String?
+  invoiceItemId String?
+  grnLineId     String?
+  name          String?
+  unit          String?
+  poQty         Int           @default(0)
+  grnQty        Int           @default(0)
+  invUnitPrice  Decimal?
+  payableQty    Int           @default(0)
+  payableAmount Decimal       @default(0)
+  notes         String?
+  createdAt     DateTime      @default(now())
+  match         ThreeWayMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@index([matchId])
+}
+
+model InvoicePayment {
+  id        String          @id @default(cuid())
+  invoiceId String
+  poId      String?
+  amount    Decimal         @db.Decimal(14, 2)
+  currency  String?         @default("XCD")
+  paidAt    DateTime        @default(now())
+  method    String?
+  reference String?
+  status    PaymentStatus   @default(POSTED)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  invoice   SupplierInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  po        PurchaseOrder?  @relation(fields: [poId], references: [id])
+
+  @@index([poId])
+  @@index([paidAt])
+}
+
+enum Role {
+  admin
+  inventoryClerk
+  labStaff
+  orderAgent
+  viewer
+}
+
+enum Location {
+  Tapion
+  blueCoral
+  manoelStreet
+  sunnyAcres
+  emCare
+  RodneyBay
+  memberCare
+  vieuxFort
+  soufriere
+  other
+}
+
+enum Department {
+  Administration
+  SpecimenCollection
+  heamatology
+  Chemistry
+  Offlines
+  Cytology
+  Bacteriology
+  SpecialChemistry
+}
+
 enum POStatus {
   DRAFT
   APPROVED
@@ -249,234 +497,9 @@ enum GRNStatus {
 
 enum InvoiceStatus {
   PENDING
-  READY_TO_PAY
-  PARTIALLY_PAID
   PAID
   OVERDUE
-}
-
-model Supplier {
-  supplierId String @id @default(cuid())
-  name       String
-  email      String @unique
-  phone      String
-  address    String
-
-  purchaseOrders PurchaseOrder[]
-  invoices       SupplierInvoice[]
-}
-
-model DraftProduct {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  unit      String   @default("")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  poItems      PurchaseOrderItem[]
-  invoiceItems SupplierInvoiceItem[]
-  grnItems     GoodsReceiptItem[]
-}
-
-model PurchaseOrder {
-  id         String   @id @default(cuid())
-  poNumber   String   @unique
-  supplierId String
-  supplier   Supplier @relation(fields: [supplierId], references: [supplierId])
-
-  status    POStatus  @default(DRAFT)
-  orderDate DateTime  @default(now())
-  dueDate   DateTime?
-  notes     String?
-
-  items    PurchaseOrderItem[]
-  invoices SupplierInvoice[]
-  grns     GoodsReceipt[]
-  matches  ThreeWayMatch[]
-
-  subtotal Decimal   @db.Decimal(14, 2)
-  tax      Decimal   @db.Decimal(14, 2)
-  total    Decimal   @db.Decimal(14, 2)
-  payments InvoicePayment[]
-
-  @@index([supplierId])
-  @@index([poNumber])
-}
-
-model PurchaseOrderItem {
-  id   String        @id @default(cuid())
-  poId String
-  po   PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
-
-  productId String
-  product   DraftProduct @relation(fields: [productId], references: [id])
-
-  // becomes set the first time you post a GRN line for this draft product
-  promotedProductId String?
-  promotedProduct   Products? @relation(fields: [promotedProductId], references: [productId])
-
-  description String?
-  unit        String?
-  quantity    Int
-  unitPrice   Decimal @db.Decimal(12, 2)
-  lineTotal   Decimal @db.Decimal(14, 2)
-
-  invoiceLines SupplierInvoiceItem[]
-  grnLines     GoodsReceiptItem[]
-
-  @@index([poId])
-  @@index([productId])
-  @@index([promotedProductId])
-}
-
-model SupplierInvoice {
-  id            String   @id @default(cuid())
-  invoiceNumber String
-  supplierId    String
-  supplier      Supplier @relation(fields: [supplierId], references: [supplierId])
-
-  // OPTIONAL FOR MIGRATION, SHOULD BE REQUIRED LATER
-  poId String?
-  po   PurchaseOrder? @relation(fields: [poId], references: [id])
-
-  status  InvoiceStatus @default(PENDING)
-  date    DateTime      @default(now())
-  dueDate DateTime?
-
-  items   SupplierInvoiceItem[]
-  matches ThreeWayMatch[]
-  amount  Decimal               @db.Decimal(14, 2)
-
-  // 1 invoice -> 0..1 GRN
-  goodsReceipt GoodsReceipt?
-
-  payments InvoicePayment[]
-  balanceRemaining Decimal? @db.Decimal(14, 2) //leave optional for now but later we will be updating it to not NULL
-
-  @@unique([invoiceNumber, supplierId])
-  @@index([poId])
-  @@index([supplierId])
-}
-
-model SupplierInvoiceItem {
-  id        String          @id @default(cuid())
-  invoiceId String
-  invoice   SupplierInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-
-  // keep as-is
-  draftProductId String
-  draftProduct   DraftProduct @relation(fields: [draftProductId], references: [id])
-
-  // OPTIONAL FOR MIGRATION, SHOULD BE REQUIRED LATER FOR YOUR FLOW
-  poItemId String?
-  poItem   PurchaseOrderItem? @relation(fields: [poItemId], references: [id])
-
-  // optional: if you already promoted, you can point here too
-  productId String?
-  product   Products? @relation(fields: [productId], references: [productId])
-
-  description String?
-  uom         String?
-  quantity    Int
-  unitPrice   Decimal @db.Decimal(12, 2)
-  lineTotal   Decimal @db.Decimal(14, 2)
-
-  // back-link so GRN lines can map to invoice lines
-  grnLines GoodsReceiptItem[]
-
-  // (Optional but recommended) prevent duplicate PO-line entries per invoice
-  // Leave OFF during migration if existing data violates it.
-  // @@unique([invoiceId, poItemId])
-
-  @@index([invoiceId])
-  @@index([poItemId])
-  @@index([draftProductId])
-  @@index([productId])
-}
-
-model GoodsReceipt {
-  id        String @id @default(cuid())
-  grnNumber String @unique
-
-  // OPTIONAL FOR MIGRATION, SHOULD BE REQUIRED LATER
-  poId String?
-  po   PurchaseOrder? @relation(fields: [poId], references: [id])
-
-  // invoice comes with shipment, GRN after count (your spec)
-  invoiceId String? //make required later
-  invoice   SupplierInvoice? @relation(fields: [invoiceId], references: [id]) //make required later 
-
-  date   DateTime  @default(now())
-  status GRNStatus @default(DRAFT)
-
-  lines   GoodsReceiptItem[]
-  matches ThreeWayMatch[]
-
-  // this enforces 1 invoice -> max 1 GRN
-  @@unique([invoiceId])
-  @@index([poId])
-  @@index([invoiceId])
-}
-
-model GoodsReceiptItem {
-  id    String       @id @default(cuid())
-  grnId String
-  grn   GoodsReceipt @relation(fields: [grnId], references: [id], onDelete: Cascade)
-
-  // NEW: direct link to the invoice line that this receipt line is reconciling
-  // OPTIONAL FOR MIGRATION, SHOULD BE REQUIRED LATER
-  invoiceItemId String?
-  invoiceItem   SupplierInvoiceItem? @relation(fields: [invoiceItemId], references: [id])
-
-  // OPTIONAL FOR MIGRATION, SHOULD BE REQUIRED LATER
-  poItemId String?
-  poItem   PurchaseOrderItem? @relation(fields: [poItemId], references: [id])
-
-  productDraftId String
-  product        DraftProduct @relation(fields: [productDraftId], references: [id])
-
-  productId       String?
-  promotedProduct Products? @relation(fields: [productId], references: [productId])
-
-  unit        String?
-  receivedQty Int
-  unitPrice   Decimal @db.Decimal(12, 2)
-
-  // (Optional but recommended) prevent duplicate invoice-line mapping in same GRN
-  // @@unique([grnId, invoiceItemId])
-
-  @@index([grnId])
-  @@index([invoiceItemId])
-  @@index([poItemId])
-  @@index([productDraftId])
-  @@index([productId])
-}
-
-model GrnCounter {
-  dateKey   String   @id // "20260126"
-  next      Int      @default(1)
-  updatedAt DateTime @updatedAt
-}
-
-model StockLedger {
-  id         String   @id @default(cuid())
-  productId  String
-  product    Products @relation(fields: [productId], references: [productId])
-  sourceType String //"GRN" "ADJUSTMENT"
-  SourceId   String
-  qtyChange  Int
-  memo       String?
-  createdAt  DateTime @default(now())
-
-  userId String?
-  user   Users?  @relation(fields: [userId], references: [id])
-
-  // beforeQty Int
-  // afterQty  Int
-
-  @@index([productId])
-  @@index([SourceId, sourceType])
-  @@index([userId])
+  PARTIALLY_PAID
 }
 
 enum SourceType {
@@ -485,10 +508,6 @@ enum SourceType {
   STOCKTAKE
   CORRECTION
 }
-
-// -----------
-// StockSheet
-// ----------
 
 enum StockRequestStatus {
   SUBMITTED
@@ -504,152 +523,15 @@ enum StockLineOutcome {
   UNAVAILABLE
 }
 
-model StockRequest {
-  id String @id @default(cuid())
-
-  status StockRequestStatus @default(SUBMITTED)
-
-  // snapshot fields (reliable even if user changes later)
-  requestedByName     String
-  requestedByEmail    String
-  requestedByLocation Location
-
-  // optional relation (matches how your StockLedger does it)
-  requestedByUserId String?
-  requestedByUser   Users?  @relation("StockRequestRequestedBy", fields: [requestedByUserId], references: [id])
-
-  // review/fulfill metadata
-  reviewedByUserId String?
-  reviewedByUser   Users?  @relation("StockRequestReviewedBy", fields: [reviewedByUserId], references: [id])
-
-  expectedDeliveryAt DateTime?
-  messageToRequester String?
-
-  submittedAt DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  lines StockRequestLine[]
-
-  @@index([status])
-  @@index([requestedByLocation])
-  @@index([requestedByUserId])
-}
-
-model StockRequestLine {
-  id String @id @default(cuid())
-
-  stockRequestId String
-  stockRequest   StockRequest @relation(fields: [stockRequestId], references: [id], onDelete: Cascade)
-
-  productId String
-  product   Products @relation(fields: [productId], references: [productId])
-
-  requestedQty Int
-  grantedQty   Int? // null until reviewed
-
-  outcome StockLineOutcome @default(PENDING)
-  notes   String?
-
-  createdAt DateTime @default(now())
-
-  @@index([stockRequestId])
-  @@index([productId])
-}
-
 enum MatchStatus {
   DRAFT
   READY_TO_PAY
-  //may need to delete payment
   PAID
   VOID
-  //APPROVED
-  //DISPUTED
-}
-
-model ThreeWayMatch {
-  id        String @id @default(cuid())
-  poId      String
-  invoiceId String
-  //may need to comment out grnId if one invoice can have multiple grns
-  grnId     String
-
-  status MatchStatus @default(DRAFT)
-
-  // totals snapshot
-  payableTotal Decimal @default(0)
-  currency     String? @default("EXD")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  lines MatchLine[]
-
-  po      PurchaseOrder   @relation(fields: [poId], references: [id])
-  invoice SupplierInvoice @relation(fields: [invoiceId], references: [id])
-  grn     GoodsReceipt    @relation(fields: [grnId], references: [id])
-
-  @@unique([poId, invoiceId, grnId]) // prevent duplicates
-  @@unique([invoiceId])
-  @@unique([grnId]) // we leave unique for now but later we will change it if one invoice may come in separate ships to be a bit lineient on the system 
-}
-
-model MatchLine {
-  id      String @id @default(cuid())
-  matchId String
-
-  poItemId      String?
-  invoiceItemId String?
-  grnLineId     String?
-
-  // snapshot identity
-  name String?
-  unit String?
-
-  // snapshot values
-  poQty        Int      @default(0)
-  grnQty       Int      @default(0)
-  invUnitPrice Decimal?
-
-  payableQty    Int     @default(0)
-  payableAmount Decimal @default(0)
-
-  notes String?
-
-  createdAt DateTime @default(now())
-
-  match ThreeWayMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
-
-  @@index([matchId])
-}
-
-model InvoicePayment {
-  id String @id @default(cuid())
-
-  invoiceId String
-  invoice   SupplierInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-
-  poId String?
-  po   PurchaseOrder? @relation(fields: [poId], references: [id])
-
-  amount   Decimal @db.Decimal(14, 2)
-  currency String? @default("XCD")
-
-  paidAt DateTime @default(now())
-
-  method    String? //cash, cheque, wire..
-  reference String? //tax # or receipt #
-  status    PaymentStatus @default(POSTED)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt()
-
-  //@@unique([invoiceId]) //commented out to support parital invoice payment (multiple rows)
-  @@index([poId])
-  @@index([paidAt])
 }
 
 enum PaymentStatus {
-  PARTIALLY_PAID
   POSTED
   VOID
+  PARTIALLY_PAID
 }

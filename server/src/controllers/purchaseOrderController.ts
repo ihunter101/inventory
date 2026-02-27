@@ -5,6 +5,7 @@ import it from "zod/v4/locales/it.js";
 import { create } from "domain";
 import { PhoneNumber } from "@clerk/backend";
 import { debug } from "console";
+import { xPermittedCrossDomainPolicies } from "helmet";
 
 //const prisma = new PrismaClient();
 
@@ -788,5 +789,43 @@ export const deletePurchaseOrder = async (req: Request, res: Response) => {
       message: "Failed to delete the purchase order and associated products.",
       error: error.message,
     });
+  }
+};
+
+export const getPurchaseOrderInvoicePayment = async (req: Request, res: Response) => {
+  try {
+    const { id: poId } = req.params;
+
+    const invoices = await prisma.supplierInvoice.findMany({
+      where: { poId },
+      select: { id: true },
+    });
+
+    const invoiceIds = invoices.map(i => i.id);
+    if (invoiceIds.length === 0) return res.json([]);
+
+    const payments = await prisma.invoicePayment.findMany({
+      where: {
+        invoiceId: { in: invoiceIds },
+        status: "POSTED",
+      },
+      orderBy: { paidAt: "desc" },
+      // optional: if you need invoiceNumber in UI
+      include: {
+        invoice: {
+          select: {
+            id: true,
+            invoiceNumber: true,
+            balanceRemaining: true,
+            poId: true,
+          },
+        },
+      },
+    });
+
+    return res.status(200).json(payments);
+  } catch (error: any) {
+    console.error("❌ getPurchaseOrderInvoicePayment error:", error);
+    return res.status(500).json({ error: error.message });
   }
 };

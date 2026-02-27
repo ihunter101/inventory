@@ -189,16 +189,97 @@ export interface PurchaseMetrics {
   paidInvoicesAmount: number;
   totalInvoicesAmount: number;
 }
+
+export type PopularIssuedProduct = {
+  productId: string;
+  name: string;
+  category?: string | null;
+  Department?: string | null;
+  unit?: string | null;
+  rate: number;
+  imageUrl?: string
+  qtyIssued: number; // ✅ aggregated sum(grantedQty)
+};
+
+export type SalesSummaryKpi = {
+  timeframe: "daily" | "weekly" | "monthly";
+  total: number;
+  cash: number;
+  nonCash: number;
+  latestChangePercent: number | null;
+  trend: { label: string; total: number }[];
+};
 export interface DashboardMetrics {
-  popularProducts: Product[];
-  salesSummary: Sales[];
+  popularIssuedProducts: PopularIssuedProduct[];
   purchaseSummary: SupplierInvoiceDTO[];
   purchaseBreakdown: PurchaseBreakdown  // ✅ Single object, not array
   expenseSummary: Expense[]
   revenueAndProfit: Record<DateRange, RevenueAndProfitData>
   expenseByCategorySummary: ExpenseByCategorySummary[];
   PurchaseMetrics: PurchaseMetrics;
+  salesSummary: SalesSummaryKpi;
 }
+// state/api.ts
+
+
+export type SalesOverviewTimeframe = "month" | "week";
+
+export type SalesOverviewResponse = {
+  tf: SalesOverviewTimeframe;
+  rangeLabel: string;
+  totals: { total: number; cash: number; nonCash: number };
+  highest: { bucketISO: string; total: number } | null;
+  sparse: { bucketISO: string; total: number }[];
+};
+
+export type PurchaseTF = "day" | "week" | "month" | "quarter";
+
+export type DashboardPurchaseSummaryResponse = {
+  timeframe: PurchaseTF;
+  rangeLabel: string;
+  series: Array<{
+    bucketISO: string;
+    label: string;
+    paid: number; // sum(invoicePayment.amount)
+  }>;
+  totals: {
+    paid: number;
+  };
+  status: {
+    outstanding: number;      // sum of balances of pending invoices
+    paid: number;             // sum of amounts of PAID invoices
+    invoicesPending: number;
+    invoicesPaid: number;
+  };
+  insights: {
+    highest: { label: string; paid: number } | null;
+  };
+};
+
+export type ProcurementTF = "30d" | "90d" | "1y";
+
+export type ProcurementOverviewResponse = {
+  tf: ProcurementTF;
+  rangeLabel: string;
+
+  po: {
+    total: number;
+    closed: number;
+    active: number;
+    activeValue: number;
+    byStatus: Array<{ status: string; count: number; total: number }>;
+  };
+
+  invoices: {
+    total: number;
+    paid: number;
+    pending: number;
+    paidAmount: number;
+    pendingAmount: number;
+    totalAmount: number;
+    byStatus: Array<{ status: string; count: number; total: number }>;
+  };
+};
 export type ExpenseGroup = 
   |"Clinical" 
   | "Equipment and Infrastructure"
@@ -590,6 +671,14 @@ export type InvoicePaymentDTO = {
   createdAt: string;
   updatedAt: string;
 }
+export type InvoicePaymentWithInvoiceDTO = InvoicePaymentDTO & {
+  invoice: {
+    id: string;
+    invoiceNumber: string;
+    balanceRemaining: string | null;
+    poId: string | null;
+  };
+};
 
 export type PoPaymentSummaryDTO = {
   poId: string;
@@ -613,6 +702,20 @@ export type InvoicePaymentSummaryDTO = {
   matchStatus: "DRAFT" | "READY_TO_PAY" | "PAID" | "VOID" | null;
 }
 
+export type PaymentHistory = {
+  id: string;
+  invoiceId: string;
+  amount: string;
+  paidAt: string;
+  method?: string | null;
+  reference?: string | null;
+  notes?: string | null;
+
+  poId?: string | null;
+  poNumber?: string | null;
+  invoiceNumber?: string | null;
+  supplierName?: string | null;
+}
 
 // ----------------------
 // API Setup
@@ -645,6 +748,26 @@ export const api = createApi({
     getDashboardMetrics: build.query<DashboardMetrics, void>({
       query: () => "/dashboard",
       providesTags: ["DashboardMetrics"],
+    }),
+    getSalesOverview: build.query<SalesOverviewResponse, { tf?: SalesOverviewTimeframe } | void>({
+      query: (params) => ({ 
+        url: "/dashboard/sales-overview", 
+        params: params ?? undefined }),
+      providesTags: ["DashboardMetrics"], // or make a new tag: "SalesOverview"
+    }),
+    getDashboardPurchaseSummary: build.query<DashboardPurchaseSummaryResponse, { timeframe: PurchaseTF } | void>({
+      query: (params) => ({
+        url: "/dashboard/purchase-summary",
+        params: params ?? { timeframe: "month" },
+      }),
+      providesTags: ["DashboardMetrics"], // or create ["PurchaseSummary"]
+    }),
+    getDashboardProcurementOverview: build.query<ProcurementOverviewResponse, { tf: ProcurementTF } | void>({
+      query: (params) => ({
+        url: "/dashboard/procurement-overview",
+        params: params ?? { tf: "30d" },
+      }),
+      providesTags: ["DashboardMetrics"], // or make "ProcurementOverview"
     }),
     // Inventory
     getInventory: build.query<Inventory[], string | void>({
@@ -1197,13 +1320,26 @@ getInvoicePayments: build.query<InvoicePaymentDTO[], string>({
       { type: "InvoicePayments", id: "LIST"},
     ],
 }),
+getPoInvoicePayments: build.query<InvoicePaymentWithInvoiceDTO[], {id: string | undefined }>({
+  query: ({id}) => ({
+    url: `/purchase-orders/${id}/payments`,
+  }),
+  providesTags: [ { type: "InvoicePayments", id: "LIST" }, { type: "SupplierInvoices", id:"LIST" } ],
+}),
 getPoPaymentSummary: build.query<PoPaymentSummaryDTO, string>({
   query: (poId) => `/purchase-orders/${poId}/payments-summary`,
   providesTags: (result, error, poId) => [{ type: "PoPaymentSummary", id: poId }],
 }),
 getAllPoPaymentsSummary: build.query<AllPoPaymentSummary, void>({
-  query: () => "/invoices/payment-summary", 
+  query: () => "/purchase-orders/payments-summary", 
   providesTags: () => [{ type: "PoPaymentSummary", id: "LIST" }],
+}),
+getPaymentHistory: build.query<PaymentHistory[], {invoiceId?: string; poId?: string; q?: string; from?: string; to?:string; }>({
+  query: (params) => ({
+    url: "/payments",
+    params: params ?? undefined 
+  }),
+  providesTags: [ { type: "InvoicePayments", id: "LIST" }, { type: "SupplierInvoices", id:"LIST" } ],
 }),
   }),
 });
@@ -1214,6 +1350,9 @@ getAllPoPaymentsSummary: build.query<AllPoPaymentSummary, void>({
 
 export const {
   useGetDashboardMetricsQuery,
+  useGetSalesOverviewQuery,
+  useGetDashboardPurchaseSummaryQuery,
+  useGetDashboardProcurementOverviewQuery,
     
   useGetProductsQuery,
   useGetProductByIdQuery,
@@ -1291,6 +1430,8 @@ export const {
   useGetPoPaymentSummaryQuery,
   useGetAllPoPaymentsSummaryQuery,
   useAddInvoicePaymentMutation,
+  useGetPoInvoicePaymentsQuery,
+  useGetPaymentHistoryQuery,
 
   useCreateMatchMutation,
   useGetMatchByIdQuery,

@@ -2,6 +2,7 @@
 
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
+import { Prisma } from "@prisma/client"
 
 
 
@@ -181,6 +182,31 @@ function toMoney(n: number) {
   return Number((Number.isFinite(n) ? n : 0).toFixed(2));
 }
 
+type SalesTimeframe = "daily" | "weekly" | "monthly";
+
+function safeNum(v: any) {
+  const n = typeof v === "number" ? v : Number(v ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function parseTimeframe(input: any): SalesTimeframe {
+  if (input === "daily" || input === "weekly" || input === "monthly") return input;
+  return "weekly";
+}
+
+function parseDateOrNull(v: any): Date | null {
+  if (!v) return null;
+  const d = new Date(String(v));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+
+function pctChange(prev: number, curr: number): number | null {
+  if (prev <= 0) return null;
+  return ((curr - prev) / prev) * 100;
+}
+
+
 // Updated section for getDashbaordMetrics function
 // Replace the purchaseBreakdown section in your controller with this:
 
@@ -189,11 +215,55 @@ function toMoney(n: number) {
 
 export const getDashboardMetrics = async (req: Request, res: Response): Promise<void> => {
   try {
-    const popularProducts = await prisma.products.findMany({
-      take: 15,
-      orderBy: { stockQuantity: "desc" },
-    });
 
+     const timeframe = parseTimeframe(req.query.salesTf); // "daily" | "weekly" | "monthly"
+    const qs = parseDateOrNull(req.query.salesStartDate);
+    const qe = parseDateOrNull(req.query.salesEndDate);
+
+
+    // Optional location filter (if you want to show KPI for one location)
+    const locationId =
+      req.query.locationId != null && String(req.query.locationId).trim() !== ""
+        ? Number(req.query.locationId)
+        : null;
+
+
+    const issuedAggs = await prisma.stockRequestLine.groupBy({
+      by: ["productId"],
+      where: {
+        grantedQty: { not: null, gt: 0 },
+        stockRequest: {
+          status: { in: ["FULFILLED"]}
+        },
+        outcome: { in: ["GRANTED", "ADJUSTED"] },
+      },
+      _sum: { grantedQty: true },
+      orderBy: { _sum: { grantedQty: "desc" } },
+      take: 15
+    })
+
+    const issuedProductIds = issuedAggs.map(p => p.productId)
+
+    const issuedProducts = await prisma.products.findMany({
+      where: { productId: { in: issuedProductIds } },
+      select: { productId: true, name: true, category: true, Department: true, rating: true, unit: true, imageUrl: true }
+    })
+
+    const prodMap = new Map(issuedProducts.map(p => [p.productId, p]))
+
+    const popularIssuedProducts = issuedAggs.map(row => {
+  const p = prodMap.get(row.productId);
+  return {
+    productId: row.productId,
+    name: p?.name ?? "Unknown Product",
+    category: p?.category ?? null,
+    department: p?.Department ?? null,
+    unit: p?.unit ?? null,
+    rate: p?.rating,
+    imageUrl: p?.imageUrl,
+    qtyIssued: row._sum.grantedQty ?? 0,
+  };
+});
     // ✅ 1. FETCH INVOICES WITH THE PROMOTION CHAIN
     const invoices = await prisma.supplierInvoice.findMany({
       take: 50,
@@ -325,9 +395,75 @@ export const getDashboardMetrics = async (req: Request, res: Response): Promise<
       totalInvoicesAmount,
     };
 
+    // SALES KPI Query
+    // 5.1) Totals across range (optionally filtered by location)
+    // ==============================
+// SALES KPIs (weekly default, last 90 days)
+// ==============================
+const end = new Date();
+const start = new Date();
+start.setDate(end.getDate() - 90); // ~13 weeks
+
+// Totals
+const totals = await prisma.sale.aggregate({
+  where: { salesDate: { gte: start, lte: end } },
+  _sum: {
+    grandTotal: true,
+    cashTotal: true,
+    creditCardTotal: true,
+    debitCardTotal: true,
+    chequeTotal: true,
+  },
+});
+
+const total = Number(totals._sum.grandTotal ?? 0);
+const cash = Number(totals._sum.cashTotal ?? 0);
+const nonCash =
+  Number(totals._sum.creditCardTotal ?? 0) +
+  Number(totals._sum.debitCardTotal ?? 0) +
+  Number(totals._sum.chequeTotal ?? 0);
+
+// Trend (weekly buckets)
+const trendRows = await prisma.$queryRaw<
+  Array<{ bucket: Date; grandtotal: any }>
+>`
+  SELECT
+    date_trunc('week', "salesDate") AS bucket,
+    SUM("grandTotal") AS grandTotal
+  FROM "dailySales"
+  WHERE "salesDate" >= ${start} AND "salesDate" <= ${end}
+  GROUP BY 1
+  ORDER BY 1 ASC;
+`;
+
+const trend = trendRows
+  .map((r: any) => {
+    const d = new Date(r.bucket);
+    const label = d.toISOString().slice(0, 10); // YYYY-MM-DD week start
+    return { label, total: Number(r.grandtotal ?? r.grandTotal ?? 0) };
+  })
+  .slice(-12);
+
+// Latest % change
+let latestChangePercent: number | null = null;
+if (trend.length >= 2 && trend[trend.length - 2].total > 0) {
+  const prev = trend[trend.length - 2].total;
+  const curr = trend[trend.length - 1].total;
+  latestChangePercent = ((curr - prev) / prev) * 100;
+}
+
+const salesSummary = {
+  timeframe: "weekly" as const,
+  total,
+  cash,
+  nonCash,
+  latestChangePercent,
+  trend,
+};
+
     // ✅ 5. RETURN ALL METRICS INCLUDING NEW PURCHASE ORDER METRICS
     res.json({
-      popularProducts,
+      popularIssuedProducts,
       purchaseBreakdown,
       expenseSummary,
       revenueAndProfit,
@@ -338,7 +474,8 @@ export const getDashboardMetrics = async (req: Request, res: Response): Promise<
         amount: Number(inv.amount),
         date: inv.date.toISOString(),
         supplier: inv.supplier?.name
-      }))
+      })),
+      salesSummary,
     });
 
   } catch (error) {
@@ -350,3 +487,385 @@ export const getDashboardMetrics = async (req: Request, res: Response): Promise<
 
 
 
+type TF = "day" | "week" | "month";
+
+function defaultRange(tf: TF) {
+  const end = new Date();
+  const start = new Date(end);
+
+  if (tf === "day") start.setDate(end.getDate() - 14);        // last 14 days
+  if (tf === "week") start.setDate(end.getDate() - 90);       // last ~13 weeks
+  if (tf === "month") start.setFullYear(end.getFullYear() - 1); // last 12 months
+
+  return { start, end };
+}
+
+function tfFromQuery(v: any): TF {
+  return v === "week" ? "week" : "month";
+}
+
+function toNum(x: any) {
+  const n = typeof x === "number" ? x : Number(x ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+
+
+export const getSalesOverview = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tf = tfFromQuery(req.query.tf);
+
+    const end = new Date();
+    let start = new Date(end);
+
+    if (tf === "month") {
+      start.setFullYear(end.getFullYear() - 1);
+    } else {
+      start = startOfWeekSunday(end); // current week Sunday 00:00
+    }
+
+    // Totals in range
+    const totalsAgg = await prisma.sale.aggregate({
+      where: { salesDate: { gte: start, lte: end } },
+      _sum: {
+        grandTotal: true,
+        cashTotal: true,
+        creditCardTotal: true,
+        debitCardTotal: true,
+        chequeTotal: true,
+      },
+    });
+
+    const total = toNum(totalsAgg._sum.grandTotal);
+    const cash = toNum(totalsAgg._sum.cashTotal);
+    const nonCash =
+      toNum(totalsAgg._sum.creditCardTotal) +
+      toNum(totalsAgg._sum.debitCardTotal) +
+      toNum(totalsAgg._sum.chequeTotal);
+
+    // Sparse buckets
+    const truncUnit = tf === "month" ? "month" : "day"; 
+    // week mode buckets by day (Sun..Sat) so trunc('day') is correct
+
+    const rows = await prisma.$queryRaw<
+      Array<{ bucket: Date; total: any }>
+    >(Prisma.sql`
+      SELECT
+        date_trunc(${truncUnit}, "salesDate") AS bucket,
+        SUM("grandTotal") AS total
+      FROM "dailySales"
+      WHERE "salesDate" >= ${start} AND "salesDate" <= ${end}
+      GROUP BY 1
+      ORDER BY 1 ASC;
+    `);
+
+    const sparse = rows.map((r) => ({
+      bucketISO: new Date(r.bucket).toISOString(), // keep full ISO
+      total: toNum((r as any).total),
+    }));
+
+    // Highest bucket (from sparse)
+    const highest =
+      sparse.length > 0
+        ? sparse.reduce((acc, cur) => (cur.total > acc.total ? cur : acc))
+        : null;
+
+    res.json({
+      tf,
+      rangeLabel: tf === "month" ? "Last 12 months" : "This week",
+      totals: { total, cash, nonCash },
+      highest: highest
+        ? { bucketISO: highest.bucketISO, total: highest.total }
+        : null,
+      sparse,
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Error retrieving sales overview" });
+  }
+};
+
+
+type PurchasesTimeFrame = "week" | "month" | "quarter";
+
+function timeframeFromQuery(n: any): PurchasesTimeFrame {
+  if (n === "week" || n === "month" || n === "quarter") return n;
+  return "month";
+}
+function rangeFor(timeframe: PurchasesTimeFrame) {
+  const end = new Date();
+  const start = new Date(end);
+
+  if (timeframe === "week") {
+    // last 7 days (your choice)
+    start.setDate(end.getDate() - 7);
+  }
+
+  if (timeframe === "month") {
+    // last 12 months (including current month)
+    start.setMonth(end.getMonth() - 11);
+    start.setDate(1);
+    start.setHours(0, 0, 0, 0);
+  }
+
+  if (timeframe === "quarter") {
+    // last 4 months (your definition)
+    start.setMonth(end.getMonth() - 3);
+    start.setDate(1);
+    start.setHours(0, 0, 0, 0);
+  }
+
+  return { start, end };
+}
+
+function startOfWeekSunday(d: Date) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  const day = x.getDay(); // 0=Sun
+  x.setDate(x.getDate() - day);
+  return x;
+}
+
+function monthKey(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+const WEEK_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"] as const;
+const QUARTER_LABELS = ["Jan–Mar", "Apr–Jun", "Jul–Sep", "Oct–Dec"] as const;
+
+function bucketIndexFor(timeframe: PurchasesTimeFrame, d: Date) {
+  if (timeframe === "week") return d.getDay(); // 0 Sun ... 6 Sat
+  if (timeframe === "month") return d.getMonth(); // 0 Jan ... 11 Dec
+  // quarter
+  return Math.floor(d.getMonth() / 3); // 0..3
+}
+
+function buildEmptySeries(timeframe: PurchasesTimeFrame) {
+  if (timeframe === "week") {
+    return WEEK_LABELS.map((label, i) => ({
+      bucketISO: String(i), // doesn’t need to be ISO for fixed labels; keep string
+      label,
+      paid: 0,
+    }));
+  }
+
+  if (timeframe === "month") {
+    return MONTH_LABELS.map((label, i) => ({
+      bucketISO: String(i),
+      label,
+      paid: 0,
+    }));
+  }
+
+  // quarter
+  return QUARTER_LABELS.map((label, i) => ({
+    bucketISO: String(i),
+    label,
+    paid: 0,
+  }));
+}
+
+
+export const getDashboardPurchaseSummary = async (req: Request, res: Response) => {
+  try {
+    const timeframe = timeframeFromQuery(req.query.timeframe);
+    const { start, end } = rangeFor(timeframe);
+
+    const payments = await prisma.invoicePayment.findMany({
+      where: {
+        status: "POSTED",
+        paidAt: { gte: start, lte: end },
+      },
+      select: { paidAt: true, amount: true },
+      orderBy: { paidAt: "asc" },
+    });
+
+    // ✅ fixed buckets
+    const series = buildEmptySeries(timeframe);
+
+    for (const p of payments) {
+      const d = new Date(p.paidAt);
+      const amt = Number(p.amount ?? 0);
+
+      const idx = bucketIndexFor(timeframe, d);
+      if (idx >= 0 && idx < series.length) {
+        series[idx].paid += Number.isFinite(amt) ? amt : 0;
+      }
+    }
+
+    // normalize decimals
+    for (const row of series) row.paid = Number(row.paid.toFixed(2));
+
+    const totals = {
+      paid: Number(series.reduce((acc, x) => acc + x.paid, 0).toFixed(2)),
+    };
+
+    // --- status + outstanding (your existing logic) ---
+    const invoiceAggs = await prisma.supplierInvoice.groupBy({
+      by: ["status"],
+      _count: { id: true },
+      _sum: { amount: true },
+    });
+
+    const paidRow = invoiceAggs.find((x) => x.status === "PAID");
+    const pendingRow = invoiceAggs.find((x) => x.status === "PENDING");
+
+    const invoicesPaid = paidRow?._count.id ?? 0;
+    const invoicesPending = pendingRow?._count.id ?? 0;
+
+    const statusPaidAmount = Number(paidRow?._sum.amount ?? 0);
+
+    const pendingInvoices = await prisma.supplierInvoice.findMany({
+      where: { status: "PENDING" },
+      select: { balanceRemaining: true, amount: true },
+    });
+
+    const outstanding = pendingInvoices.reduce((acc, inv) => {
+      const bal =
+        inv.balanceRemaining != null ? Number(inv.balanceRemaining) : Number(inv.amount ?? 0);
+      return acc + (Number.isFinite(bal) ? bal : 0);
+    }, 0);
+
+    const highest =
+      series.length > 0 ? series.reduce((acc, cur) => (cur.paid > acc.paid ? cur : acc)) : null;
+
+    res.json({
+      timeframe,
+      rangeLabel:
+        timeframe === "week"
+          ? "This week (Sun–Sat)"
+          : timeframe === "month"
+          ? "This year (Jan–Dec)"
+          : "This year (Quarterly)",
+      series,
+      totals,
+      status: {
+        outstanding: Number(outstanding.toFixed(2)),
+        paid: Number(statusPaidAmount.toFixed(2)),
+        invoicesPending,
+        invoicesPaid,
+      },
+      insights: {
+        highest: highest ? { label: highest.label, paid: highest.paid } : null,
+      },
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Error retrieving purchase summary" });
+  }
+};
+
+
+
+
+type ProcurementTF = "30d" | "90d" | "1y";
+
+function _tfFromQuery(v: any): ProcurementTF {
+  if (v === "30d" || v === "90d" || v === "1y") return v;
+  return "90d";
+}
+
+function _rangeFor(tf: ProcurementTF) {
+  const end = new Date();
+  const start = new Date(end);
+
+  if (tf === "30d") start.setDate(end.getDate() - 30);
+  if (tf === "90d") start.setDate(end.getDate() - 90);
+  if (tf === "1y") start.setFullYear(end.getFullYear() - 1);
+
+  start.setHours(0, 0, 0, 0);
+  return { start, end };
+}
+
+export const getProcurementOverview = async (req: Request, res: Response) => {
+  try {
+    const tf = _tfFromQuery(req.query.tf);
+    const { start, end } = _rangeFor(tf);
+
+    // 1) POs summary (counts + totals by status)
+    const poAgg = await prisma.purchaseOrder.groupBy({
+      by: ["status"],
+      _count: { id: true },
+      _sum: { total: true },
+      where: { orderDate: { gte: start, lte: end } },
+    });
+
+    const totalPOs = poAgg.reduce((acc, x) => acc + (x._count.id ?? 0), 0);
+    const closedPOs =
+      poAgg.find((x) => x.status === "CLOSED")?._count.id ?? 0;
+
+    const activePOs = totalPOs - closedPOs;
+
+    // active value = sum totals for NON-CLOSED POs in range
+    const activePOValue = poAgg.reduce((acc, x) => {
+      if (x.status === "CLOSED") return acc;
+      return acc + Number(x._sum.total ?? 0);
+    }, 0);
+
+    const poByStatus = poAgg
+      .map((x) => ({
+        status: x.status as string,
+        count: x._count.id ?? 0,
+        total: Number(x._sum.total ?? 0),
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    // 2) Invoices summary (counts + amounts by status)
+    const invAgg = await prisma.supplierInvoice.groupBy({
+      by: ["status"],
+      _count: { id: true },
+      _sum: { amount: true },
+      where: { date: { gte: start, lte: end } },
+    });
+
+    const totalInvoices = invAgg.reduce((acc, x) => acc + (x._count.id ?? 0), 0);
+
+    const paidInvoices = invAgg.find((x) => x.status === "PAID")?._count.id ?? 0;
+    const pendingInvoices =
+      invAgg.find((x) => x.status === "PENDING")?._count.id ?? 0;
+
+    const paidInvoicesAmount =
+      Number(invAgg.find((x) => x.status === "PAID")?._sum.amount ?? 0);
+
+    const pendingInvoicesAmount =
+      Number(invAgg.find((x) => x.status === "PENDING")?._sum.amount ?? 0);
+
+    const totalInvoicesAmount = Number(
+      invAgg.reduce((acc, x) => acc + Number(x._sum.amount ?? 0), 0).toFixed(2)
+    );
+
+    const invoiceByStatus = invAgg
+      .map((x) => ({
+        status: x.status as string,
+        count: x._count.id ?? 0,
+        total: Number(x._sum.amount ?? 0),
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    res.json({
+      tf,
+      rangeLabel: tf === "30d" ? "Last 30 days" : tf === "90d" ? "Last 90 days" : "Last 12 months",
+
+      po: {
+        total: totalPOs,
+        closed: closedPOs,
+        active: activePOs,
+        activeValue: Number(activePOValue.toFixed(2)),
+        byStatus: poByStatus, // for donut
+      },
+
+      invoices: {
+        total: totalInvoices,
+        paid: paidInvoices,
+        pending: pendingInvoices,
+        paidAmount: Number(paidInvoicesAmount.toFixed(2)),
+        pendingAmount: Number(pendingInvoicesAmount.toFixed(2)),
+        totalAmount: Number(totalInvoicesAmount.toFixed(2)),
+        byStatus: invoiceByStatus, // for donut
+      },
+    });
+  } catch (e) {
+    console.error("procurement overview error:", e);
+    res.status(500).json({ message: "Error retrieving procurement overview" });
+  }
+};

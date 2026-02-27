@@ -33,10 +33,15 @@ import {
 
 type Props = {
   invoiceId: string;
-  invoice?: SupplierInvoiceDTO; // fallback
+  invoice?: SupplierInvoiceDTO;
+  payment: number;                 // amount suggested from checked lines
+  disabled?: boolean;
+  triggerLabel?: string;
+  onSuccess?: () => void;
+  children?: React.ReactNode;
 };
 
-export function PayInvoiceDialog({ invoiceId, invoice: initialInvoice }: Props) {
+export function PayInvoiceDialog({ invoiceId, invoice: initialInvoice, payment, disabled, triggerLabel, onSuccess, children  }: Props) {
   const [open, setOpen] = useState(false);
 
   const {
@@ -48,8 +53,6 @@ export function PayInvoiceDialog({ invoiceId, invoice: initialInvoice }: Props) 
   const invoice = fetchedInvoice ?? initialInvoice
   
   if (!invoice) return null
-
-   const poId = invoice.poId
 
   const [amount, setAmount] = useState<number>(0);
   const [method, setMethod] = useState<string>("cash");
@@ -64,15 +67,18 @@ export function PayInvoiceDialog({ invoiceId, invoice: initialInvoice }: Props) 
 
   // Default amount = outstanding
   useEffect(() => {
-    if (!invoice) return;
+  if (!open || !invoice) return;
 
-    const outstanding =
-      invoice.balanceRemaining != null
-        ? Number(invoice.balanceRemaining)
-        : Number(invoice.amount ?? 0);
+  const outstanding =
+    invoice.balanceRemaining != null
+      ? Number(invoice.balanceRemaining)
+      : Number(invoice.amount ?? 0);
 
-    setAmount(outstanding);
-  }, [invoice]);
+  const suggested =
+    payment > 0 ? Math.min(payment, outstanding) : outstanding;
+
+  setAmount(suggested);
+}, [open, invoice, payment]);
 
   const invoiceTotal = Number(invoice?.amount ?? 0);
   const outstanding =
@@ -132,7 +138,12 @@ export function PayInvoiceDialog({ invoiceId, invoice: initialInvoice }: Props) 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-green-600 hover:bg-green-700" disabled={isPayable}>Pay Invoice</Button>
+        <Button
+          className="bg-green-600 hover:bg-green-700"
+          disabled={disabled || isPayable}
+        >
+          {triggerLabel ?? "Pay Invoice"}
+        </Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-[640px] p-0 overflow-hidden">

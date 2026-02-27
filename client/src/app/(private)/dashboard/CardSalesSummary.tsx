@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { TrendingUp } from "lucide-react";
+import { useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -12,297 +11,190 @@ import {
   YAxis,
 } from "recharts";
 
-import { useGetSalesByLocationQuery } from "../../state/api";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useGetSalesOverviewQuery } from "../../state/api";
+import type { SalesOverviewTimeframe } from "../../state/api";
+import { ArrowUpRight, Wallet, Banknote, CreditCard } from "lucide-react";
 
-type Timeframe = "daily" | "weekly" | "monthly";
+const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const WEEK_LABELS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
-/** Safe Decimal-string -> number */
-function toNumber(value: string | number | null | undefined): number {
-  if (value == null) return 0;
-  const n = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(n) ? n : 0;
+function money(n: number) {
+  return n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
 
-/** YYYY-MM-DD UTC */
-function dayKeyUTC(d: Date): string {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
-    .toISOString()
-    .slice(0, 10);
+function kFormat(n: number) {
+  if (n >= 1000) return `${(n / 1000).toFixed(0)}K`;
+  return `${Math.round(n)}`;
 }
 
-/** Week key is Monday YYYY-MM-DD (UTC) */
-function weekKeyUTC(d: Date): string {
-  const date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-  const day = date.getUTCDay(); // 0=Sun
-  const diffToMonday = (day === 0 ? -6 : 1) - day;
-  date.setUTCDate(date.getUTCDate() + diffToMonday);
-  return date.toISOString().slice(0, 10);
+function monthIndexUTC(iso: string) {
+  const d = new Date(iso);
+  return d.getUTCMonth(); // 0..11
 }
 
-/** Month key YYYY-MM */
-function monthKeyUTC(d: Date): string {
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  return `${y}-${m}`;
+function dayIndexLocal(iso: string) {
+  // week mode uses local week days
+  const d = new Date(iso);
+  return d.getDay(); // 0=Sun..6=Sat
 }
 
-function getRangeForTimeframe(tf: Timeframe) {
-  const end = new Date();
-  const start = new Date();
+export default function CardSalesOverview() {
+  const [tf, setTf] = useState<SalesOverviewTimeframe>("month");
+  const { data, isLoading, isError } = useGetSalesOverviewQuery({ tf });
 
-  if (tf === "daily") start.setDate(end.getDate() - 14);     // last 14 days
-  if (tf === "weekly") start.setDate(end.getDate() - 90);    // last ~13 weeks
-  if (tf === "monthly") start.setFullYear(end.getFullYear() - 1); // last 12 months
-
-  return { startDate: start.toISOString(), endDate: end.toISOString() };
-}
-
-const CardSalesSummary = () => {
-  const [timeframe, setTimeframe] = useState<Timeframe>("weekly");
-
-  const { startDate, endDate } = useMemo(
-    () => getRangeForTimeframe(timeframe),
-    [timeframe]
-  );
-
-  // ✅ REAL SALES rows from DB
-  const { data, isLoading, isError } = useGetSalesByLocationQuery({
-    startDate,
-    endDate,
-  });
-
-  const rawSales = data?.sales ?? [];
-
-  // Build chart buckets from real Sale rows
   const chartData = useMemo(() => {
-    const map = new Map<
-      string,
-      { key: string; dateForLabel: Date; totalValue: number }
-    >();
+    if (!data) return [];
 
-    for (const s of rawSales) {
-      const d = new Date(s.salesDate);
-      if (Number.isNaN(d.getTime())) continue;
-
-      const total = toNumber(s.grandTotal);
-
-      let key: string;
-      let labelDate: Date;
-
-      if (timeframe === "daily") {
-        key = dayKeyUTC(d);
-        labelDate = new Date(`${key}T00:00:00Z`);
-      } else if (timeframe === "weekly") {
-        key = weekKeyUTC(d); // Monday
-        labelDate = new Date(`${key}T00:00:00Z`);
-      } else {
-        key = monthKeyUTC(d); // YYYY-MM
-        labelDate = new Date(`${key}-01T00:00:00Z`);
+    if (tf === "month") {
+      // build full Jan..Dec
+      const base = MONTH_LABELS.map((label) => ({ label, total: 0 }));
+      for (const row of data.sparse) {
+        const idx = monthIndexUTC(row.bucketISO);
+        base[idx].total += row.total;
       }
-
-      const prev = map.get(key);
-      if (!prev) {
-        map.set(key, { key, dateForLabel: labelDate, totalValue: total });
-      } else {
-        prev.totalValue += total;
-      }
+      return base;
     }
 
-    return Array.from(map.values())
-      .sort((a, b) => a.dateForLabel.getTime() - b.dateForLabel.getTime())
-      .map((x) => ({
-        salesDateLabel: x.key, // x-axis
-        totalValue: Number(x.totalValue.toFixed(2)), // y-value
-        dateForLabel: x.dateForLabel.toISOString(), // tooltip helper
-      }));
-  }, [rawSales, timeframe]);
-
-  const hasData = chartData.length > 0;
-
-  const totalSalesValue = useMemo(() => {
-    return chartData.reduce((acc, cur) => acc + cur.totalValue, 0);
-  }, [chartData]);
-
-  const { latestSalesChangePercent, averageSalesPercentChange } = useMemo(() => {
-    let latest: number | null = null;
-    let avg: number | null = null;
-
-    if (chartData.length < 2) return { latestSalesChangePercent: latest, averageSalesPercentChange: avg };
-
-    let sum = 0;
-    let count = 0;
-
-    for (let i = 1; i < chartData.length; i++) {
-      const prev = chartData[i - 1].totalValue;
-      const curr = chartData[i].totalValue;
-
-      if (prev > 0) {
-        const change = ((curr - prev) / prev) * 100;
-        sum += change;
-        count += 1;
-        if (i === chartData.length - 1) latest = change;
-      }
+    // week: build Sun..Sat
+    const base = WEEK_LABELS.map((label) => ({ label, total: 0 }));
+    for (const row of data.sparse) {
+      const idx = dayIndexLocal(row.bucketISO);
+      base[idx].total += row.total;
     }
+    return base;
+  }, [data, tf]);
 
-    if (count > 0) avg = sum / count;
+  const maxVal = useMemo(() => Math.max(...chartData.map((x) => x.total), 0), [chartData]);
 
-    return { latestSalesChangePercent: latest, averageSalesPercentChange: avg };
-  }, [chartData]);
+  const highestLabel = useMemo(() => {
+    if (!data?.highest) return "N/A";
+    const iso = data.highest.bucketISO;
 
-  const highest = useMemo(() => {
-    if (!chartData.length) return null;
-    return chartData.reduce((acc, cur) => (acc.totalValue > cur.totalValue ? acc : cur));
-  }, [chartData]);
-
-  const highestSalesDate = useMemo(() => {
-    if (!highest) return null;
-
-    if (timeframe === "monthly") {
-      const d = new Date(highest.dateForLabel);
-      return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    if (tf === "month") {
+      return MONTH_LABELS[monthIndexUTC(iso)];
     }
-
-    const d = new Date(`${highest.salesDateLabel}T00:00:00Z`);
-    return d.toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "2-digit" });
-  }, [highest, timeframe]);
-
-  if (isError) return <div className="m-5">Failed to fetch data</div>;
+    return WEEK_LABELS[dayIndexLocal(iso)];
+  }, [data?.highest, tf]);
 
   return (
-    <div className="rounded-2xl bg-white shadow-md flex flex-col h-full overflow-hidden">
-      {isLoading ? (
-        <div className="m-5">Loading...</div>
-      ) : (
-        <>
-          {/* Top */}
-          <div className="px-7 pt-5 pb-4">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-gray-900">Sales Summary</h2>
-
-              <div className="flex flex-col items-end gap-2">
-                {latestSalesChangePercent !== null && (
-                  <div
-                    className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
-                      latestSalesChangePercent >= 0
-                        ? "bg-emerald-50 text-emerald-600"
-                        : "bg-red-50 text-red-600"
-                    }`}
-                  >
-                    <TrendingUp className="w-4 h-4" />
-                    <span>{latestSalesChangePercent.toFixed(2)}%</span>
-                  </div>
-                )}
-
-                <select
-                  className="shadow-sm border border-gray-200 bg-white px-3 py-1.5 rounded text-xs"
-                  value={timeframe}
-                  onChange={(e) => setTimeframe(e.target.value as Timeframe)}
-                >
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                </select>
-              </div>
-            </div>
-
-            <p className="text-xs font-medium text-gray-400 mb-1">Value</p>
-            <p className="text-3xl font-extrabold text-gray-900">
-              ${totalSalesValue.toFixed(2)}
-            </p>
-
-            {averageSalesPercentChange !== null && (
-              <p className="text-xs text-gray-500 mt-1">
-                Avg Change:{" "}
-                <span className="font-semibold">
-                  {averageSalesPercentChange.toFixed(2)}%
-                </span>
-              </p>
-            )}
+    <Card className="h-full rounded-2xl border border-emerald-100/70 bg-white shadow-sm overflow-hidden">
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle className="text-base font-semibold tracking-tight text-slate-900">
+              Sales Overview
+            </CardTitle>
+            <p className="text-xs text-slate-500 mt-1">{data?.rangeLabel ?? (tf === "month" ? "Last 12 months" : "This week")}</p>
           </div>
 
-          {/* Bottom */}
-          <div className="bg-slate-50/80 flex-1 flex flex-col">
-            <div className="flex-1 px-7 pt-3 pb-4">
-              <div className="h-52">
-                {hasData ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+          <Select value={tf} onValueChange={(v) => setTf(v as SalesOverviewTimeframe)}>
+            <SelectTrigger className="h-9 w-[120px] rounded-full border border-emerald-100 bg-white text-xs shadow-sm">
+              <SelectValue placeholder="Month" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="month">Month</SelectItem>
+              <SelectItem value="week">Week</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </CardHeader>
 
-                      <XAxis
-                        dataKey="salesDateLabel"
-                        tickLine={false}
-                        axisLine={false}
-                        tick={{ fontSize: 11, fill: "#9ca3af" }}
-                        tickFormatter={(value) => {
-                          if (timeframe === "monthly") {
-                            const [y, m] = String(value).split("-");
-                            return `${Number(m)}/${String(y).slice(2)}`;
-                          }
-                          const d = new Date(`${value}T00:00:00Z`);
-                          return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
-                        }}
-                      />
+      <CardContent className="pt-2">
+        {isError ? (
+          <div className="py-10 text-sm text-red-600">Failed to load.</div>
+        ) : isLoading || !data ? (
+          <div className="py-10 text-sm text-slate-500">Loading...</div>
+        ) : (
+          <>
+            {/* Chart area */}
+            <div className="rounded-2xl bg-emerald-50/40 border border-emerald-100/70 p-3">
+              <div className="h-44">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.25} />
 
-                      <YAxis
-                        tickLine={false}
-                        axisLine={false}
-                        width={70}
-                        tick={{ fontSize: 11, fill: "#9ca3af" }}
-                        tickFormatter={(value: number) =>
-                          value >= 1000 ? `$${(value / 1000).toFixed(1)}k` : `$${value.toFixed(0)}`
-                        }
-                        domain={[0, "dataMax + 50"]}
-                      />
+                    <XAxis
+                      dataKey="label"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fontSize: 11, fill: "#64748b" }}
+                    />
 
-                      <Tooltip
-                        formatter={(value: number) => [`$${value.toLocaleString("en-US")}`, "Total"]}
-                        labelFormatter={(label) => {
-                          if (timeframe === "monthly") {
-                            const d = new Date(`${label}-01T00:00:00Z`);
-                            return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-                          }
-                          const d = new Date(`${label}T00:00:00Z`);
-                          return d.toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          });
-                        }}
-                      />
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      width={46}
+                      tick={{ fontSize: 11, fill: "#64748b" }}
+                      tickFormatter={(v: number) => kFormat(v)}
+                      domain={[0, Math.ceil(maxVal * 1.15)]}
+                    />
 
-                      <Bar dataKey="totalValue" fill="#3182ce" barSize={10} radius={[10, 10, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-xs text-gray-400 border border-dashed border-gray-200 rounded-xl">
-                    No sales data yet
-                  </div>
-                )}
+                    <Tooltip
+                      cursor={{ fill: "rgba(16,185,129,0.08)" }}
+                      formatter={(value: number) => [money(value), "Sales"]}
+                      contentStyle={{
+                        borderRadius: 14,
+                        border: "1px solid rgba(16,185,129,0.18)",
+                        boxShadow: "0 10px 25px rgba(2,6,23,0.08)",
+                        fontSize: 12,
+                      }}
+                    />
+
+                    <Bar
+                      dataKey="total"
+                      fill="rgba(16,185,129,0.95)"
+                      barSize={12}
+                      radius={[10, 10, 10, 10]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </div>
 
-            <div className="border-t border-slate-200/80 px-7 py-3 flex items-center justify-between text-xs text-gray-600">
-              <div>
-                <p className="font-semibold">
-                  {chartData.length}{" "}
-                  {timeframe === "daily" ? "days" : timeframe === "weekly" ? "weeks" : "months"}
-                </p>
-                <p className="text-[11px] text-gray-400">in this range</p>
+            {/* Bottom stats strip (like your Expense Summary) */}
+            <div className="mt-3 grid grid-cols-3 gap-3">
+              <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <Wallet className="h-4 w-4 text-emerald-700" />
+                  <span>Total</span>
+                </div>
+                <p className="mt-1 text-lg font-extrabold text-slate-900">{money(data.totals.total)}</p>
               </div>
 
-              <div className="text-right">
-                <p className="uppercase tracking-wide text-[11px] text-gray-400">
-                  Highest Sales {timeframe === "monthly" ? "Month" : "Date"}
-                </p>
-                <p className="font-semibold">{highestSalesDate ?? "N/A"}</p>
+              <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <Banknote className="h-4 w-4 text-emerald-700" />
+                  <span>Cash</span>
+                </div>
+                <p className="mt-1 text-lg font-extrabold text-slate-900">{money(data.totals.cash)}</p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <CreditCard className="h-4 w-4 text-emerald-700" />
+                  <span>Non-cash</span>
+                </div>
+                <p className="mt-1 text-lg font-extrabold text-slate-900">{money(data.totals.nonCash)}</p>
               </div>
             </div>
-          </div>
-        </>
-      )}
-    </div>
+
+            {/* Highest record */}
+            <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50/30 p-3 flex items-center justify-between">
+              <div className="text-xs text-slate-600">
+                <p className="font-semibold text-slate-900">Highest Recorded</p>
+                <p className="mt-0.5">
+                  {data.highest ? `${highestLabel} • ${money(data.highest.total)}` : "No data yet"}
+                </p>
+              </div>
+              <div className="h-9 w-9 rounded-xl bg-white border border-emerald-100 flex items-center justify-center">
+                <ArrowUpRight className="h-4 w-4 text-emerald-700" />
+              </div>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
-};
-
-export default CardSalesSummary;
+}
