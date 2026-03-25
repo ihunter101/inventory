@@ -22,6 +22,7 @@ import { ClipboardPlus, Minus, Plus, Trash2 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/app/redux";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import CanAccessElement from "@/lib/CanAccessElement";
 
 interface ProductFormData {
   // IMPORTANT: for update, we need a productId coming from the dialog
@@ -213,13 +214,15 @@ const Products = () => {
           </select>
 
           {/* Button (kept as-is; you can rename label later) */}
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 transition text-white font-medium py-2 px-4 rounded shadow-sm"
-          >
-            <PlusCircle className="w-5 h-5" />
-            Update Product
-          </button>
+          <CanAccessElement>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 transition text-white font-medium py-2 px-4 rounded shadow-sm"
+            >
+              <PlusCircle className="w-5 h-5" />
+              Update Product
+            </button>
+          </CanAccessElement>
         </div>
       </div>
 

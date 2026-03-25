@@ -52,6 +52,8 @@ import meRoutes from "./routes/meRoutes";
 import emailRoutes from "./routes/emailRoutes";
 import matchROutes from "./routes/matchRoutes"
 import paymentRouter from "./routes/paymentRoutes";
+import aiRoutes from "./routes/aiRoutes"
+import reportRoutes from "./routes/reportRoutes"
 
 process.on('uncaughtException', (err) => {
   console.error('💥 Uncaught Exception:', err);
@@ -110,7 +112,8 @@ protectedRouter.use("/sales", salesRoutes);
 protectedRouter.use("/emails", emailRoutes);
 protectedRouter.use('/matches', matchROutes);
 protectedRouter.use('/payments', paymentRouter)
-
+protectedRouter.use('/ai', aiRoutes)
+protectedRouter.use( '/report', reportRoutes)
 // Mount the protected router
 app.use(protectedRouter);
 

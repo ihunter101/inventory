@@ -14,7 +14,7 @@ export interface PurchaseOrderPDFData {
   documentType: "PO";
   title: string;
   documentNumber: string;
-  preparedBy: string;
+  preparedBy: string | undefined; // TODO: review users schema set up and onboarding logic to see if we can get a name otherwise throw an use error handle if the user name is undefined
   organizationName: string;
   departmentName?: string;
   supplierName: string;
@@ -124,7 +124,7 @@ export function generatePurchaseOrderPDFBuffer(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(...darkGray);
-  doc.text(data.preparedBy, 130, metadataY + 10);
+  doc.text(data.preparedBy ?? "", 130, metadataY + 10);
 
   // Approved By
   if (data.approvedBy) {

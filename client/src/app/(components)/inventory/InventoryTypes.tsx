@@ -13,6 +13,7 @@ export type InventoryRow = {
   expiryDate?: string | null;
   supplier?: string | null;
   location?: string | null;
+  lotNumber?: string | null;
 };
 
 export const formatNumber = (n?: number | null) =>

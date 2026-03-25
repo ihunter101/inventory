@@ -89,41 +89,22 @@ export const createProduct = async (req: Request, res: Response) => {
     if (!name || stockQuantity === undefined) {
       return res.status(400).json({ error: "Missing required fields" });
     }
-
-
-    const product = await prisma.$transaction( async (tx) => {
-      const newProduct = await tx.products.create({
+      const newProduct = await prisma.products.create({
         data: {
-        productId,
-        name,
-        stockQuantity: parseInt(stockQuantity),
-        rating: rating ? parseFloat(rating) : undefined,
-        supplier,
-        minQuantity: minQuantity ? parseInt(minQuantity) : undefined,
-        unit,
-        category,
-        expiryDate: expiryDate ? new Date(expiryDate) : undefined,
-        imageUrl,
-
-      },
+          productId,
+          name,
+          stockQuantity: parseInt(stockQuantity),
+          rating: rating ? parseFloat(rating) : undefined,
+          supplier,
+          minQuantity: minQuantity ? parseInt(minQuantity) : undefined,
+          unit,
+          category,
+          expiryDate: expiryDate ? new Date(expiryDate) : undefined,
+          imageUrl,
+        },
       })
-      await tx.inventory.create({
-        data: {
-          productId: newProduct.productId,
-          stockQuantity,
-          minQuantity,
-          //reorderPoint,
-        }
-      })
- // re-read with relation
-      //const productWithInventory = await tx.products.findUnique({
-       // where: { productId: newProduct.productId },
-       // include: { inventory: true },
-      //});
-      return newProduct
-     // return productWithInventory;
-    })
-    return res.status(201).json(product);
+    
+    return res.status(201).json(newProduct);
   } catch (error) {
     console.error("Create product error:", error);
     return res.status(500).json({ error: "Failed to create product" });

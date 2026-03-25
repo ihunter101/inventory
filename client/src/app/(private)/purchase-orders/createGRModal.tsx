@@ -336,3 +336,4 @@ const Th = (p: any) => (
   </th>
 );
 const Td = (p: any) => <td className={`px-4 py-2 align-top ${p.className ?? ""}`}>{p.children}</td>;
+//delete this file

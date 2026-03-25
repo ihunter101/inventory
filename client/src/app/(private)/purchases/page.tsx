@@ -197,13 +197,15 @@ const openGRNFromInvoice = (invoice: SupplierInvoiceDTO) => {
 
         //introduce the invoice item line id to address the concerns of the new  workflow 
       return {
-        invoiceItemId: ln.invoiceItemId,
+        invoiceItemId: ln.invoiceItemId ?? ln.id, // TODO CHECK WHICH IS RIGHT
         productDraftId,
         poItemId, // ✅
         name: ln.name ?? ln.description ?? ln.product?.name ?? "",
         unit: ln.unit ?? ln.uom ?? ln.product?.unit ?? "",
         receivedQty: Number(ln.receivedQty ?? ln.quantity ?? 0),
         unitPrice: Number(ln.unitPrice ?? 0),
+        lotNumber: String(ln.lotNumber ?? ""),
+        expiryDate: ln.expiryDate 
       };
     }),
   };

@@ -6,8 +6,24 @@ import  getGroupFromCategory  from "@lab/shared";
 //const prisma = new PrismaClient();
 
 export const getExpenses = async (req: Request, res: Response) => {
+
+  const { from, end } = req.query;
+
+  let startBoundary = from ? new Date(from as string) : null;
+    let endBoundary = end ? new Date(end as string) : null;
+
+    // 2. Fallback: If dates are invalid or missing, default to "Fresh State"
+    if (!startBoundary || isNaN(startBoundary.getTime())) {
+      startBoundary = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    }
+    if (!endBoundary || isNaN(endBoundary.getTime())) {
+      endBoundary = new Date();
+    }
+
   try {
+    //we query by date the expense was created
     const expenses = await prisma.expenses.findMany({
+      where: { date: { gte: startBoundary, lte: endBoundary } },
       orderBy: { date: "desc" }
     });
     res.json(expenses);

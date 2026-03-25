@@ -87,7 +87,7 @@ const LOCATION_ID: Record<Location, number> = {
   manoelStreet: 3,
   sunnyAcres: 4,
   emCare: 5,
-  RodneyBay: 6,
+  rodneyBay: 6,
   memberCare: 7,
   vieuxFort: 8,
   soufriere: 9,

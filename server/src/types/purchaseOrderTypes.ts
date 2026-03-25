@@ -18,4 +18,5 @@ export interface PoData {
     total: number; // Final calculated total
     items: PoItem[]; // Array of line items
     // Add other fields like deliveryDate, etc., as needed
+    name: string | undefined;
 }

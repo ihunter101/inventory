@@ -122,7 +122,7 @@ export default function InventoryPage() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: 4, pb: 8 }}>
       
       <InventoryHeader
         onAddItem={() => { }}

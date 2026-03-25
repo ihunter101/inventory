@@ -262,7 +262,7 @@ export default function StockRequestPage() {
                             <option value="manoelStreet">Manoel Street</option>
                             <option value="sunnyAcres">Sunny Acres</option>
                             <option value="emCare">EM Care</option>
-                            <option value="RodneyBay">Rodney Bay</option>
+                            <option value="rodneyBay">Rodney Bay</option>
                             <option value="memberCare">Member Care</option>
                             <option value="vieuxFort">Vieux Fort</option>
                             <option value="soufriere">Soufriere</option>

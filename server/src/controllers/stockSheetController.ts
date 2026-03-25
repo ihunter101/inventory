@@ -3,6 +3,7 @@ import { prisma } from "../lib/prisma"
 import resend from "../config/resend";
 import { Resend } from "resend";
 import { xFrameOptions } from "helmet";
+import { StockRequestStatus } from "@prisma/client";
 
 function clampInt(n: number, min = 1) {
   const x = Math.floor(Number(n));
@@ -26,9 +27,15 @@ export const createStockSheet = async (req: Request, res: Response) => {
             return res.status(401).json({message: "Not Authenticated"})
         }
 
+        //validate the requester's quantity on hand 
+        if (body.lines.some((l: any) => l.qtyOnHandAtRequest == null)) {
+            return res.status(400).json({ message: "qtyOnHandAtRequest is required for each line" });
+        }
+
         const normalized = body.lines.map((l: any) => ({
             productId: l.productId,
-            requestedQty: clampInt(l.requestedQty, 1)
+            requestedQty: clampInt(l.requestedQty, 1),
+            qtyOnHandAtRequest: clampInt(l.qtyOnHandAtRequest, 0),
         }))
 
         const created = await prisma.stockRequest.create({
@@ -40,7 +47,8 @@ export const createStockSheet = async (req: Request, res: Response) => {
                 lines: {
                     create: normalized.map((l: any) => ({
                         productId: l.productId,
-                        requestedQty: l.requestedQty
+                        requestedQty: l.requestedQty,
+                        qtyOnHandAtRequest: l.qtyOnHandAtRequest,
                     }))
                 }
             },
@@ -265,17 +273,18 @@ export const getStockRequestById = async (req: Request, res: Response) => {
                 expectedDeliveryAt: request.expectedDeliveryAt,
                 messageToRequester: request.messageToRequester,
                 lines: request.lines.map((l) => ({
-                    id: l.id,
-                    productId: l.productId,
-                    productName: l.product.name,
-                    unit: l.product.unit,
-                    department: l.product.Department,
-                    availableQty: l.product.inventory?.stockQuantity ?? null,
-                    requestedQty: l.requestedQty,
-                    grantedQty: l.grantedQty,
-                    outcome: l.outcome,
-                    notes: l.notes
-                })),
+                id: l.id,
+                productId: l.productId,
+                productName: l.product.name,
+                unit: l.product.unit,
+                department: l.product.Department,
+                availableQty: l.product.inventory.reduce((sum, inv) => sum + (inv.stockQuantity || 0), 0),
+                requestedQty: l.requestedQty,
+                qtyOnHandAtRequest: l.qtyOnHandAtRequest,
+                grantedQty: l.grantedQty,
+                outcome: l.outcome,
+                notes: l.notes
+            })),
             })
             
     } catch (error) {
@@ -393,6 +402,7 @@ type LineResult = {
     productName: string;
     requestedQty: number;
     grantedQty: number;
+    qtyOnHandAtRequest?: number;
     outcome: "GRANTED" | "ADJUSTED" | "UNAVAILABLE";
     unit?: string | null;
     department?: string | null;
@@ -413,39 +423,45 @@ export const fulfillStockRequest = async (req: Request, res: Response) => {
         const fulfilled = await prisma.$transaction(async (tx) => {
             // Fetch request with all related data
             const request = await tx.stockRequest.findUnique({
-              where: { id: requestId },
-              include: {
+            where: { id: requestId },
+            include: {
                 lines: {
-                  select: {
+                select: {
                     id: true,
                     productId: true,
                     requestedQty: true,
-                    grantedQty: true,   // ✅ ensure it is present
-                    product: {
-                      select: {
-                        name: true,
-                        unit: true,
-                        Department: true,
-                        inventory: { select: { id: true, stockQuantity: true } },
-                      },
-                    },
-                  },
+                    grantedQty: true, // ✅ ensure it is present
+                    qtyOnHandAtRequest: true,  
+                        product: {
+                            select: {
+                                name: true,
+                                unit: true,
+                                Department: true,
+                                inventory: { 
+                                    select: { 
+                                        id: true, 
+                                        stockQuantity: true 
+                                    }, 
+                                    orderBy: {createdAt: "asc"} },
+                            }
+                        },
+                    }, 
                 },
-              },
+            },
             });
 
             console.log(
-              "FULFILL lines snapshot:",
-              request?.lines.map(l => ({
-                id: l.id,
-                productId: l.productId,
-                requestedQty: l.requestedQty,
-                grantedQty: l.grantedQty,
-              }))
+                "FULFILL lines snapshot:",
+                request?.lines.map(l => ({
+                    id: l.id,
+                    productId: l.productId,
+                    requestedQty: l.requestedQty,
+                    grantedQty: l.grantedQty,
+                }))
             );
 
             if (!request) {
-                throw new Error("NOT_FOUND");
+                throw new Error("ID NOT_FOUND");
             }
 
             let anyGranted = false;
@@ -520,51 +536,38 @@ async function processStockRequestLine(
     location: string
 ): Promise<LineResult> {
     const requestedQty = line.requestedQty;
-    const desiredGranted = Math.max(
-    0,
-    line.grantedQty ?? requestedQty
-);
+    const desiredGranted = Math.max(0, line.grantedQty ?? requestedQty);
+    
+    // 1. Get lots and calculate total available
+    const inventoryLots = line.product.inventory; 
+    const totalAvailable = inventoryLots?.reduce((sum: number, lot: any) => sum + lot.stockQuantity, 0) ?? 0;
 
-    const inventory = line.product.inventory;
-    const available = inventory?.stockQuantity ?? 0;
-    let finalGranted = Math.min(desiredGranted, available);
+    // 2. Determine final amount to give (can't give more than we have)
+    let remainingToFulfill = Math.min(desiredGranted, totalAvailable);
+    const finalGranted = remainingToFulfill;
 
-    // If no stock available, mark as unavailable
+    // 3. Handle zero stock case
     if (finalGranted <= 0) {
         await updateLineAsUnavailable(tx, line.id);
         return createLineResult(line, requestedQty, 0, "UNAVAILABLE");
     }
 
-    // Attempt to decrement stock with race condition handling
-    const decrementSuccess = await attemptStockDecrement(
-        tx,
-        line.productId,
-        finalGranted
-    );
+    // 4. THE CORE LOGIC: Loop through lots and decrement
+    for (const lot of inventoryLots) {
+        if (remainingToFulfill <= 0) break;
 
-    if (!decrementSuccess) {
-        // Retry with current stock level
-        const retryResult = await retryStockDecrement(
-            tx,
-            line.productId,
-            desiredGranted
-        );
+        const takeFromThisLot = Math.min(lot.stockQuantity, remainingToFulfill);
 
-        if (!retryResult.success) {
-            await updateLineAsUnavailable(tx, line.id);
-            return createLineResult(line, requestedQty, 0, "UNAVAILABLE");
+        if (takeFromThisLot > 0) {
+            await tx.inventory.update({
+                where: { id: lot.id }, // Target the specific lot
+                data: { stockQuantity: { decrement: takeFromThisLot } }
+            });
+            remainingToFulfill -= takeFromThisLot;
         }
-
-        finalGranted = retryResult.grantedQty;
     }
 
-    // Update product stock quantity
-    await tx.products.update({
-        where: { productId: line.productId },
-        data: { stockQuantity: { decrement: finalGranted } },
-    });
-
-    // Create ledger entry
+    // 5. Create Ledger Entry (One entry for the total granted)
     await tx.stockLedger.create({
         data: {
             productId: line.productId,
@@ -576,16 +579,11 @@ async function processStockRequestLine(
         },
     });
 
-    // Update line with final granted quantity
-    const outcome: "GRANTED" | "ADJUSTED" = 
-        finalGranted === requestedQty ? "GRANTED" : "ADJUSTED";
-
+    // 6. Update Request Line
+    const outcome = finalGranted === requestedQty ? "GRANTED" : "ADJUSTED";
     await tx.stockRequestLine.update({
         where: { id: line.id },
-        data: { 
-            grantedQty: finalGranted, 
-            outcome: outcome as any 
-        },
+        data: { grantedQty: finalGranted, outcome: outcome as any },
     });
 
     return createLineResult(line, requestedQty, finalGranted, outcome);
@@ -653,7 +651,7 @@ function createLineResult(
     line: any,
     requestedQty: number,
     grantedQty: number,
-    outcome: "GRANTED" | "ADJUSTED" | "UNAVAILABLE"
+    outcome: "GRANTED" | "ADJUSTED" | "UNAVAILABLE",
 ): LineResult {
     return {
         productName: line.product.name,
@@ -662,6 +660,7 @@ function createLineResult(
         outcome,
         unit: line.product.unit ?? null,
         department: line.product.Department ?? null,
+        qtyOnHandAtRequest: line.qtyOnHandAtRequest ?? 0,
     };
 }
 
@@ -749,3 +748,14 @@ async function sendFulfillmentEmail(fulfilled: any): Promise<void> {
     }
 }
 
+
+
+
+// product: {
+//                     select: {
+//                         name: true,
+//                         unit: true,
+//                         Department: true,
+//                         inventory: { select: { id: true, stockQuantity: true } },
+//                     },
+//                     },

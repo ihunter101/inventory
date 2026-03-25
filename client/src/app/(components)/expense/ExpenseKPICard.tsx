@@ -7,6 +7,7 @@ type Props = {
   expenses: Expense[];
 };
 
+
 const formatCurrency = (amount: number) =>
   `$${amount.toLocaleString(undefined, { minimumFractionDigits: 0 })}`;
 

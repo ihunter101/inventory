@@ -7,6 +7,7 @@ import { mapPurchaseOrderDataToPDF } from '../lib/PurchaseOrderToPDFMapper';
 import  { getGoodsReceiptDetails } from "../services/GoodsReceiptService";
 import { mapGoodsReceiptDataToPDF } from "../lib/GoodsReceiptPDFMapper";
 import { generateGoodsReceiptPDFBuffer } from "../services/grnPdfServices";
+import  { prisma } from '../lib/prisma';
 
 // Assuming this is the data structure received from the frontend
 interface ResendEmailBody {
@@ -67,6 +68,13 @@ export const resendPurchaseOrderEmail = async (req: Request<{}, {}, ResendEmailB
             return res.status(400).json({ error: error.message });
         }
 
+        await prisma.$transaction( async (tx) => {
+            await tx.purchaseOrder.update({
+                where: { id: poId },
+                data: { status: "SENT" }
+            })
+        })
+
         return res.status(200).json({ data, message: "Purchase Order email sent successfully." });
 
     } catch (error) {
@@ -126,6 +134,20 @@ export const sednDocumentEmail = async (req: Request, res: Response) => {
                 attachments: [{ filename: attachmentFilename, content: attachmentBuffer }]
             })
             if (error) return res.status(400).json({ message: error.message})
+
+            if (docType === "purchase-order") {
+            await prisma.$transaction(async (tx) => {
+                await tx.purchaseOrder.update({
+                where: { id: docId },
+                data: {
+                    status: "SENT",
+                },
+                });
+
+                // optional: audit log here
+                // await tx.auditLog.create(...)
+            });
+            }
 
             return res.status(200).json({ data, message: "Email sent succesfully."})
     } catch (e: any) {

@@ -71,7 +71,8 @@ export type StockSheetLine = {
     category?: string | null;
     department?: string | null;
     imageUrl?: string | null;
-    requestedQty: number
+    requestedQty: number;
+    qtyOnHandAtRequest: number;
 }
 
 //------------------------
@@ -110,7 +111,9 @@ const stockSheetSlice = createSlice({
     name: "StockSheet",
     initialState,
     reducers: {
-        addLine: (state, action: PayloadAction<Omit<StockSheetLine, "requestedQty"> & {requestedQty?: number}>) => {
+        addLine: (state, action: PayloadAction<Omit<
+            StockSheetLine, "requestedQty" | "qtyOnHandAtRequest"> & 
+            {requestedQty?: number; qtyOnHandAtRequest?: number;}>) => {
             const {productId} = action.payload;
 
             const existing = state.lines.find((l) => l.productId === productId);
@@ -128,6 +131,7 @@ const stockSheetSlice = createSlice({
                 department: action.payload.department ?? null,
                 imageUrl: action.payload.imageUrl ?? null,
                 requestedQty: clamQty(action.payload.requestedQty ?? 1),
+                qtyOnHandAtRequest: action.payload.qtyOnHandAtRequest ?? 0,
             })
         },
 
@@ -140,7 +144,11 @@ const stockSheetSlice = createSlice({
             if (!line) return
             line.requestedQty = clamQty(action.payload.requestedQty)
         },
-
+        setQtyOnHandAtRequest: (state, action: PayloadAction<{ productId: string; qtyOnHandAtRequest: number }>) => {
+            const line = state.lines.find((line) => line.productId === action.payload.productId);
+            if (!line) return;
+            line.qtyOnHandAtRequest = Math.max(0, Math.floor(action.payload.qtyOnHandAtRequest));
+            },
         increment: (state, action: PayloadAction<{productId: string}>) => {
             const line = state.lines.find((line) => line.productId === action.payload.productId);
             if (!line) return;
@@ -169,6 +177,7 @@ export const {
     addLine,
     removeLine,
     setQuantity,
+    setQtyOnHandAtRequest,
     increment,
     decrement,
     clear,
