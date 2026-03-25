@@ -154,6 +154,7 @@ export function GoodsReceiptAction({
         unit: ln.unit,
         receivedQty: Number(ln.receivedQty ?? 0),
         unitPrice: Number(ln.unitPrice ?? 0),
+        lotNumber: ln.lotNumber ?? null,
       })),
     }).unwrap();
 
