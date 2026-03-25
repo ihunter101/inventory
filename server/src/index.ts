@@ -20,13 +20,8 @@ dotenv.config(envPath ? { path: envPath } : undefined);
 console.log("[BOOT] envPath =", envPath ?? "(none)");
 console.log("[BOOT] PORT =", process.env.PORT || 8000);
 
-// Environment validation (single check)
-if (!process.env.CLERK_PUBLISHABLE_KEY || !process.env.CLERK_SECRET_KEY) {
-  console.error("[Clerk] Missing keys. Check server/.env is being loaded.");
-  console.error("  CLERK_PUBLISHABLE_KEY:", !!process.env.CLERK_PUBLISHABLE_KEY);
-  console.error("  CLERK_SECRET_KEY:", !!process.env.CLERK_SECRET_KEY);
-  process.exit(1);
-}
+
+
 
 if (!process.env.DATABASE_URL) {
   console.error("[DB] DATABASE_URL missing");
@@ -79,9 +74,9 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(
   cors({
-    origin: ["http://localhost:3000"],
-    credentials: true, // allow Clerk cookie to flow
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    origin: [process.env.CLIENT_URL || "http://localhost:3000"],
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
