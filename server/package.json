@@ -2,6 +2,17 @@
   "name": "server",
   "version": "1.0.0",
   "main": "index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./userRoleUtils": {
+      "types": "./dist/userRoleUtils.d.ts",
+      "default": "./dist/userRoleUtils.js"
+    }
+  },
   "scripts": {
   "build": "rimraf dist && prisma generate && tsc",
   "start": "prisma migrate deploy && node dist/index.js",
