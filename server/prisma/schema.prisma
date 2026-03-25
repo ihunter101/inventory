@@ -102,7 +102,6 @@ model Products {
   updatedAt    DateTime              @default(now()) @updatedAt
 
   stockRequestLines StockRequestLine[]
-  invoiceItems      SupplierInvoiceItem[]
 
   @@map("Products")
 }
@@ -126,17 +125,11 @@ model Inventory {
   lastCountedAt DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  product       Products @relation(fields: [productId], references: [productId])
-  supplierId    String?
-  supplier      Supplier? @relation(fields: [supplierId], references: [supplierId])
 
   lotNumber  String
   expiryDate DateTime?
 
   stockAllocation StockLedgerAllocation[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
   @@index([supplierId])
   @@index([productId])
@@ -423,9 +416,6 @@ model GoodsReceipt {
   lines     GoodsReceiptItem[]
   matches   ThreeWayMatch?
 
-  lines   GoodsReceiptItem[]
-  matches ThreeWayMatch[]
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt() @default(now())
   // this enforces 1 invoice -> max 1 GRN
@@ -635,81 +625,10 @@ model InvoicePayment {
 
   @@index([poId])
   @@index([paidAt])
+
 }
 
-enum Role {
-  admin
-  inventoryClerk
-  labStaff
-  orderAgent
-  viewer
-}
 
-enum Location {
-  Tapion
-  blueCoral
-  manoelStreet
-  sunnyAcres
-  emCare
-  RodneyBay
-  memberCare
-  vieuxFort
-  soufriere
-  other
-}
-
-enum Department {
-  Administration
-  SpecimenCollection
-  heamatology
-  Chemistry
-  Offlines
-  Cytology
-  Bacteriology
-  SpecialChemistry
-}
-
-enum POStatus {
-  DRAFT
-  APPROVED
-  SENT
-  PARTIALLY_RECEIVED
-  RECEIVED
-  CLOSED
-}
-
-enum GRNStatus {
-  DRAFT
-  POSTED
-}
-
-enum InvoiceStatus {
-  PENDING
-  PAID
-  OVERDUE
-  PARTIALLY_PAID
-}
-
-enum SourceType {
-  GRN
-  ADJUSTMENT
-  STOCKTAKE
-  CORRECTION
-}
-
-enum StockRequestStatus {
-  SUBMITTED
-  FULFILLED
-  CANCELLED
-  IN_REVIEW
-}
-
-enum StockLineOutcome {
-  PENDING
-  GRANTED
-  ADJUSTED
-  UNAVAILABLE
-}
 
 enum MatchStatus {
   DRAFT
