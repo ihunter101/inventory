@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "build": "cd ../shared && npm install && npm run build && cd ../client && next build"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.36.3",
