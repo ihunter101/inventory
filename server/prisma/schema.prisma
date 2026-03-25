@@ -288,15 +288,15 @@ model Supplier {
 
 model DraftProduct {
   id        String   @id @default(cuid())
-  name      String   @unique 
+  name      String   @unique
   unit      String   @default("")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   poItems      PurchaseOrderItem[]
   invoiceItems SupplierInvoiceItem[]
+  grnItems     GoodsReceiptItem[]
 }
-
 model PurchaseOrder {
   id         String              @id @default(cuid())
   poNumber   String              @unique
@@ -408,7 +408,7 @@ model GoodsReceipt {
   id        String             @id @default(cuid())
   grnNumber String             @unique
   poId      String?
-  invoiceId String?            @unique
+  invoiceId String?            
   date      DateTime           @default(now())
   status    GRNStatus          @default(DRAFT)
   invoice   SupplierInvoice?   @relation(fields: [invoiceId], references: [id])
@@ -472,6 +472,8 @@ model StockLedger {
   qtyChange  Int
   memo       String?
   createdAt  DateTime @default(now())
+
+  product Products @relation(fields: [productId], references: [productId])
 
   userId String?
   user   Users?  @relation(fields: [userId], references: [id])
