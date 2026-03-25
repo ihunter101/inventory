@@ -9,7 +9,7 @@ import {
   CircularProgress,
 } from "@mui/material";
 import type { Status } from "../../utils/stock";
-import type { Category } from "./InventoryTypes";
+import type { Category } from "@/app/(components)/Products/UpdateProductDialog"
 
 type Props = {
   status: "all" | Status;

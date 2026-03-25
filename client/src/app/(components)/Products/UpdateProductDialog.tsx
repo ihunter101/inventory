@@ -33,6 +33,8 @@ const DEPARTMENT_OPTIONS = [
   { value: "SpecialChemistry", label: "Special Chemistry" },
 ] as const;
 
+export type Category = typeof CATEGORY_OPTIONS[number];
+
 type Props = {
   isOpen: boolean;
   onClose: () => void;
