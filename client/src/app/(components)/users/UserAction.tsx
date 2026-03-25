@@ -30,7 +30,7 @@ import {
   Shield,
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { Role, ROLE_LABELS, getAvailableRoles, canModifyUserRole } from "@shared/dist/userRolesUtils";
+import { Role, ROLE_LABELS, getAvailableRoles, canModifyUserRole } from "@lab/shared/userRoleUtils"
 
 type User = {
   id: string;
