@@ -18,13 +18,13 @@ import {
   useUpdateUserRoleMutation 
 } from "@/app/state/api";
 import { useUser } from "@clerk/nextjs";
-import { Role } from "@lab/shared"
+import { Role } from "@lab/shared/userRoleUtils"
 import { UserActions } from "@/app/(components)/users/UserAction";
 import { toast } from "sonner";
 import { EditUserDialog, getLocationLabel } from "@/app/(components)/users/EditUserDialog";
 import { RouteGuard } from "@/app/(components)/auth/RouteGaurd";
 import { Can } from "@/app/(components)/auth/Can";
-import { PERMS } from "@lab/shared/userRoleUtils"
+import { PERMS } from "@lab/shared";
 import { useAuth } from "@/app/hooks/useAuth";
 
 export default function UsersPage() {
