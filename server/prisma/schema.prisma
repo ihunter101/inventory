@@ -195,12 +195,13 @@ model Purchases {
   product    Products @relation(fields: [productId], references: [productId])
 }
 
-model Expenses {
+model Expenses { //TODO: might add date...check expense controller for notes
   expenseId   String   @id @default(uuid())
   category    String
   amount      Float
   description String?
   status      ExpenseStatus  @default(PENDING)
+  //add group TODO and check report contoller 
 
   notes      String? 
   

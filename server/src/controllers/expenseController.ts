@@ -23,8 +23,8 @@ export const getExpenses = async (req: Request, res: Response) => {
   try {
     //we query by date the expense was created
     const expenses = await prisma.expenses.findMany({
-      where: { date: { gte: startBoundary, lte: endBoundary } },
-      orderBy: { date: "desc" }
+      where: { createdAt: { gte: startBoundary, lte: endBoundary } },
+      orderBy: { createdAt: "desc" }
     });
     res.json(expenses);
   } catch (error) {
@@ -41,7 +41,7 @@ export const createExpense = async (req: Request, res: Response) => {
       data: {
         category,
         amount: parseFloat(amount),
-        date: new Date(date),
+        //date: new Date(date),
         description,
         status,
         group,

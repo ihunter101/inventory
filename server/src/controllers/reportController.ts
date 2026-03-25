@@ -418,7 +418,7 @@ export const QuarterlyReport = async (quarter: number, year: number) => {
       // =========================================================
       const paidExpenses = await tx.expenses.findMany({
         where: {
-          date: {
+          createdAt: {
             gte: start,
             lt: endExclusive,
           },
@@ -427,7 +427,7 @@ export const QuarterlyReport = async (quarter: number, year: number) => {
         select: {
           category: true,
           amount: true,
-          group: true,
+          //group: true, TOT WHEN GROUP IS ADDED UNCOMMENT
           description: true,
         },
       });
