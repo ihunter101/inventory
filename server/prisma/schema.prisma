@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "debian-openssl-1.1.x"]
@@ -37,12 +31,11 @@ model Users { //make id @id and not unique
 model Sessions {
   id        String   @default(cuid())
   userId    String   @unique
-  user      Users    @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
-
   ipAddress String?
   userAgent String
   sessionId String?
+  user      Users    @relation(fields: [userId], references: [id])
 
   @@index([userId, createdAt])
 }
@@ -109,6 +102,7 @@ model Products {
   updatedAt    DateTime              @default(now()) @updatedAt
 
   stockRequestLines StockRequestLine[]
+  invoiceItems      SupplierInvoiceItem[]
 
   @@map("Products")
 }
@@ -130,6 +124,11 @@ model Inventory {
   minQuantity   Int @default(0)
   reorderPoint  Int @default(0)
   lastCountedAt DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  product       Products @relation(fields: [productId], references: [productId])
+  supplierId    String?
+  supplier      Supplier? @relation(fields: [supplierId], references: [supplierId])
 
   lotNumber  String
   expiryDate DateTime?
@@ -146,40 +145,33 @@ model Inventory {
 }
 
 model Sale {
-  id         Int      @id @default(autoincrement())
-  locationId Int
-  salesDate  DateTime
+  id              Int      @id @default(autoincrement())
+  locationId      Int
+  salesDate       DateTime
+  hundredsCount   Int      @default(0)
+  fiftiesCount    Int      @default(0)
+  twentiesCount   Int      @default(0)
+  tensCount       Int      @default(0)
+  fivesCount      Int      @default(0)
+  cashTotal       Decimal  @db.Decimal(10, 2)
+  grandTotal      Decimal  @db.Decimal(10, 2)
+  creditCardTotal Decimal  @default(0) @db.Decimal(10, 2)
+  debitCardTotal  Decimal  @default(0) @db.Decimal(10, 2)
+  chequeTotal     Decimal  @default(0) @db.Decimal(10, 2)
+  notes           String?
+  enteredBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  hundredsCount Int @default(0)
-  fiftiesCount  Int @default(0)
-  twentiesCount Int @default(0)
-  tensCount     Int @default(0)
-  fivesCount    Int @default(0)
-
-  cashTotal  Decimal @db.Decimal(10, 2)
-  grandTotal Decimal @db.Decimal(10, 2)
-
-  creditCardTotal Decimal @default(0) @db.Decimal(10, 2)
-  debitCardTotal  Decimal @default(0) @db.Decimal(10, 2)
-  chequeTotal     Decimal @default(0) @db.Decimal(10, 2)
-
-  notes     String?
-  enteredBy String
-  //VerifiedBy String shoul be a reference to a user
-  //verifiedAt DateTime
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([locationId, salesDate]) //one Entry Per Day
-  @@index([salesDate]) //@@index(locationId, createdAt)
+  @@unique([locationId, salesDate])
+  @@index([salesDate])
   @@map("dailySales")
 }
 
 model SalesAuditLog {
   id         Int      @id @default(autoincrement())
   salesId    Int
-  action     String   @db.VarChar(50) //Created, updated, deleted, verified
+  action     String   @db.VarChar(50)
   columnName String
   oldValue   String
   changedBy  String
@@ -191,12 +183,12 @@ model SalesAuditLog {
 }
 
 model Sales {
-  saleId      String   @id
   productId   String
   timestamp   DateTime
   quantity    Int
   unitPrice   Float
   totalAmount Float
+  saleId      String   @id
   product     Products @relation(fields: [productId], references: [productId])
 }
 
@@ -214,8 +206,6 @@ model Expenses {
   expenseId   String   @id @default(uuid())
   category    String
   amount      Float
-  date        DateTime @default(now())
-  group       String?
   description String?
   status      ExpenseStatus  @default(PENDING)
 
@@ -293,12 +283,11 @@ enum InvoiceStatus {
 }
 
 model Supplier {
-  supplierId String @id @default(cuid())
-  name       String
-  email      String @unique
-  phone      String
-  address    String
-
+  supplierId     String            @id @default(cuid())
+  name           String
+  email          String            @unique
+  phone          String
+  address        String
   purchaseOrders PurchaseOrder[]
   invoices       SupplierInvoice[]
   inventory      Inventory[]
@@ -313,12 +302,11 @@ model DraftProduct {
 
   poItems      PurchaseOrderItem[]
   invoiceItems SupplierInvoiceItem[]
-  grnItems     GoodsReceiptItem[]
 }
 
 model PurchaseOrder {
-  id         String   @id @default(cuid())
-  poNumber   String   @unique
+  id         String              @id @default(cuid())
+  poNumber   String              @unique
   supplierId String
   supplier   Supplier @relation(fields: [supplierId], references: [supplierId])
 
@@ -348,25 +336,20 @@ model PurchaseOrder {
 }
 
 model PurchaseOrderItem {
-  id   String        @id @default(cuid())
-  poId String
-  po   PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
-
-  productId String
-  product   DraftProduct @relation(fields: [productId], references: [id])
-
-  // becomes set the first time you post a GRN line for this draft product
+  id                String                @id @default(cuid())
+  poId              String
+  productId         String
+  description       String?
+  unit              String?
+  quantity          Int
+  unitPrice         Decimal               @db.Decimal(12, 2)
+  lineTotal         Decimal               @db.Decimal(14, 2)
   promotedProductId String?
-  promotedProduct   Products? @relation(fields: [promotedProductId], references: [productId])
-
-  description String?
-  unit        String?
-  quantity    Int
-  unitPrice   Decimal @db.Decimal(12, 2)
-  lineTotal   Decimal @db.Decimal(14, 2)
-
-  invoiceLines SupplierInvoiceItem[]
-  grnLines     GoodsReceiptItem[]
+  grnLines          GoodsReceiptItem[]
+  po                PurchaseOrder         @relation(fields: [poId], references: [id], onDelete: Cascade)
+  product           DraftProduct          @relation(fields: [productId], references: [id])
+  promotedProduct   Products?             @relation(fields: [promotedProductId], references: [productId])
+  invoiceLines      SupplierInvoiceItem[]
 
   @@index([poId])
   @@index([productId])
@@ -406,34 +389,21 @@ model SupplierInvoice {
 }
 
 model SupplierInvoiceItem {
-  id        String          @id @default(cuid())
-  invoiceId String
-  invoice   SupplierInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-
-  // keep as-is
+  id             String             @id @default(cuid())
+  invoiceId      String
+  productId      String?
+  description    String?
+  uom            String?
+  quantity       Int
+  unitPrice      Decimal            @db.Decimal(12, 2)
+  lineTotal      Decimal            @db.Decimal(14, 2)
   draftProductId String
-  draftProduct   DraftProduct @relation(fields: [draftProductId], references: [id])
-
-  // OPTIONAL FOR MIGRATION, SHOULD BE REQUIRED LATER FOR YOUR FLOW
-  poItemId String?
-  poItem   PurchaseOrderItem? @relation(fields: [poItemId], references: [id])
-
-  // optional: if you already promoted, you can point here too
-  productId String?
-  product   Products? @relation(fields: [productId], references: [productId])
-
-  description String?
-  uom         String?
-  quantity    Int
-  unitPrice   Decimal @db.Decimal(12, 2)
-  lineTotal   Decimal @db.Decimal(14, 2)
-
-  // back-link so GRN lines can map to invoice lines
-  grnLines GoodsReceiptItem[]
-
-  // (Optional but recommended) prevent duplicate PO-line entries per invoice
-  // Leave OFF during migration if existing data violates it.
-  // @@unique([invoiceId, poItemId])
+  poItemId       String?
+  grnLines       GoodsReceiptItem[]
+  draftProduct   DraftProduct       @relation(fields: [draftProductId], references: [id])
+  invoice        SupplierInvoice    @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  poItem         PurchaseOrderItem? @relation(fields: [poItemId], references: [id])
+  product        Products?          @relation(fields: [productId], references: [productId])
 
   @@index([invoiceId])
   @@index([poItemId])
@@ -442,19 +412,16 @@ model SupplierInvoiceItem {
 }
 
 model GoodsReceipt {
-  id        String @id @default(cuid())
-  grnNumber String @unique
-
-  // OPTIONAL FOR MIGRATION, SHOULD BE REQUIRED LATER
-  poId String?
-  po   PurchaseOrder? @relation(fields: [poId], references: [id])
-
-  // invoice comes with shipment, GRN after count (your spec)
-  invoiceId String? //make required later
-  invoice   SupplierInvoice? @relation(fields: [invoiceId], references: [id]) //make required later 
-
-  date   DateTime  @default(now())
-  status GRNStatus @default(DRAFT)
+  id        String             @id @default(cuid())
+  grnNumber String             @unique
+  poId      String?
+  invoiceId String?            @unique
+  date      DateTime           @default(now())
+  status    GRNStatus          @default(DRAFT)
+  invoice   SupplierInvoice?   @relation(fields: [invoiceId], references: [id])
+  po        PurchaseOrder?     @relation(fields: [poId], references: [id])
+  lines     GoodsReceiptItem[]
+  matches   ThreeWayMatch?
 
   lines   GoodsReceiptItem[]
   matches ThreeWayMatch[]
@@ -502,7 +469,7 @@ model GoodsReceiptItem {
 }
 
 model GrnCounter {
-  dateKey   String   @id // "20260126"
+  dateKey   String   @id
   next      Int      @default(1)
   updatedAt DateTime @updatedAt
 }
@@ -510,8 +477,7 @@ model GrnCounter {
 model StockLedger {
   id         String   @id @default(cuid())
   productId  String
-  product    Products @relation(fields: [productId], references: [productId])
-  sourceType String //"GRN" "ADJUSTMENT"
+  sourceType String
   SourceId   String
   qtyChange  Int
   memo       String?
@@ -573,30 +539,20 @@ enum StockLineOutcome {
 }
 
 model StockRequest {
-  id String @id @default(cuid())
-
-  status StockRequestStatus @default(SUBMITTED)
-
-  // snapshot fields (reliable even if user changes later)
+  id                  String             @id @default(cuid())
+  status              StockRequestStatus @default(SUBMITTED)
   requestedByName     String
   requestedByEmail    String
   requestedByLocation Location
-
-  // optional relation (matches how your StockLedger does it)
-  requestedByUserId String?
-  requestedByUser   Users?  @relation("StockRequestRequestedBy", fields: [requestedByUserId], references: [id])
-
-  // review/fulfill metadata
-  reviewedByUserId String?
-  reviewedByUser   Users?  @relation("StockRequestReviewedBy", fields: [reviewedByUserId], references: [id])
-
-  expectedDeliveryAt DateTime?
-  messageToRequester String?
-
-  submittedAt DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  lines StockRequestLine[]
+  requestedByUserId   String?
+  reviewedByUserId    String?
+  expectedDeliveryAt  DateTime?
+  messageToRequester  String?
+  submittedAt         DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  requestedByUser     Users?             @relation("StockRequestRequestedBy", fields: [requestedByUserId], references: [id])
+  reviewedByUser      Users?             @relation("StockRequestReviewedBy", fields: [reviewedByUserId], references: [id])
+  lines               StockRequestLine[]
 
   @@index([status])
   @@index([requestedByLocation])
@@ -604,8 +560,7 @@ model StockRequest {
 }
 
 model StockRequestLine {
-  id String @id @default(cuid())
-
+  id             String           @id @default(cuid())
   stockRequestId String
   stockRequest   StockRequest @relation(fields: [stockRequestId], references: [id], onDelete: Cascade)
 
@@ -625,100 +580,146 @@ model StockRequestLine {
   @@index([productId])
 }
 
-enum MatchStatus {
-  DRAFT
-  READY_TO_PAY
-  //may need to delete payment
-  PAID
-  VOID
-  //APPROVED
-  //DISPUTED
-}
-
 model ThreeWayMatch {
-  id        String @id @default(cuid())
-  poId      String
-  invoiceId String
-  //may need to comment out grnId if one invoice can have multiple grns
-  grnId     String
+  id           String          @id @default(cuid())
+  poId         String
+  invoiceId    String          @unique
+  grnId        String          @unique
+  status       MatchStatus     @default(DRAFT)
+  payableTotal Decimal         @default(0)
+  currency     String?         @default("EXD")
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  lines        MatchLine[]
+  grn          GoodsReceipt    @relation(fields: [grnId], references: [id])
+  invoice      SupplierInvoice @relation(fields: [invoiceId], references: [id])
+  po           PurchaseOrder   @relation(fields: [poId], references: [id])
 
-  status MatchStatus @default(DRAFT)
-
-  // totals snapshot
-  payableTotal Decimal @default(0)
-  currency     String? @default("EXD")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  lines MatchLine[]
-
-  po      PurchaseOrder   @relation(fields: [poId], references: [id])
-  invoice SupplierInvoice @relation(fields: [invoiceId], references: [id])
-  grn     GoodsReceipt    @relation(fields: [grnId], references: [id])
-
-  @@unique([poId, invoiceId, grnId]) // prevent duplicates
-  @@unique([invoiceId])
-  @@unique([grnId]) // we leave unique for now but later we will change it if one invoice may come in separate ships to be a bit lineient on the system 
+  @@unique([poId, invoiceId, grnId])
 }
 
 model MatchLine {
-  id      String @id @default(cuid())
-  matchId String
-
+  id            String        @id @default(cuid())
+  matchId       String
   poItemId      String?
   invoiceItemId String?
   grnLineId     String?
-
-  // snapshot identity
-  name String?
-  unit String?
-
-  // snapshot values
-  poQty        Int      @default(0)
-  grnQty       Int      @default(0)
-  invUnitPrice Decimal?
-
-  payableQty    Int     @default(0)
-  payableAmount Decimal @default(0)
-
-  notes String?
-
-  createdAt DateTime @default(now())
-
-  match ThreeWayMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  name          String?
+  unit          String?
+  poQty         Int           @default(0)
+  grnQty        Int           @default(0)
+  invUnitPrice  Decimal?
+  payableQty    Int           @default(0)
+  payableAmount Decimal       @default(0)
+  notes         String?
+  createdAt     DateTime      @default(now())
+  match         ThreeWayMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
 
   @@index([matchId])
 }
 
 model InvoicePayment {
-  id String @id @default(cuid())
-
+  id        String          @id @default(cuid())
   invoiceId String
+  poId      String?
+  amount    Decimal         @db.Decimal(14, 2)
+  currency  String?         @default("XCD")
+  paidAt    DateTime        @default(now())
+  method    String?
+  reference String?
+  status    PaymentStatus   @default(POSTED)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
   invoice   SupplierInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  po        PurchaseOrder?  @relation(fields: [poId], references: [id])
 
-  poId String?
-  po   PurchaseOrder? @relation(fields: [poId], references: [id])
-
-  amount   Decimal @db.Decimal(14, 2)
-  currency String? @default("XCD")
-
-  paidAt DateTime @default(now())
-
-  method    String? //cash, cheque, wire..
-  reference String? //tax # or receipt #
-  status    PaymentStatus @default(POSTED)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt()
-
-  //@@unique([invoiceId]) //commented out to support parital invoice payment (multiple rows)
   @@index([poId])
   @@index([paidAt])
 }
 
-enum PaymentStatus {
+enum Role {
+  admin
+  inventoryClerk
+  labStaff
+  orderAgent
+  viewer
+}
+
+enum Location {
+  Tapion
+  blueCoral
+  manoelStreet
+  sunnyAcres
+  emCare
+  RodneyBay
+  memberCare
+  vieuxFort
+  soufriere
+  other
+}
+
+enum Department {
+  Administration
+  SpecimenCollection
+  heamatology
+  Chemistry
+  Offlines
+  Cytology
+  Bacteriology
+  SpecialChemistry
+}
+
+enum POStatus {
+  DRAFT
+  APPROVED
+  SENT
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CLOSED
+}
+
+enum GRNStatus {
+  DRAFT
+  POSTED
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
   PARTIALLY_PAID
+}
+
+enum SourceType {
+  GRN
+  ADJUSTMENT
+  STOCKTAKE
+  CORRECTION
+}
+
+enum StockRequestStatus {
+  SUBMITTED
+  FULFILLED
+  CANCELLED
+  IN_REVIEW
+}
+
+enum StockLineOutcome {
+  PENDING
+  GRANTED
+  ADJUSTED
+  UNAVAILABLE
+}
+
+enum MatchStatus {
+  DRAFT
+  READY_TO_PAY
+  PAID
+  VOID
+}
+
+enum PaymentStatus {
   POSTED
   VOID
+  PARTIALLY_PAID
 }
