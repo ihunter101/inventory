@@ -4,58 +4,78 @@ import { z } from "zod";
 
 //const prisma = new PrismaClient();
 
+export async function getInventory(req: Request, res: Response){
+  try {
+    const products = await prisma.products.findMany({
+      include: { inventory: true },
+      orderBy: { name: "asc"},
+    })
 
-export async function getInventory( req: Request, res: Response) {
-    try {
-        const products = await prisma.products.findMany({
-            include:{ inventory: true}, 
-            orderBy: {
-                name: "asc"
-            },
-        });
-
-        const rows = products.map((p) => ({
-            id: p.inventory?.id ?? `missing-${p.productId}`,
-            productId: p.productId,
-            expiryDate: p.expiryDate,
-            category: p.category,
-            name: p.name,
-            stockQuantity: p.inventory?.stockQuantity ?? p.stockQuantity ?? 0,
-            minQuantity: p.minQuantity ?? p.minQuantity ?? 0,
-            reorderPoint: p.inventory?.reorderPoint ?? p.reorderPoint ?? 0,
-            lastCounted: p.inventory?.lastCountedAt
-                ? p.inventory.lastCountedAt.toISOString()
-                : "",
-        }))
-        res.json(rows)
-    } catch (error) {
-        res.status(500).json({ message: "Error getting inventory"})
-    }
+    const rows = products.flatMap((p) => {
+      //handle a case where there is no inventory row
+      if (p.inventory.length === 0) {
+        return [{
+          id: `missing-${p.productId}`,
+          productId: p.productId,
+          name: p.name,
+          category: p.category,
+          minQuantity: p.minQuantity ?? 0,
+          expiryDate: p.expiryDate,
+          reorderPoint: p.reorderPoint ?? 0,
+          stockQuantity: p.stockQuantity ?? 0,
+          lastCounted: "",
+          lotNumber: "N/A",
+          supplierId: "N/A",
+        }]
+      }
+      //map through inventory record to its own row 
+      return p.inventory.map((inv) => ({
+        id: inv.id,
+        productId: p.productId,
+        name: p.name,
+        category: p.category,
+        minQuantity: inv.minQuantity,
+        expiryDate: p.expiryDate,
+        reorderPoint: inv.reorderPoint,
+        stockQuantity: inv.stockQuantity,
+        lastCounted: inv.lastCountedAt ? inv.lastCountedAt.toISOString() : "",
+        lotNumber: inv.lotNumber ?? "N/A",
+        supplierId: inv.supplierId ?? "N/A"
+      }))
+    })
+    return res.json(rows)
+  } catch (error) {
+    console.error(error)
+    return res.status(500).json({ message: "Error getting inventory"})
+  }
 }
 
 export async function adjustInventory(req:Request, res: Response) {
     try {
-        const { productId, delta: rawDelta, reason } = req.body;
+        const { inventoryId, delta: rawDelta, reason } = req.body;
         const delta = Number(rawDelta)
 
-        if(!productId || !Number.isFinite(delta)) {
+        if(!inventoryId || !Number.isFinite(delta)) {
             return res.status(400).json({ message: "productId and Delta are required"})
         }
 
         const existing = await prisma.inventory.findUnique({
-            where: {productId}
+            where: { id: inventoryId },
+            //include: { product: true }
         })
 
         if (!existing) {
       // there is **no inventory** row for this productId
         return res.status(404)
-        .json({ message: `Inventory row not found for productId ${productId}` });
+        .json({ message: `Inventory row not found for id ${inventoryId}` });
         }
+
+        const productId = existing.productId
 
         const updatedInventory = await prisma.$transaction( async (tx)=> {
 
             const updatedStock = await tx.inventory.update({
-                where: {productId},
+                where: { id: inventoryId },
                 data: { stockQuantity: { increment: delta }}
             })
 
@@ -89,20 +109,27 @@ export async function adjustInventory(req:Request, res: Response) {
 
 export async function setInventory(req:Request, res:Response) {
     try {
-        const { productId,  stockQuantity, lastCounted } = req.body;
+        const { inventoryId,  stockQuantity, lastCounted } = req.body;
 
-        if (!productId || !Number.isInteger(stockQuantity)) {
+        if (!inventoryId || !Number.isInteger(stockQuantity)) {
             return res.status(400).json({ error: "Product Id and Stock Quantity is required"})
         }
 
-        const current = await prisma.inventory.findUnique({where: { productId}});
+        const current = await prisma.inventory.findUnique({where: { id: inventoryId }});
         if (!current) return res.status(404).json({ error: "Inventory row not found for productId"})
-            const delta = stockQuantity - current.stockQuantity;
+        
+          //calculate the difference for te leddger 
+        const delta = stockQuantity - current.stockQuantity;
+        const productId = current.productId
 
         const finalStockCount = await prisma.$transaction( async (tx) => {
             await tx.inventory.update({
-                where: {productId},
+                where: {id: inventoryId},
                 data: { stockQuantity, lastCountedAt: lastCounted ? new Date(lastCounted) : null}
+            })
+
+            const allInvenotry = await tx.inventory.findMany({
+              where: { productId }
             })
             // update Products
             await tx.products.update({
@@ -207,15 +234,9 @@ export async function updateInventoryMeta(req: Request, res: Response) {
 
       // Update inventory thresholds if provided
       if (minQuantity !== undefined || reorderPoint !== undefined) {
-        await tx.inventory.upsert({
+        await tx.inventory.updateMany({
           where: { productId },
-          create: {
-            productId,
-            minQuantity: minQuantity ?? 0,
-            reorderPoint: reorderPoint ?? 0,
-            stockQuantity: 0,
-          },
-          update: {
+          data: {
             ...(minQuantity !== undefined ? { minQuantity } : {}),
             ...(reorderPoint !== undefined ? { reorderPoint } : {}),
           },

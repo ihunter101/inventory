@@ -97,7 +97,7 @@ function toPurchaseOrderDTO(po: any) {
 }
 
 
-export const listPurchaseOrders = async (req: Request, res: Response) => {
+ export const listPurchaseOrders = async (req: Request, res: Response) => {
   try {
     const { status, q } = req.query as Partial<{ status: string; q: string }>;
     const where: any = {};

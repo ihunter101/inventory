@@ -134,6 +134,7 @@ export interface Inventory {
   minQuantity: number;
   reorderPoint: number;
   lastCounted: string;
+  lotNumber?: string; //change to be mandetory
 }
 
 type UpdateInventoryMetaPayload = {
@@ -141,6 +142,7 @@ type UpdateInventoryMetaPayload = {
   expiryDate?: string | null; // ISO string or null
   minQuantity?: number;
   reorderPoint?: number;
+  lotNumber?: string; //update to be mandetory in production 
 };
 
 export interface NewProduct {
@@ -444,12 +446,14 @@ export interface GoodsReceiptLine {
   productDraftId: string;
   //sku?: string;
   productId?: string;
-  poItemId?: string;
+  poItemId: string;
   name: string;
   unit: string;
   receivedQty: number;
   unitPrice?: number;
-  invoiceItemId?: string;
+  invoiceItemId: string;
+  lotNumber: string;
+  expiryDate?: string; 
 }
 
 export interface GoodsReceiptDTO {
@@ -646,6 +650,113 @@ export type MatchDTO = {
   lines: MatchLineDTO[];
 };
 
+export type QuarterlyReportResponse = {
+  quarterName: string;
+  aiSummary?: string;
+  period: {
+    start: string;
+    endExclusive: string;
+  };
+  sales: {
+    totalRevenue: number;
+    totalCash: number;
+    totalCredit: number;
+    totalDebit: number;
+    totalCheque: number;
+    entryCount: number;
+    paymentMix: {
+      cashPct: number;
+      creditPct: number;
+      debitPct: number;
+      chequePct: number;
+    };
+  };
+  expenses: {
+    totalPaidExpenses: number;
+    byCategory: Array<{
+      category: string;
+      total: number;
+      count: number;
+    }>;
+    concentration: {
+      topCategoryShare: number;
+    };
+  };
+  purchasing: {
+    totalReceivedQty: number;
+    totalReceivedValue: number;
+    topItems: Array<{
+      productId: string;
+      productName: string;
+      department: string | null;
+      totalQty: number;
+      totalValue: number;
+      avgUnitPrice: number;
+    }>;
+    byDepartment: Array<{
+      department: string;
+      totalQty: number;
+      totalValue: number;
+    }>;
+  };
+  payables: {
+    totalInvoiced: number;
+    totalOutstanding: number;
+    totalPaid: number;
+    paymentsByMethod: Array<{
+      method: string;
+      total: number;
+      count: number;
+    }>;
+  };
+  usage: {
+    totalRequestedQty: number;
+    totalGrantedQty: number;
+    totalUnfulfilledQty: number;
+    fillRate: number;
+    topIssuedItems: Array<{
+      productId: string;
+      productName: string;
+      department: string | null;
+      totalRequestedQty: number;
+      totalGrantedQty: number;
+      totalUnfulfilledQty: number;
+      avgQtyOnHandAtRequest: number;
+      estimatedUnitCost: number;
+      estimatedCOGS: number;
+    }>;
+    byLocation: Array<{
+      location: string;
+      totalRequestedQty: number;
+      totalGrantedQty: number;
+      totalUnfulfilledQty: number;
+      estimatedCOGS: number;
+    }>;
+  };
+  costing: {
+    method: string;
+    provisionalCOGS: number;
+    estimatedGrossProfit: number;
+    estimatedGrossMargin: number;
+  };
+  derivedMetrics: {
+    averageRevenuePerSale: number;
+    supplierPaymentCoverageRatio: number;
+    estimatedOperatingSurplusAfterExpenses: number;
+    grossOperatingSurplusUsingPurchasesProxy: number;
+    netCashOutflowKnown: number;
+  };
+  summary: {
+    grossOperatingSurplus: number;
+    netCashOutflowKnown: number;
+  };
+  limitations: string[];
+};
+export type QuarterlyReportRequest = {
+  quarter: number;
+  year: number;
+};
+
 export type CreateMatchDTO = {
   poId: string;
   invoiceId: string;
@@ -741,7 +852,7 @@ export const api = createApi({
     "PurchaseOrders", "SupplierInvoices", "GoodsReceipts", 
     "Suppliers", "Inventory", "DraftProducts", "StockSheet",
     "SalesAnalytics", "TodaySale", "Sales", "Matches", "InvoicePayments", 
-    "PoPaymentSummary"
+    "PoPaymentSummary", "QuarterlyReport"
   ],
   endpoints: (build) => ({
     // Dashboard Metrics
@@ -951,7 +1062,7 @@ export const api = createApi({
       invalidatesTags: (_results, _err, id) => [{ type: "Users", id: "LIST"}, { type: "Users", id}]
     }),
     // Expenses
-    getExpenses: build.query<Expense[], { category?: string; from?: string; to?: string } | void>({
+    getExpenses: build.query<Expense[], { category?: string; from: string; end: string }>({
     query: (params) => {
         return {
         url: "/expenses",
@@ -1161,7 +1272,7 @@ deleteGoodsReceipt: build.mutation<void, {id: string}> ({
         body,
     }),
 }),
-  createStockSheet: build.mutation<{id: string, status: string, submittedAt: string}, {lines: Array<{productId: string, requestedQty: number}>}>({
+  createStockSheet: build.mutation<{id: string, status: string, submittedAt: string}, {lines: Array<{productId: string; requestedQty: number; qtyOnHandAtRequest: number}>}>({
     query: (body) => ({
       url: "/stock-requests",
       method: "POST",
@@ -1341,6 +1452,21 @@ getPaymentHistory: build.query<PaymentHistory[], {invoiceId?: string; poId?: str
   }),
   providesTags: [ { type: "InvoicePayments", id: "LIST" }, { type: "SupplierInvoices", id:"LIST" } ],
 }),
+getQuarterlyReport: build.query<QuarterlyReportResponse, void>({
+  query: () => ({
+    url: "/report/quarterly",
+    method: "GET",
+  }),
+  providesTags: [{ type: 'QuarterlyReport', id: "QUARTERLY" }],
+}),
+generateAIQuaterlyReport: build.mutation<QuarterlyReportResponse, QuarterlyReportRequest>({
+  query: (body) => ({
+    url: "ai/quaterly-summary",
+    method: "POST",
+    body,
+  }), 
+  invalidatesTags: ['QuarterlyReport']
+}),
   }),
 });
 
@@ -1437,6 +1563,11 @@ export const {
   useGetMatchByIdQuery,
   //MightDelete the line below 
   useUpdateMatchStatusMutation,
+
+  useGetQuarterlyReportQuery,
+  useGenerateAIQuaterlyReportMutation,
+
 } = api;
+
 
 

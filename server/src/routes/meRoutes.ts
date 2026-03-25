@@ -6,6 +6,6 @@ import { getMe, onboarding } from '../controllers/meController';
 const router = Router();
 
 router.get("/", getMe);
-router.patch("/",onboarding);
+router.patch("/onboard", onboarding);
 
 export default router;

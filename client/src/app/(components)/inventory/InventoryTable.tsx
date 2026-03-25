@@ -82,9 +82,23 @@ export const InventoryTable: React.FC<Props> = ({
         valueGetter: (_v, row) => row.category ?? "other",
       },
       {
+        field: "lot Number",
+        headerName: "Lot Number",
+        description: "A manufacturer or supplier batch identifier used to trace a specific production or receipt batch for quality control, recalls, and expiry tracking.",
+        minWidth: 200,
+        flex: 1,
+        renderCell: (p) => (
+          <Box sx={{ width: "100%", textAlign: "left", pr: 0.5 }}>
+            <Typography sx={{ whiteSpace: "nowrap" }}>
+            {p.row.lotNumber ?? "N/A"}
+          </Typography>
+          </Box>
+        )
+      },
+      {
         field: "stockQuantity",
         headerName: "Quantity",
-        minWidth: 200,
+        minWidth: 110,
         flex: 0.7,
         headerAlign: "center",
         align: "center",
@@ -123,7 +137,7 @@ export const InventoryTable: React.FC<Props> = ({
         description: "shows the date of expiry in MM/DD/YYYY",
         headerAlign: "center",
         align: "center",
-        minWidth: 150,
+        minWidth: 130,
         flex: 0.6,
         renderCell: (p) => {
           const iso = p.row.expiryDate ?? "";

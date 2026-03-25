@@ -102,7 +102,11 @@ export async function requirePerm(perm: Perm) {
   console.log("[requirePerm] userId:", userId);
 console.log("[requirePerm] /me role:", role);
 console.log("[requirePerm] required perm:", perm);
+console.log("this user is onboarded", user.onboardedAt)
 
+if (user?.onboardedAt === null) {
+    redirect("/onboarding"); 
+  }
 
   // Check if user has the required permission
   if (!role || !hasPerm(role, perm)) {

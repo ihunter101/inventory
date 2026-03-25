@@ -37,6 +37,7 @@ type MissingItem = {
     stockQuantity: number;
     minQuantity: number;
     reorderPoint: number;
+    lotNumber: string;
   } | null;
 };
 
@@ -44,6 +45,7 @@ type RowDraft = {
   expiryDate: string; // YYYY-MM-DD (from <input type="date" />) or ""
   minQuantity: number;
   reorderPoint: number;
+  lotNumber: string;
 };
 
 function toNumber(value: string) {
@@ -91,6 +93,7 @@ export function MissingExpiryTableCard() {
             expiryDate: it.expiryDate ? isoToDateInput(it.expiryDate) : "",
             minQuantity: it.inventory?.minQuantity ?? 0,
             reorderPoint: it.inventory?.reorderPoint ?? 0,
+            lotNumber: it.inventory?.lotNumber ?? "",
           };
         }
       }
@@ -102,7 +105,7 @@ export function MissingExpiryTableCard() {
   const setDraft = (productId: string, patch: Partial<RowDraft>) => {
     setDrafts((prev) => ({
       ...prev,
-      [productId]: { ...(prev[productId] ?? { expiryDate: "", minQuantity: 0, reorderPoint: 0 }), ...patch },
+      [productId]: { ...(prev[productId] ?? { expiryDate: "", minQuantity: 0, reorderPoint: 0 , lotNumber: ""}), ...patch },
     }));
   };
 
@@ -128,6 +131,7 @@ export function MissingExpiryTableCard() {
         expiryDate: dateInputToISO(d.expiryDate),
         minQuantity: d.minQuantity,
         reorderPoint: d.reorderPoint,
+        lotNumber: d.lotNumber,
       }).unwrap();
 
       toast.success("Saved");
@@ -141,14 +145,106 @@ export function MissingExpiryTableCard() {
   };
 
   if (isLoading) {
-    return (
-      <Card className="mt-4">
-        <CardHeader>
-          <CardTitle className="text-base">Missing Expiry Dates</CardTitle>
-          <CardDescription>Loading…</CardDescription>
-        </CardHeader>
-      </Card>
-    );
+   return (
+  <Card className="mt-4">
+    <CardHeader>
+      <CardTitle className="text-base">Missing Expiry Dates</CardTitle>
+      <CardDescription>
+        Add expiry date, min quantity, and reorder point for each lot. Save each row.
+      </CardDescription>
+    </CardHeader>
+
+    <CardContent className="overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="min-w-[260px]">Product</TableHead>
+            <TableHead className="min-w-[100px]">Stock</TableHead>
+            <TableHead className="min-w-[180]">Lot Number</TableHead>
+            <TableHead className="min-w-[170px]">Expiry Date</TableHead>
+            <TableHead className="min-w-[100px]">Min Qty</TableHead>
+            <TableHead className="min-w-[100px]">Reorder Point</TableHead>
+            <TableHead className="min-w-[100px] text-right">Action</TableHead>
+          </TableRow>
+        </TableHeader>
+
+        <TableBody>
+          {items.map((it) => {
+            // We use the unique inventory ID (it.id) for tracking the draft
+            const d = drafts[it.productId] ?? {
+              expiryDate: "",
+              minQuantity: 0,
+              reorderPoint: 0,
+              lotNumber:  ""
+            };
+
+            const isRowSaving = !!saving[it.productId];
+
+            return (
+              <TableRow key={it.productId}>
+                <TableCell>
+                  <div className="flex flex-col">
+                    <span className="font-medium">{it.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {it.productId}
+                    </span>
+                  </div>
+                </TableCell>
+
+                <TableCell>{it.inventory?.stockQuantity ?? 0}</TableCell>
+
+                <TableCell>
+                  <Input
+                    type="text"
+                    placeholder="Lot number"
+                    value={d.lotNumber ?? ""}
+                    onChange={(e) => setDraft(it.productId, { lotNumber: e.target.value })}
+                  />
+                </TableCell>
+
+                <TableCell>
+                  <Input
+                    type="date"
+                    value={d.expiryDate}
+                    onChange={(e) => setDraft(it.productId, { expiryDate: e.target.value })}
+                  />
+                </TableCell>
+
+                <TableCell>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={d.minQuantity}
+                    onChange={(e) => setDraft(it.productId, { minQuantity: toNumber(e.target.value) })}
+                  />
+                </TableCell>
+
+                <TableCell>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={d.reorderPoint}
+                    onChange={(e) => setDraft(it.productId, { reorderPoint: toNumber(e.target.value) })}
+                  />
+                </TableCell>
+
+                <TableCell className="text-right">
+                  <Button
+                    onClick={() => saveRow(it)}
+                    disabled={isRowSaving}
+                    size="sm"
+                  >
+                    {isRowSaving ? "Saving..." : "Save"}
+                  </Button>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </CardContent>
+  </Card>
+);
   }
 
   if (isError) {
@@ -179,9 +275,10 @@ export function MissingExpiryTableCard() {
             <TableRow>
               <TableHead className="min-w-[260px]">Product</TableHead>
               <TableHead className="min-w-[140px]">Stock</TableHead>
+              <TableHead className="min-w-180">Lot Number</TableHead>
               <TableHead className="min-w-[170px]">Expiry Date</TableHead>
-              <TableHead className="min-w-[160px]">Min Qty</TableHead>
-              <TableHead className="min-w-[160px]">Reorder Point</TableHead>
+              <TableHead className="min-w-[110px]">Min Qty</TableHead>
+              <TableHead className="min-w-[110px]">Reorder Point</TableHead>
               <TableHead className="min-w-[120px] text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
@@ -209,6 +306,15 @@ export function MissingExpiryTableCard() {
                   </TableCell>
 
                   <TableCell>{stock}</TableCell>
+
+                  <TableCell>
+                    <Input
+                      type="text"
+                      placeholder="Lot number"
+                      value={d.lotNumber ?? ""}
+                      onChange={(e) => setDraft(it.productId, { lotNumber: e.target.value })}
+                    />
+                  </TableCell>
 
                   <TableCell>
                     <Input

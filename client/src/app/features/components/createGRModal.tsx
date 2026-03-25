@@ -47,6 +47,7 @@ export function CreateGRNDialog({
       hasProductDraftId: !!ln.productDraftId,
     })));
     try {
+
       // Validate lines have productDraftId
       const invalidLines = (draft.lines ?? []).filter((ln) => !ln.productDraftId);
       if (invalidLines.length > 0) {
@@ -54,6 +55,13 @@ export function CreateGRNDialog({
           description: "All lines must have a product selected.",
         });
         return null;
+      }
+
+      //ensuring we have a lot number
+      const missingLot = (draft.lines ?? []).some((l) => !l.lotNumber);
+      if (missingLot){
+        toast.error("Missing Lot Numbers", { description: "All lines must have a lot number." });
+        return null
       }
 
       const linesPayload: GoodsReceiptLine[] = (draft.lines ?? []).map((ln) => ({
@@ -64,6 +72,8 @@ export function CreateGRNDialog({
         unit: ln.unit,
         receivedQty: Number(ln.receivedQty ?? 0),
         unitPrice: Number(ln.unitPrice ?? 0),
+        expiryDate: ln.expiryDate ?? undefined,
+        lotNumber: ln.lotNumber,
       }));
 
       const saved = await createGRN({
@@ -204,6 +214,8 @@ export function CreateGRNDialog({
                   <Th>Unit</Th>
                   <Th>Received Qty</Th>
                   <Th>Unit Price</Th>
+                  <th>Lot Number</th>
+                  <th>expiry Date</th>
                 </tr>
               </thead>
               <tbody>
@@ -249,6 +261,40 @@ export function CreateGRNDialog({
                         disabled={busy}
                       />
                     </Td>
+
+                    <td>
+                      <input 
+                        type="text"
+                        value={ln.lotNumber ?? 0}
+                        className="w-36 rounded-lg border border-slate-300 px-2 py-1 outline-none ring-blue-500 transition focus:ring-2"
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          onChange({
+                            ...draft,
+                            lines: draft.lines.map((l, i) => 
+                              i === idx ? { ...l, lotNumber: v} : l)
+                          })
+                        }
+                        }
+                        disabled={busy}
+                      />
+                    </td>
+
+                    <td>
+                      <input 
+                        type="date"
+                        value={ln.expiryDate ?? ""}
+                        onChange={ (e) => {
+                          const v = e.target.value;
+                          onChange({
+                            ...draft,
+                            lines: draft.lines.map((l, i) => 
+                              i === idx ? { ...l, expiryDate: v } : l)
+                          })
+                        }}
+                        disabled={busy}
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>

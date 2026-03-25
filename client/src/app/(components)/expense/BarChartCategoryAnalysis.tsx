@@ -44,14 +44,14 @@ const BarChartCategoryAnalysis = ({ expenses }: Props) => {
       <ResponsiveContainer width="100%" height={350}>
         <BarChart
           data={categoryData}
-          margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+          margin={{ top: 10, right: 20, left: 10, bottom: 60 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
           <XAxis
             dataKey="name"
-            angle={-45}
+            angle={-35}
             textAnchor="end"
-            height={80}
+            height={60}
             interval={0}
             tick={{ fontSize: 11 }}
             stroke="#64748B"

@@ -10,22 +10,28 @@ export const createMatch = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "poId, invoiceId, grnId are required." });
     }
 
-    // Load full PO/Invoice/GRN
-    const po = await prisma.purchaseOrder.findUnique({
+    await prisma.$transaction(async (tx) => {
+
+      const po = await tx.purchaseOrder.findUnique({
       where: { id: poId },
       include: { items: { include: { product: true } } },
     });
-    const invoice = await prisma.supplierInvoice.findUnique({
+
+
+    const invoice = await tx.supplierInvoice.findUnique({
       where: { id: invoiceId },
       include: { items: { include: { draftProduct: true, product: true } } },
     });
-    const grn = await prisma.goodsReceipt.findUnique({
+
+    
+
+    const grn = await tx.goodsReceipt.findUnique({
       where: { id: grnId },
       include: { lines: true },
     });
 
     if (!po || !invoice || !grn) {
-      return res.status(404).json({ message: "PO/Invoice/GRN not found." });
+      return res.status(404).json({ message: "The purchase order, invoice or goods receipt was not found." });
     }
 
     const rows = buildMatchRows(po as any, invoice as any, grn as any);
@@ -33,7 +39,7 @@ export const createMatch = async (req: Request, res: Response) => {
     const payableTotal = rows.reduce((s, r) => s + (r.payableAmount ?? 0), 0);
 
     // Prevent duplicates via unique index
-    const created = await prisma.threeWayMatch.create({
+    const created = await tx.threeWayMatch.create({
       data: {
         poId,
         invoiceId,
@@ -58,7 +64,41 @@ export const createMatch = async (req: Request, res: Response) => {
       include: { lines: true },
     });
 
-    return res.status(201).json(created);
+    
+    const totalOrderedItems = await tx.purchaseOrderItem.count({ where: { poId } });
+    const totalInvoiceItems = await tx.supplierInvoiceItem.count({ where: { invoiceId } });
+    const totalGRNItems = await tx.goodsReceiptItem.count({ where: { grnId } });
+
+    const allItemsCheck = (totalOrderedItems === totalInvoiceItems) && totalInvoiceItems === totalGRNItems;
+
+    if (allItemsCheck && invoice.status === "PAID") {
+      await tx.purchaseOrder.update({
+        where: {id: poId },
+        data: {
+          status: "CLOSED",
+        },
+      });
+    };
+
+    await tx.supplierInvoice.update({
+      where: {id: invoiceId },
+      data: {
+        status: "CLOSED",
+      },
+    })
+
+    await tx.goodsReceipt.update({
+      where: { id: grnId },
+      data: {
+        status: "CLOSED",
+      },
+    })
+      // Load full PO/Invoice/GRN
+      return res.status(201).json(created);
+    })
+
+   
+    
   } catch (e: any) {
     console.error("createMatch error:", e);
 

@@ -6,7 +6,6 @@ import { useSignUp } from "@clerk/nextjs";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,8 +14,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 
 const schema = z
   .object({
-    firstName: z.string().min(1, "First name is required"),
-    lastName: z.string().min(1, "Last name is required"),
+    firstName: z.string().min(2, "First name must be at least 2 characters"),
+    lastName: z.string().min(2, "Last name must be at least 2 characters"),
     email: z.string().email("Enter a valid email"),
     password: z.string().min(8, "Password must be at least 8 characters"),
     confirmPassword: z.string(),
@@ -32,9 +31,6 @@ export function SignUpForm() {
   const router = useRouter();
   const { isLoaded, signUp, setActive } = useSignUp();
 
-  const [step, setStep] = useState<"form" | "verify">("form");
-  const [code, setCode] = useState("");
-
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: { firstName: "", lastName: "", email: "", password: "", confirmPassword: "" },
@@ -45,74 +41,20 @@ export function SignUpForm() {
   const onSubmit = async (values: Values) => {
     if (!isLoaded) return;
 
-    try {
-      await signUp.create({
-        firstName: values.firstName,
-        lastName: values.lastName,
-        emailAddress: values.email,
-        password: values.password,
-        // optional: store your role/org here if you want
-        // unsafeMetadata: { role: "viewer", organization: "..." },
-      });
+    const res = await signUp.create({
+      firstName: values.firstName,
+      lastName: values.lastName,
+      emailAddress: values.email,
+      password: values.password,
+    });
 
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
-      setStep("verify");
-    } catch (e: any) {
-      form.setError("root", { message: e?.errors?.[0]?.message ?? "Sign up failed" });
+    if (res.status === "complete") {
+      await setActive({ session: res.createdSessionId! });
+      router.push("/onboarding");
+    } else {
+      form.setError("root", { message: `Sign up incomplete. Status: ${res.status}` });
     }
   };
-
-  const verify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isLoaded) return;
-
-    try {
-      const res = await signUp.attemptEmailAddressVerification({ code });
-
-      if (res.status === "complete") {
-        await setActive({ session: res.createdSessionId! });
-        router.push("/dashboard");
-      } else {
-        form.setError("root", { message: "Verification incomplete. Please try again." });
-      }
-    } catch (e: any) {
-      form.setError("root", { message: e?.errors?.[0]?.message ?? "Invalid code" });
-    }
-  };
-
-  if (step === "verify") {
-    return (
-      <Card className="shadow-xl">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Verify your email</CardTitle>
-          <CardDescription>Enter the 6-digit code sent to your email.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {form.formState.errors.root?.message && (
-            <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {form.formState.errors.root.message}
-            </p>
-          )}
-
-          <form onSubmit={verify} className="space-y-4">
-            <Input
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="123456"
-              className="text-center tracking-widest"
-              maxLength={6}
-            />
-            <Button className="w-full" type="submit" disabled={!code || isPending}>
-              Verify
-            </Button>
-            <Button type="button" variant="ghost" className="w-full" onClick={() => setStep("form")}>
-              ← Back
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <Card className="shadow-xl">
@@ -124,7 +66,7 @@ export function SignUpForm() {
       <CardContent className="space-y-6">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="firstName"
@@ -132,7 +74,7 @@ export function SignUpForm() {
                   <FormItem>
                     <FormLabel>First name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Hunter" {...field} />
+                      <Input placeholder="James" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -145,7 +87,7 @@ export function SignUpForm() {
                   <FormItem>
                     <FormLabel>Last name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Gaillard" {...field} />
+                      <Input placeholder="Smith" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -213,8 +155,8 @@ export function SignUpForm() {
             </p>
           </form>
         </Form>
+        <div id="clerk-captcha" />
       </CardContent>
     </Card>
   );
 }
-

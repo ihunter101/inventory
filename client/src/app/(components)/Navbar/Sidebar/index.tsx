@@ -62,6 +62,7 @@ const navigation = {
     { title: "Purchases", href: "/purchases", icon: FileText, permission: PERMS.READ_PURCHASE_ORDERS },
     { title: "Expenses", href: "/expenses", icon: DollarSign, permission: PERMS.READ_EXPENSES },
     { title: "Sales", href: "/sales", icon: TrendingUp, permission: PERMS.READ_SALES },
+    { title: "Reports", href: "/reports", icon: ClipboardList, permission: PERMS.READ_PURCHASE_ORDERS }, //TODO MAKE unique perm for this 
   ] satisfies NavItem[],
 
   settings: [

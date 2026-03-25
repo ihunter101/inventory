@@ -120,7 +120,7 @@ export const createInvoice = async (req: Request, res: Response) => {
     if (!invoiceNumber || !supplierId || !poId || !Array.isArray(lines) || lines.length === 0) {
       return res
         .status(400)
-        .json({ message: "invoiceNumber, supplierId, poId and non-empty lines are required." });
+        .json({ message: "invoiceNumber, supplierId, poId and line items are required." });
     }
 
     // Basic line validation (numbers + required ids)
@@ -174,6 +174,7 @@ export const createInvoice = async (req: Request, res: Response) => {
           select: {
             id: true,
             supplierId: true,
+            status: true,
             items: {
               select: {
                 id: true,
@@ -183,6 +184,11 @@ export const createInvoice = async (req: Request, res: Response) => {
             },
           },
         });
+
+        const invoicePoId = await tx.supplierInvoice.findUnique({ 
+          where:  poId,
+          select: { id: true }
+        })
 
         if (!po) {
           const err: any = new Error("Purchase order not found.");
@@ -324,6 +330,36 @@ export const createInvoice = async (req: Request, res: Response) => {
             goodsReceipt: true,
           },
         });
+
+        const invoiceQuantity = await tx.supplierInvoiceItem.aggregate({
+          where: { invoiceId: createdInvoice.id },
+          _sum: { quantity: true },
+        });
+
+        const purchaseOrderQuantity = po.items.reduce((acc: number, item: any) =>{
+          return acc + Number(item.quantity)
+        },0 )
+
+
+        const remainingInvoiceQuantity = Number(purchaseOrderQuantity) - Number(invoiceQuantity._sum.quantity ?? 0);
+
+        if (remainingInvoiceQuantity > 0 && 
+            (po.status === "APPROVED" || po.status === "DRAFT" || po.status === "SENT")
+          ) {
+          await tx.purchaseOrder.update({
+            where: { id: String(poId).trim() },
+            data: {
+              status: "PARTIALLY_RECEIVED",
+            }
+          })
+        } else if (remainingInvoiceQuantity <= 0) {
+          await tx.purchaseOrder.update({
+            where: { id: String(poId).trim() },
+            data: {
+              status: "RECEIVED",
+            }
+          })
+        }
 
         return createdInvoice;
       },

@@ -7,6 +7,7 @@ import {
   selectSheetTotalQuantity,
   removeLine,
   increment,
+  setQtyOnHandAtRequest,
   decrement,
   setQuantity,
   clear,
@@ -43,7 +44,11 @@ export default function StockSheetPage() {
     
     try {
       const payload = {
-        lines: lines.map((l) => ({ productId: l.productId, requestedQty: l.requestedQty }))
+        lines: lines.map((l) => ({ 
+          productId: l.productId, 
+          requestedQty: l.requestedQty,
+          qtyOnHandAtRequest: l.qtyOnHandAtRequest,
+        }))
       };
 
       await createStockRequest(payload).unwrap();
@@ -70,10 +75,11 @@ export default function StockSheetPage() {
   };
 
   const handleExportCSV = () => {
-    const headers = ["Product Name", "Unit", "Requested Quantity"];
+    const headers = ["Product Name", "Unit", "Qty on Hand", "Requested Quantity"];
     const rows = lines.map((line) => [
       line.name,
       line.unit || "N/A",
+      line.qtyOnHandAtRequest.toString(),
       line.requestedQty.toString(),
     ]);
 
@@ -179,7 +185,10 @@ export default function StockSheetPage() {
                   Unit
                 </th>
                 <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Quantity
+                  Qty On Hand
+                </th>
+                <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Quantity for request
                 </th>
                 <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Actions
@@ -222,6 +231,26 @@ export default function StockSheetPage() {
                     <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
                       {line.unit || "N/A"}
                     </span>
+                  </td>
+
+                  <td className="px-6 py-4">
+                    <div className="flex items-center justify-center">
+                      <input
+                        type="number"
+                        min="0"
+                        value={line.qtyOnHandAtRequest}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          dispatch(
+                            setQtyOnHandAtRequest({
+                              productId: line.productId,
+                              qtyOnHandAtRequest: val,
+                            })
+                          );
+                        }}
+                        className="w-24 rounded-md border border-gray-300 bg-white px-3 py-2 text-center text-sm font-semibold focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                      />
+                    </div>
                   </td>
 
                   {/* Quantity Controls */}

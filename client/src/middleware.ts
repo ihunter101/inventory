@@ -24,24 +24,26 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.next();
   }
 
-  // 2. STATE: SIGNED IN
-  const onboardingComplete = sessionClaims?.public_metadata?.onboardingComplete === true;
+ 
 
-  if (userId && !onboardingComplete) {
-    if (!isOnboardingRoute(req) && !isPublicRoute(req)) {
-      return NextResponse.redirect(new URL("/onboarding", req.url));
-    }
-  }
+  // // 2. STATE: SIGNED IN
+  // const onboardingComplete = sessionClaims?.public_metadata?.onboardingComplete === true;
 
-  // B) USER ALREADY ONBOARDED
-  if (onboardingComplete) {
-    if (isOnboardingRoute(req)) {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
-    }
-    if (req.nextUrl.pathname.startsWith("/sign-in") || req.nextUrl.pathname.startsWith("/sign-up")) {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
-    }
-  }
+  // if (userId && !onboardingComplete) {
+  //   if (!isOnboardingRoute(req) && !isPublicRoute(req)) {
+  //     return NextResponse.redirect(new URL("/onboarding", req.url));
+  //   }
+  // }
+
+  // // B) USER ALREADY ONBOARDED
+  // if (onboardingComplete) {
+  //   if (isOnboardingRoute(req)) {
+  //     return NextResponse.redirect(new URL("/dashboard", req.url));
+  //   }
+  //   if (req.nextUrl.pathname.startsWith("/sign-in") || req.nextUrl.pathname.startsWith("/sign-up")) {
+  //     return NextResponse.redirect(new URL("/dashboard", req.url));
+  //   }
+  // }
 
   return NextResponse.next();
 });

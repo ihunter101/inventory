@@ -17,7 +17,7 @@ export function mapPurchaseOrderDataToPDF(po: PoData): PurchaseOrderPDFData {
     documentType: "PO",
     title: "Purchase Order",
     documentNumber: po.poNumber,
-    preparedBy: "System", // or pull from user/context later
+    preparedBy: po.name, // or pull from user/context later
     organizationName: "Laboratory Services & Consultations Ltd.",
     // departmentName: "Purchasing", // optional
 

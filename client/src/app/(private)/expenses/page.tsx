@@ -20,33 +20,68 @@ import BarChartCategoryAnalysis from "../../(components)/expense/BarChartCategor
 
 // 👉 make sure this file actually exists with the group donut code we wrote
 import ExpenseGroupDonutCard from "@/app/(components)/expense/PieChartExpenses";
+import { skipToken } from "@reduxjs/toolkit/query";
 
-type Range = "1w" | "1m" | "6m" | "1y" | "all";
+type Range = "1w" | "1m" | "6m" | "1y" | "fresh";
 
-const filterByRange = (expenses: any[], range: Range) => {
-  if (range === "all") return expenses;
+// const filterByRange = (expenses: any[], range: Range) => {
+//   if (range === "all") return expenses;
 
+//   const now = new Date();
+//   const from = new Date(now);
+
+//   if (range === "1w") from.setDate(now.getDate() - 7);
+//   if (range === "1m") from.setMonth(now.getMonth() - 1);
+//   if (range === "6m") from.setMonth(now.getMonth() - 6);
+//   if (range === "1y") from.setFullYear(now.getFullYear() - 1);
+
+//   return expenses.filter((e) => new Date(e.date) >= from);
+// };
+
+const dateRange = (viewType: Range) => {
   const now = new Date();
-  const from = new Date(now);
+  let from: Date
 
-  if (range === "1w") from.setDate(now.getDate() - 7);
-  if (range === "1m") from.setMonth(now.getMonth() - 1);
-  if (range === "6m") from.setMonth(now.getMonth() - 6);
-  if (range === "1y") from.setFullYear(now.getFullYear() - 1);
+  switch (viewType) {
+    case "1w": 
+      from = new Date(now.setDate(now.getDate() - 7));
+      break;
 
-  return expenses.filter((e) => new Date(e.date) >= from);
-};
+    case "1m": 
+      from =new Date(now.setMonth(now.getMonth()) - 1);
+      break;
+
+    case "6m": 
+      from = new Date(now.setMonth(now.getMonth()) - 6);
+      break;
+
+    case "1y": 
+      from = new Date(now.setFullYear(now.getFullYear() - 1));
+      break;
+
+      case "fresh":
+        default: 
+          from = new Date(now.getFullYear(), now.getMonth(), 1);
+  }
+
+    return {
+        from,
+        end: new Date()
+      }
+}
 
 const ExpenseDashboard = () => {
-  const [range, setRange] = useState<Range>("1m");
+  const [range, setRange] = useState<Range>("fresh");
 
-  const { data: expenses = [], isLoading, isError } = useGetExpensesQuery();
-  console.log("EXPENSES FROM API:", expenses, { isLoading, isError });
+  const { from, end } = dateRange(range)
 
-  const filteredExpenses = useMemo(
-    () => filterByRange(expenses, range),
-    [expenses, range]
+  const { data: expenses = [], isLoading, isError } = useGetExpensesQuery(
+    dateRange(range) 
+      ? {from: from.toISOString(), end: end.toISOString()} 
+      : skipToken
+
   );
+  console.log("EXPENSES FROM API:", expenses, { isLoading, isError });
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -93,12 +128,12 @@ const ExpenseDashboard = () => {
       </Grid>
 
       {/* KPI CARDS */}
-      <ExpenseKPICards expenses={filteredExpenses} />
+      <ExpenseKPICards expenses={expenses} />
 
       {/* TREND FULL WIDTH */}
       <Grid container spacing={2}>
         <Grid item xs={12}>
-          <ExpenseTrendChart expenses={filteredExpenses} />
+          <ExpenseTrendChart expenses={expenses} />
         </Grid>
       </Grid>
 
@@ -106,13 +141,13 @@ const ExpenseDashboard = () => {
       <Grid container spacing={2} sx={{ mt: 2 }} alignItems="stretch">
         <Grid item xs={12} md={4} lg={4} sx={{ display: "flex" }}>
           <Box sx={{ flex: 1 }}>
-            <ExpenseGroupDonutCard expenses={filteredExpenses} />
+            <ExpenseGroupDonutCard expenses={expenses} />
           </Box>
         </Grid>
 
         <Grid item xs={12} md={8} lg={8} sx={{ display: "flex" }}>
           <Box sx={{ flex: 1, minHeight: 360 }}>
-            <BarChartCategoryAnalysis expenses={filteredExpenses} />
+            <BarChartCategoryAnalysis expenses={expenses} />
           </Box>
         </Grid>
       </Grid>
@@ -122,7 +157,7 @@ const ExpenseDashboard = () => {
       <Card sx={{ mt: 4 }}>
         <CardHeader title="Recent Transactions" />
         <CardContent>
-          <RecentTransactionsTable expenses={filteredExpenses} />
+          <RecentTransactionsTable expenses={expenses} />
         </CardContent>
       </Card>
     </Container>

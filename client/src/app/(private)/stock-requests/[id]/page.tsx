@@ -382,6 +382,7 @@ export default function StockRequestDetailPage() {
                 <TableRow className="bg-muted/50">
                   <TableHead className="font-semibold">Product</TableHead>
                   <TableHead className="font-semibold text-center">Available</TableHead>
+                  <TableHead className="font-semibold text-center">Qty On Hand</TableHead>
                   <TableHead className="font-semibold text-center">Requested</TableHead>
                   <TableHead className="font-semibold text-center">Granted</TableHead>
                   <TableHead className="font-semibold text-center">Status</TableHead>
@@ -420,6 +421,12 @@ export default function StockRequestDetailPage() {
                           className="font-mono"
                         >
                           {available}
+                        </Badge>
+                      </TableCell>
+
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="font-mono">
+                          {line.qtyOnHandAtRequest}
                         </Badge>
                       </TableCell>
 

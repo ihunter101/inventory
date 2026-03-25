@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { GRNStatus, Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { yyyymmdd, pad4 } from "../utils/grnNumerGeneration"; 
+import { object } from "zod";
 
 //const prisma = new PrismaClient();
 
@@ -19,11 +20,13 @@ const toGRNDTO = (g: any) => ({
     draftProductId: ln.productDraftId,
     //sku: ln.product?.sku ?? undefinedd
     //productId: ln.productId,  
-    productDraftId: ln.productDraftId,
+    productId: ln.productId ?? undefined,
     name: ln.product?.name ?? ln.name,
     unit: ln.unit ?? "",
     receivedQty: Number(ln.receivedQty),
     unitPrice: ln.unitPrice == null ? undefined : Number(ln.unitPrice),
+    lotNumber: ln.lotNumber ?? "",
+    expiryDate: ln.expiryDate ? new Date(ln.expiryDate.toISOString().slice(0,10)) : "",
   })),
 });
 
@@ -70,11 +73,12 @@ export const getGoodReceiptById = async (req: Request, res: Response) => {
           product: true,
           promotedProduct: true,
           poItem: true,
-          invoiceItem: true
+          invoiceItem: true,
+          inventory: true 
         },
       },
       po: { include: { items: true, supplier: true}},
-      invoice: { include: { items: true, supplier: true } }
+      invoice: { include: { items: true, supplier: true } },
     }
   })
   if (!goodsReceipt) {
@@ -83,7 +87,7 @@ export const getGoodReceiptById = async (req: Request, res: Response) => {
   return res.json(toGRNDTO(goodsReceipt))
   } catch (error) {
     console.error(error)
-    return res.status(500).json({Error: "Failed to get goods Receipt"})
+    return res.status(500).json({error: "Failed to get goods Receipt"})
   }
   
 }
@@ -136,7 +140,7 @@ export const createGoodsReceipt = async (req: Request, res: Response) => {
 
       if (invItems.length !== invoiceItemIds.length) {
         throw Object.assign(
-          new Error("One or more invoiceItemId values do not belong to this invoice."),
+          new Error("One or more invoiceItemId values from the GRN do not belong to this invoice."),
           { status: 400 }
         );
       }
@@ -199,6 +203,20 @@ export const createGoodsReceipt = async (req: Request, res: Response) => {
         if (!Number.isFinite(rq) || rq < 0) {
           throw Object.assign(new Error("receivedQty must be a non-negative number"), { status: 400 });
         }
+        //validating lot number 
+      if (!line.lotNumber || String(line.lotNumber).trim() === "") {
+        throw Object.assign(new Error("Each item must have a valid Lot Number."), { status: 400 });
+      }
+        //validating expirary date
+      if (!line.expiryDate) 
+        throw Object.assign(new Error("Each item must have an Expiry Date."), { status: 400 });
+
+      const expDate = line.expiryDate ? new Date(line.expiryDate) : null;
+        if (expDate && isNaN(expDate.getTime())) {
+          throw Object.assign(new Error(`Invalid expiry date for lot ${line.lotNumber}`), { status: 400 })
+        }
+
+        //check for expiration
       }
 
       // 7) Generate unique GRN number (your existing logic)
@@ -227,14 +245,16 @@ export const createGoodsReceipt = async (req: Request, res: Response) => {
               const inv = invMap.get(invoiceItemId)!;
 
               return {
-                invoiceItemId,
-                poItemId: line.poItemId ? String(line.poItemId).trim() : inv.poItemId ?? null,
-                productDraftId: String(line.productDraftId ?? line.draftProductId).trim(),
+                invoiceItem: { connect : { id: invoiceItemId } },
+                poItem: { connect: { id: String(line.poItemId) } },
+                product: { connect: { id: String(line.productDraftId ?? line.draftProductId).trim()}},
                 unit: String(line.unit ?? line.uom ?? ""),
                 receivedQty: Number(line.receivedQty ?? 0),
 
                 // ✅ always from invoice item:
                 unitPrice: Number(inv.unitPrice),
+                lotNumber: String(line.lotNumber),
+                expiryDate: line.expiryDate ? new Date(line.expiryDate) : null,
               };
             }),
           },
@@ -308,6 +328,22 @@ export const postGoodsReceipt = async (req: Request, res: Response) => {
       });
     }
 
+    //check to ensure line items have a lot number
+    const missingLot = goodsReceipt.lines.some(ln => !ln.lotNumber);
+    if (missingLot) { 
+      return res.status(400).json({ 
+        message: "Can not POST this goods receipt because one or more lines are missing lot numbers."
+      })
+    }
+
+    const missingProductId  = goodsReceipt.lines.some(ln => !ln.productDraftId);
+    if (missingProductId) {
+      return res.status(400).json({
+        message: "Can not POST this goods receipt because one or more lines are missing productId.",
+        ok: false
+      })
+    }
+
     await prisma.$transaction(async (tx) => {
       // 1) Mark GRN as POSTED
       await tx.goodsReceipt.update({
@@ -333,6 +369,33 @@ export const postGoodsReceipt = async (req: Request, res: Response) => {
           productId: line.productId,
         },
       });
+    }
+  }
+  
+  if (!goodsReceipt.po?.supplierId) {
+    throw new Error ("Cannot POST this Goods Receipt because the purchase order it's attached is missing a supplier id.")
+  }
+
+  const supplierId = goodsReceipt.po.supplierId;
+
+  for (const line of goodsReceipt.lines) {
+    //idempotency: if post is retried do not duplicate rows 
+    const existingInv = await tx.inventory.findUnique({
+      where: { grnItemId: line.id },
+      select: { id: true },
+    })
+
+    if (!existingInv) {
+      await tx.inventory.create({
+        data: {
+          product : { connect: { productId: (line.productId as string)! } },
+          supplier: { connect: { supplierId: supplierId } },
+          grnItem: { connect: { id: line.id } },
+          lotNumber: line.lotNumber,
+          stockQuantity: Number(line.receivedQty),
+          expiryDate: line.expiryDate ?? null
+        }
+      })
     }
   }
 
@@ -391,12 +454,14 @@ export const updateGoodsReceipt = async (req: Request, res: Response) => {
     const { date, lines = [] } = req.body as {
       date?: string;
       lines?: Array<{
-        invoiceItemId?: string;
-        poItemId?: string;
+        invoiceItemId: string;
+        poItemId: string;
         productDraftId: string;
         unit?: string | null;
         receivedQty: number;
         unitPrice: number;
+        lotNumber: string;
+        expiryDate?: string;
       }>;
     };
 
@@ -417,6 +482,20 @@ export const updateGoodsReceipt = async (req: Request, res: Response) => {
       });
     }
 
+    // 3) Validate invoiceItemIds belong to THIS invoice
+    const invoiceItemIds = lines.map(ln => String(ln.invoiceItemId).trim()).filter(Boolean)
+    const invoiceItems = await prisma.supplierInvoiceItem.findMany({
+      where: { id: { in: invoiceItemIds }, invoiceId: existing.invoiceId! },
+      select: { id: true, unitPrice: true, draftProduct: true }
+    })
+
+    
+
+    if (invoiceItems.length !== invoiceItemIds.length) {
+      return res.status(400).json({ message: "One or more invoice items do not belong to this invoice." });
+    }
+    const invMap = new Map(invoiceItems.map(i => [i.id, i]));
+    
     // validate line ids (draftProductId required)
     const bad = lines.find((l) => !l.productDraftId || !String(l.productDraftId).trim());
     if (bad) {
@@ -453,17 +532,25 @@ export const updateGoodsReceipt = async (req: Request, res: Response) => {
         data: {
           date: date ? new Date(date) : undefined,
           lines: {
-            create: lines.map((l) => ({
-              invoiceItemId: l.invoiceItemId ? String(l.invoiceItemId).trim() : null,
-              poItemId: l.poItemId ? String(l.poItemId).trim() : null,
-              productDraftId: String(l.productDraftId).trim(),
-              unit: l.unit ?? null,
-              receivedQty: Number(l.receivedQty ?? 0),
-              unitPrice: Number(l.unitPrice ?? 0),
-            })),
-          },
+            create: lines.map((l) => {
+              const inv = invMap.get(String(l.invoiceItemId).trim())
+              const expDate = l.expiryDate ? new Date(l.expiryDate) : null
+
+              return {
+                invoiceItemId: String(l.invoiceItemId).trim(),
+                poItemId: l.poItemId ? String(l.poItemId).trim() : null,
+                product: { connect: { id: String(l.productDraftId).trim() } },
+                unit: l.unit ?? null,
+                receivedQty: Number(l.receivedQty ?? 0),
+                unitPrice: Number(l.unitPrice ?? 0),
+                lotNumber: String(l.lotNumber).trim(),
+                expiryDate: expDate && !isNaN(expDate.getTime()) ? expDate : null
+              }
+          }),
+          
         },
-        include: {
+      },
+      include: {
           po: true,
           invoice: true,
           lines: { include: { product: true } },

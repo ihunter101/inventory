@@ -80,7 +80,7 @@ export const bulkFinalizeProducts = async (req: Request, res: Response) => {
   try {
     const { updates } = req.body as {
       updates: Array<{
-        productId: string;      // this is the draftProductId
+        productId: string; // draftProductId
         category?: string;
         department?: string;
         imageUrl?: string;
@@ -91,152 +91,59 @@ export const bulkFinalizeProducts = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Invalid updates array" });
     }
 
-    console.log(`🚀 Starting bulk finalization of ${updates.length} products`);
-
     const results = await prisma.$transaction(async (tx) => {
-      const processed = [];
 
       for (const u of updates) {
         const draftId = u.productId;
-        console.log(`\n📝 Processing draft product: ${draftId}`);
+        const draft = await tx.draftProduct.findUnique({ where: { id: draftId } });
 
-        // 1. Get the draft product
-        const draft = await tx.draftProduct.findUnique({
-          where: { id: draftId },
-        });
+        if (!draft) throw new Error(`Draft product ${draftId} not found`);
 
-        if (!draft) {
-          throw new Error(`Draft product ${draftId} not found`);
-        }
-
-        console.log(`   Found draft: ${draft.name}`);
-
-        // 2. Check if a real product already exists with this name
-        const existing = await tx.products.findFirst({
-          where: { name: draft.name },
-        });
-
-        let realProductId: string;
-        let isNew = false;
-
-        if (existing) {
-          console.log(`   ♻️  Re-purchase: Using existing product ${existing.productId}`);
-          realProductId = existing.productId;
-
-          // Update fields if provided
-          if (u.category || u.department || u.imageUrl) {
-            await tx.products.update({
-              where: { productId: realProductId },
-              data: {
-                ...(u.category && { category: u.category }),
-                ...(u.department && { Department: u.department }),
-                ...(u.imageUrl && { imageUrl: u.imageUrl }),
-              },
-            });
-            console.log(`   Updated existing product metadata`);
+        const realProduct = await prisma.products.upsert({
+          where: {  sku: draft.name },
+          update: {
+            ...(u.category && { category: u.category }),
+            ...(u.department && { Department: u.department }),
+            ...(u.imageUrl && { imageUrl: u.imageUrl }),
+          },
+          create: {
+            productId: draftId,
+            name: draft.name,
+            unit: draft.unit ??  "unit",
+            category: u.category ?? "misc",
+            Department: u.department ?? "misc",
+            imageUrl: u.imageUrl ?? "",
+            stockQuantity: 0,
           }
-        } else {
-          console.log(`   🆕 New product: Creating...`);
-          isNew = true;
+        })
 
-          const newProduct = await tx.products.create({
-            data: {
-              productId: draft.id,
-              name: draft.name,
-              unit: draft.unit || "unit",
-              category: u.category || "Uncategorized",
-              Department: u.department || "General",
-              imageUrl: u.imageUrl || "",
-              stockQuantity: 0,
-              rating: 0,
-            },
-          });
-
-          realProductId = newProduct.productId;
-          console.log(`   Created product with ID: ${realProductId}`);
-
-          // Create inventory record
-          await tx.inventory.create({
-            data: {
-              productId: realProductId,
-              stockQuantity: 0,
-              minQuantity: 0,
-              reorderPoint: 0,
-            },
-          });
-          console.log(`   Created inventory record`);
-        }
-
-        // 3. Get all POSTED GRN lines for this draft that haven't been promoted
-        const grnLines = await tx.goodsReceiptItem.findMany({
-          where: {
-            productDraftId: draftId,
-            productId: null,
-            grn: { status: "POSTED" },
-          },
-        });
-
-        console.log(`   Found ${grnLines.length} unpromoted GRN lines`);
-
-        // 4. ✅ CRITICAL: Update GRN lines to point to real product
+        // Link GRN lines to real product
         const updateResult = await tx.goodsReceiptItem.updateMany({
-          where: {
-            productDraftId: draftId,
-            productId: null,
-            grn: { status: "POSTED" },
-          },
-          data: { productId: realProductId },
+          where: { productDraftId: draftId, productId: null },
+          data: { productId: realProduct.productId },
         });
 
-        console.log(`   ✅ Linked ${updateResult.count} GRN lines to product ${realProductId}`);
+        const grnLines = await tx.goodsReceiptItem.findMany({
+          where: { productDraftId: draftId, productId: realProduct.productId },
+        });
 
-        // 5. Update inventory with received quantities
-        const totalReceived = grnLines.reduce(
-          (sum, ln) => sum + Number(ln.receivedQty ?? 0),
-          0
-        );
+        const totalReceived = grnLines.reduce((sum, ln) => sum + Number(ln.receivedQty ?? 0), 0);
 
-        if (totalReceived > 0) {
-          await tx.inventory.update({
-            where: { productId: realProductId },
-            data: {
-              stockQuantity: { increment: totalReceived },
-            },
-          });
-
+          // Update Product aggregate
           await tx.products.update({
-            where: { productId: realProductId },
-            data: {
-              stockQuantity: { increment: totalReceived },
-            },
+            where: { productId: realProduct.productId },
+            data: { stockQuantity: { increment: totalReceived } },
           });
-
-          console.log(`   📈 Added ${totalReceived} units to inventory`);
         }
+      });
+       
+      return res.json({ ok: true, results });
 
-        processed.push({
-          draftId,
-          realProductId,
-          qty: totalReceived,
-          isNew,
-          grnLinesUpdated: updateResult.count
-        });
-      }
-
-      return processed;
-    });
-
-    console.log(`\n✅ Successfully finalized ${results.length} products`);
-    return res.json({ ok: true, results });
   } catch (error) {
-    console.error("❌ Error finalizing products:", error);
-    return res.status(500).json({
-      message: "Error finalizing products",
-      error: error instanceof Error ? error.message : "Unknown error"
-    });
+    console.error("❌ Error:", error);
+    return res.status(500).json({ message: "Error finalizing products" });
   }
 };
-
 
 export const getPendingPromotions = async (req: Request, res: Response) => {
   try {
@@ -249,7 +156,7 @@ export const getPendingPromotions = async (req: Request, res: Response) => {
       where: {
         ...(grnId ? { grnId } : {}), // optional: filter by specific GRN
         productId: null,              // ✅ NOT promoted yet
-        grn: { status: "POSTED" }     // ✅ only from POSTED GRNs
+        //grn: { status: "POSTED" }     // ✅ only from POSTED GRNs
       },
       select: {
         id: true,
@@ -319,7 +226,7 @@ export const getPendingPromotionsCount = async (_req: Request, res: Response) =>
     const rows = await prisma.goodsReceiptItem.findMany({
       where: {
         productId: null,
-        grn: { status: "POSTED" },
+        //grn: { status: "POSTED" },
       },
       select: { productDraftId: true },
       distinct: ["productDraftId"],
