@@ -133,7 +133,7 @@ export default function CardSalesOverview() {
 
                     <Tooltip
                       cursor={{ fill: "rgba(16,185,129,0.08)" }}
-                      formatter={(value: number) => [money(value), "Sales"]}
+                      formatter={(value: number | undefined) => [money(value ?? 0), "Sales"]}
                       contentStyle={{
                         borderRadius: 14,
                         border: "1px solid rgba(16,185,129,0.18)",

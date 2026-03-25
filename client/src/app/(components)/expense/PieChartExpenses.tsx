@@ -61,7 +61,7 @@ const ExpenseGroupDonutCard: React.FC<ExpenseGroupDonutCardProps> = ({ expenses 
                   boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                   padding: '12px',
                 }}
-                formatter={(value: number) => `$${value.toLocaleString()}`}
+                formatter={(value: number | undefined) => `$${(value ?? 0).toLocaleString()}`}
               />
               <Pie
                 data={groupData}

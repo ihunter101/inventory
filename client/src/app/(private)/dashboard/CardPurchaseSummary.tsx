@@ -152,7 +152,8 @@ const CardPurchaseSummary: React.FC = () => {
                       />
                       <Tooltip
                         cursor={{ stroke: "#e5e7eb", strokeWidth: 1 }}
-                        formatter={(value: number) => [numeral(value).format("$0,0.00"), "Paid"]}
+                        formatter={(value: number | undefined) => [numeral(value ?? 0).format("$0,0.00"), "Paid"]}
+                        
                       />
                       <defs>
                         <linearGradient id="paidArea" x1="0" y1="0" x2="0" y2="1">
