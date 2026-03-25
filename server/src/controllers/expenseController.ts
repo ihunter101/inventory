@@ -44,7 +44,7 @@ export const createExpense = async (req: Request, res: Response) => {
         //date: new Date(date),
         description,
         status,
-        group,
+        //group, //SEE PRIOR TODO
       },
     });
 
