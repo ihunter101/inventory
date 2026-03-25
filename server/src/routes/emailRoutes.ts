@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { must } from "../middleware/auth";
-import { PERMS } from "@shared/dist";
+import { PERMS } from  "@lab/shared";
 import { sednDocumentEmail } from "../controllers/EmailController";
 
 const router  = Router();

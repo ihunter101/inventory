@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { getDashboardMetrics, getProcurementOverview, getDashboardPurchaseSummary, getSalesOverview } from "../controllers/dashboardController";
 import { must } from "../middleware/auth";
-import { PERMS } from "@shared/dist";
+import { PERMS } from "@lab/shared"
 
 const router = Router();
 
