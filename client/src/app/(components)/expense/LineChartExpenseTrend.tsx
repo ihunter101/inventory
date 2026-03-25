@@ -87,7 +87,7 @@ const ExpenseTrendChart = ({ expenses }: Props) => {
             stroke="#64748B"
           />
           <Tooltip
-            formatter={(value: number) => [formatCurrency(value), "Amount"]}
+            formatter={(value: number | undefined) => [formatCurrency(value ?? 0), "Amount"]}
             contentStyle={{
               backgroundColor: "white",
               border: "1px solid #E2E8F0",
