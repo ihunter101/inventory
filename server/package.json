@@ -3,16 +3,6 @@
   "version": "1.0.0",
   "main": "index.js",
   "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    },
-    "./userRoleUtils": {
-      "types": "./dist/userRoleUtils.d.ts",
-      "default": "./dist/userRoleUtils.js"
-    }
-  },
   "scripts": {
   "build": "rimraf dist && prisma generate && tsc",
   "start": "prisma migrate deploy && node dist/index.js",
@@ -28,6 +18,7 @@
   "description": "",
   "dependencies": {
     "@clerk/backend": "^2.14.0",
+    "@lab/shared": "*",
     "@clerk/clerk-sdk-node": "^5.1.6",
     "@clerk/express": "^1.7.31",
     "@paralleldrive/cuid2": "^3.3.0",
