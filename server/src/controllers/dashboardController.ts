@@ -55,8 +55,8 @@ async function computeRevenueAndProfit(range: DateRange) {
         select: { salesDate: true, grandTotal: true },
       }),
       prisma.expenses.findMany({
-        where: { date: { gte: start, lte: endDay } },
-        select: { date: true, amount: true, category: true },
+        where: { createdAt: { gte: start, lte: endDay } },
+        select: { createdAt: true, amount: true, category: true },
       }),
       prisma.supplierInvoice.findMany({
         where: { date: { gte: start, lte: endDay } },
@@ -68,7 +68,7 @@ async function computeRevenueAndProfit(range: DateRange) {
         select: { grandTotal: true },
       }),
       prisma.expenses.findMany({
-        where: { date: { gte: prevStart, lte: prevEnd } },
+        where: { createdAt: { gte: prevStart, lte: prevEnd } },
         select: { amount: true },
       }),
       prisma.supplierInvoice.findMany({
@@ -96,7 +96,7 @@ async function computeRevenueAndProfit(range: DateRange) {
   }
 
   for (const e of expenseRows) {
-    const key = dayKeyUTC(new Date(e.date));
+    const key = dayKeyUTC(new Date(e.createdAt));
     regularByDay.set(key, (regularByDay.get(key) ?? 0) + Number(e.amount));
   }
 
@@ -333,7 +333,7 @@ export const getDashboardMetrics = async (req: Request, res: Response): Promise<
     // 3. EXPENSES & REVENUE (Existing logic)
     const expenseSummary = await prisma.expenses.findMany({
       take: 50,
-      orderBy: { date: "desc" },
+      orderBy: { createdAt: "desc" },
     });
 
     const revenueAndProfit = {
