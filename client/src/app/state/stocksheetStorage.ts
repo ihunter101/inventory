@@ -21,6 +21,7 @@ function sanitizeLine(raw:any): StockSheetLine | null {
     department: raw.department ?? null,
     imageUrl: raw.imageUrl ?? null,
     requestedQty: clampQty(Number(raw.quantity ?? 1)),
+    qtyOnHandAtRequest: clampQty(Number(raw.qtyOnHandAtRequest ?? 0)),
   }
 }
 
