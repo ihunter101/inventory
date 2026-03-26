@@ -67,6 +67,13 @@ const app = express();
 // 3) Clerk FIRST (so req.auth exists for downstream)
 app.use(clerkMiddleware());
 
+
+const allowedOrigins = [ 
+  process.env.CLIENT_URL , "http://localhost:3000",
+  process.env.CLIENT_URL_2,
+  process.env.CLIENT_URL_3,
+].filter(Boolean) as (string | RegExp)[];
+
 // 4) Normal middleware
 app.use(express.json());
 app.use(helmet());
@@ -76,12 +83,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(
   cors({
-    origin: [
-      process.env.CLIENT_URL ||
-      process.env.CLIENT_URL_2 ||
-      process.env.CLIENT_URL_3 ||
-      "http://localhost:3000"
-    ].filter(Boolean),
+    origin: allowedOrigins,
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"],
   })
