@@ -4,6 +4,7 @@ import page from "../(private)/sales/page";
 import { FulfillStockRequestResponse, Paginated, ReviewStockRequestBody, StockRequestDetailResponse, StockRequestListQuery, StockRequestListResponse, StockRequestStatus } from "./stockSheetSlice";
 import { parseAppSegmentConfig } from "next/dist/build/segment-config/app/app-segment-config";
 import { Role } from "@lab/shared/userRoleUtils";
+import { getClerkToken } from "@/lib/clerkTokenGetter";
 import { string } from "zod";
 
 // ----------------------
@@ -836,17 +837,14 @@ export const api = createApi({
   reducerPath: "api",
   baseQuery: fetchBaseQuery({
     baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL,
-    credentials: "include", //for authentication and authorization ,
-    prepareHeaders: async (headers) => {
-      if (typeof window !== 'undefined') {
-        const token = await window.Clerk?.session?.getToken();
+      prepareHeaders: async (headers) => {
+        const token = await getClerkToken();
         if (token) {
           headers.set("authorization", `Bearer ${token}`);
-      }
-    }
-      return headers;
-    }
-  }),
+        }
+        return headers;
+      },
+    }),
   tagTypes: [
     "DashboardMetrics", "Products", "Users", "Expenses",
     "PurchaseOrders", "SupplierInvoices", "GoodsReceipts", 
