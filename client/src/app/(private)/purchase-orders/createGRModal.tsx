@@ -103,6 +103,7 @@ export default function CreateGRNModal({
         unit: ln.unit,
         receivedQty: ln.receivedQty,
         unitPrice: ln.unitPrice ?? 0,
+        lotNumber: ln.lotNumber,
       }));
 
       const saved = await createGRN({
