@@ -62,33 +62,39 @@ process.on('unhandledRejection', (reason, promise) => {
   process.exit(1);
 });
 
+
+
 const app = express();
 
-// 3) Clerk FIRST (so req.auth exists for downstream)
-app.use(clerkMiddleware());
-
-
-const allowedOrigins = [ 
-  process.env.CLIENT_URL , "http://localhost:3000",
+const allowedOrigins = [
+  process.env.CLIENT_URL,
   process.env.CLIENT_URL_2,
   process.env.CLIENT_URL_3,
-].filter(Boolean) as (string | RegExp)[];
+  "http://localhost:3000",
+].filter(Boolean) as string[];
 
-// 4) Normal middleware
+const corsOptions: cors.CorsOptions = {
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+// ✅ Preflight FIRST, before everything else
+app.options("*", cors(corsOptions));
+app.use(cors(corsOptions));
+
 app.use(express.json());
 app.use(helmet());
 app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
 app.use(morgan("common"));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
-app.use(
-  cors({
-    origin: allowedOrigins,
-    credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
-
+app.use(clerkMiddleware());
 // Public routes (no auth required)
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
