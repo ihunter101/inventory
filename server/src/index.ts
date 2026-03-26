@@ -76,7 +76,12 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(
   cors({
-    origin: [process.env.CLIENT_URL || "http://localhost:3000"],
+    origin: [
+      process.env.CLIENT_URL ||
+      process.env.CLIENT_URL_2 ||
+      process.env.CLIENT_URL_3 ||
+      "http://localhost:3000"
+    ].filter(Boolean),
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"],
   })
