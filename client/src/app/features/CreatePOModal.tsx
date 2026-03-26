@@ -22,6 +22,7 @@ import {
 } from "@/app/state/api";
 
 type ItemRow = {
+  draftProductId?: string;
   productId?: string;
   name?: string;
   unit?: string;
@@ -68,7 +69,7 @@ export default function POForm({
 
   const [taxPercent, setTaxPercent] = React.useState<number>(0);
   const [rows, setRows] = React.useState<ItemRow[]>([
-    { quantity: 1, unitPrice: 0, unit: "", productId: undefined, name: "" },
+    { quantity: 1, unitPrice: 0, unit: "", productId: undefined, name: "", draftProductId: "" }
   ]);
 
   const subtotal = rows.reduce(
@@ -84,7 +85,7 @@ export default function POForm({
   function addRow() {
     setRows((prev) => [
       ...prev,
-      { quantity: 1, unitPrice: 0, unit: "", name: "", productId: undefined },
+      { quantity: 1, unitPrice: 0, unit: "", name: "", draftProductId: "", productId: undefined },
     ]);
   }
   function removeRow(idx: number) {
@@ -109,8 +110,11 @@ export default function POForm({
       const unit = r.unit || product?.unit || "";
       const quantity = Number(r.quantity) || 0;
       const unitPrice = Number(r.unitPrice) || 0;
+      // productId IS the draftProductId — always sync both
+     const draftProductId = r.draftProductId || r.productId!;
       return {
-        productId: r.productId!,
+        productId: r.productId!, //realdraftId
+        draftProductId,
         sku: product?.productId,
         name,
         unit,
@@ -259,6 +263,7 @@ export default function POForm({
                           const p = products.find((pp) => pp.productId === v);
                           updateRow(idx, {
                             productId: v,
+                             draftProductId: v,
                             name: p?.name ?? r.name ?? "",
                             unit: p?.unit ?? r.unit ?? "",
                             unitPrice: r.unitPrice || 0,
@@ -273,7 +278,6 @@ export default function POForm({
                           try {
                             const created = await createProduct({
                               name: label,
-                              price: 0,
                               stockQuantity: 0,
                               rating: 0,
                             }).unwrap();
