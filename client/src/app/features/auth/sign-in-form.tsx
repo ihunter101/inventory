@@ -64,7 +64,8 @@ export function SignInForm() {
 
       if (res.status === "complete") {
         await setActive({ session: res.createdSessionId! });
-        router.push(getRedirectUrl());
+        navigate: async () => {
+      router.replace(getRedirectUrl()) }
       } else {
         form.setError("root", { message: "Sign in incomplete. Please try again." });
       }
