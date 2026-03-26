@@ -6,7 +6,12 @@ export function ensureUser() {
   return [
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const { userId } = getAuth(req);
+        const  auth  = getAuth(req);
+
+        console.log("req.auth userId:", auth.userId);
+        console.log("authorization header:", req.headers.authorization?.slice(0, 30) || "none");
+
+        const { userId } = auth
 
         if (!userId) {
           return res.status(401).json({ error: "Unauthenticated" });
