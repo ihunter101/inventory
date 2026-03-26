@@ -16,6 +16,8 @@ const candidates = [
 ];
 const envPath = candidates.find(p => fs.existsSync(p));
 dotenv.config(envPath ? { path: envPath } : undefined);
+process.env.CLERK_PUBLISHABLE_KEY = process.env.CLERK_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
 
 console.log("[BOOT] envPath =", envPath ?? "(none)");
 console.log("[BOOT] PORT =", process.env.PORT || 8000);
