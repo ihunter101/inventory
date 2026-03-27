@@ -2,10 +2,11 @@ import { Router } from "express";
 import { deleteUser, getMe, getUserById, getUsers, updateUser, updateUserRole } from "../controllers/userController";
 import { must } from "../middleware/auth";
 import { PERMS } from "@lab/shared";
+import { requireAuth } from "@clerk/express";
 
 const router = Router();
 
-router.get("/me", getMe)
+router.get("/me", requireAuth(), getMe)
 router.get("/", ...must(PERMS.READ_USERS),getUsers);
 router.get("/:id",...must(PERMS.READ_USERS), getUserById);
 router.patch('/:id', ...must(PERMS.WRITE_USERS),updateUser);

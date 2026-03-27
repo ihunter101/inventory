@@ -1,9 +1,15 @@
+import { useAuth as useClerkAuth } from "@clerk/nextjs";
 import { useGetMeQuery } from "@/app/state/api";
 import { hasPerm, Perm, Role } from "@lab/shared";
 
+
 export const useAuth = () => {
+    const { isLoaded, isSignedIn } = useClerkAuth();
+
   // RTKQ automatically deduplicates requests, so this is safe to call everywhere
-  const { data, isLoading, isError, error } = useGetMeQuery();
+  const { data, isLoading, isError, error } = useGetMeQuery(undefined, {
+    skip: !isLoaded || !isSignedIn,  // ← don't fire until Clerk is ready
+  });
 
   const user = data?.user;
   const role = user?.role as Role | undefined;

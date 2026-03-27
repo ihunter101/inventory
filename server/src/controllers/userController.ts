@@ -268,6 +268,7 @@ export const getMe = async (req: Request, res: Response) => {
         location: true,
         createdAt: true,
         lastLogin: true,
+        onboardedAt: true,
       },
     });
 
