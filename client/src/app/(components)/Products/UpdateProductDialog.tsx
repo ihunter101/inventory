@@ -20,7 +20,11 @@ import {
 } from "@/app/state/api";
 
 export const CATEGORY_OPTIONS = ["Collection", "Equipment", "Reagent", "Safety", "Other"] as const;
+export type Category = typeof CATEGORY_OPTIONS[number]
+
 const RATING_OPTIONS = [0, 1, 2, 3, 4, 5] as const;
+
+
 
 const DEPARTMENT_OPTIONS = [
   { value: "Administration", label: "Administration" },

@@ -52,7 +52,7 @@ export const InventoryFilters: React.FC<Props> = ({
             <MenuItem value="Equipment">Equipment</MenuItem>
             <MenuItem value="Reagent">Reagent</MenuItem>
             <MenuItem value="Safety">Safety</MenuItem>
-            <MenuItem value="other">Other</MenuItem>
+            <MenuItem value="Other">Other</MenuItem>
           </TextField>
 
           <TextField
