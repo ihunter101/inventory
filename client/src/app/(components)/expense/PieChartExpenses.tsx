@@ -67,7 +67,7 @@ const ExpenseGroupDonutCard: React.FC<ExpenseGroupDonutCardProps> = ({
                   padding: "12px",
                   color: "hsl(var(--popover-foreground))",
                 }}
-                formatter={(value: number) => `$${value.toLocaleString()}`}
+                formatter={(value: number | undefined) => [`$${(value ?? 0).toLocaleString()}`,"Amount"]}
               />
 
               <Pie
