@@ -10,8 +10,39 @@ import ExpenseKPICards from "../../(components)/expense/ExpenseKPICard";
 import RecentTransactionsTable from "../../(components)/expense/RecentTransactionTable";
 import BarChartCategoryAnalysis from "../../(components)/expense/BarChartCategoryAnalysis";
 import ExpenseGroupDonutCard from "@/app/(components)/expense/PieChartExpenses";
+import { endOfDay } from "date-fns";
 
 type Range = "1w" | "1m" | "6m" | "1y" | "all";
+
+const getDateRange = (range: Range): { from: string, end: string } => {
+  const now = new Date();
+  const from = new Date(now);
+
+
+switch (range) {
+  case "1w":
+    from.setDate(now.getDate() - 7);
+    break;
+  case "1m":
+    from.setMonth(now.getMonth() - 1);
+    break;
+  case "6m":
+    from.setMonth(now.getMonth() - 6);
+    break;
+  case "1y":
+    from.setFullYear(now.getFullYear() - 1);
+    break;
+  case 'all':
+    from.getFullYear()
+}
+return {
+  from: from.toISOString(),
+  end: now.toISOString()
+}
+}
+
+const [range, setRange] = useState<Range>("1m");
+const { from, end } = getDateRange(range);
 
 const filterByRange = (expenses: any[], range: Range) => {
   if (range === "all") return expenses;
@@ -30,7 +61,7 @@ const filterByRange = (expenses: any[], range: Range) => {
 const ExpenseDashboard = () => {
   const [range, setRange] = useState<Range>("1m");
 
-  const { data: expenses = [], isLoading, isError } = useGetExpensesQuery();
+  const { data: expenses = [], isLoading, isError } = useGetExpensesQuery({from, end});
 
   const filteredExpenses = useMemo(
     () => filterByRange(expenses, range),

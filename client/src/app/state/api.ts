@@ -822,7 +822,7 @@ export type PaymentHistory = {
   method?: string | null;
   reference?: string | null;
   notes?: string | null;
-
+  status?: string | null;
   poId?: string | null;
   poNumber?: string | null;
   invoiceNumber?: string | null;

@@ -521,7 +521,7 @@ export default function PaymentPage() {
                             Supplier
                           </div>
                           <div className="truncate text-foreground">
-                            {p.supplierName ?? p.supplier ?? "—"}
+                            {p.supplierName ?? p.supplierName ?? "—"}
                           </div>
                         </div>
                         <div>

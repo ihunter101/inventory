@@ -199,6 +199,7 @@ export default function PurchasesPage() {
           invoiceItemId: ln.invoiceItemId,
           productDraftId,
           poItemId, // ✅
+          lotNumber: ln.lotNumber ?? "",
           name: ln.name ?? ln.description ?? ln.product?.name ?? "",
           unit: ln.unit ?? ln.uom ?? ln.product?.unit ?? "",
           receivedQty: Number(ln.receivedQty ?? ln.quantity ?? 0),

@@ -3,11 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "start": "next start",
-    "lint": "next lint",
-    "build": "cd ../shared && npm install && npm run build && cd ../client && next build"
-  },
+  "dev": "tsc --noEmit && next dev",
+  "start": "next start",
+  "lint": "next lint",
+  "type-check": "tsc --noEmit",
+  "build": "cd ../shared && npm install && npm run build && cd ../client && tsc --noEmit && next build"
+},
   "dependencies": {
     "@clerk/nextjs": "^6.36.3",
     "@emotion/react": "^11.14.0",

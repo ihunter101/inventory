@@ -119,14 +119,15 @@ export const getPaymentsHistory = async (req: Request, res: Response) => {
   const { invoiceId, poId, q, from, to, method } = req.query;
 
   const where: any = {}
-  if (invoiceId) where.invoideId = invoiceId;
+  if (invoiceId) where.invoiceId = invoiceId;
   if (method) where.method = method
 
   if (from || to ) {
     //initialize the object as an empty filter
     where.paidAt = {};
-    if (to) where.paidAt.gte = new Date(to as string);
-    if (from) where.paidAt.lte = new Date(from as string);
+
+    if (from) where.paidAt.gte = new Date(from as string);
+    if (to) where.paidAt.lte = new Date(to as string)
   }
 
   if (poId || q) {
@@ -157,7 +158,7 @@ export const getPaymentsHistory = async (req: Request, res: Response) => {
     paidAt: p.paidAt.toISOString(),
     method: p.method ?? null,
     reference: p.reference ?? null,
-    supplier: p.invoice?.supplier?.name ?? null,
+    supplierName: p.invoice?.supplier?.name ?? null,
     //notes: p.notes ?? null,
     poId: p.invoice?.poId ?? null,
     poNumber: p.invoice?.po?.poNumber ?? null
