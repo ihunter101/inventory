@@ -68,21 +68,29 @@ const CardPurchaseSummary: React.FC = () => {
     return (totalPaid / denom) * 100;
   }, [totalPaid, outstanding]);
 
-  if (isError) return <div className="m-5">Failed to fetch purchase summary</div>;
+  if (isError) {
+    return (
+      <div className="m-5 text-sm text-destructive">
+        Failed to fetch purchase summary
+      </div>
+    );
+  }
 
   return (
-    <Card className="h-full rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col">
-      <CardHeader className="pb-3 shrink-0">
+    <Card className="flex h-full flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/95">
+      <CardHeader className="shrink-0 pb-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <CardTitle className="text-base font-semibold tracking-tight">
+            <CardTitle className="text-base font-semibold tracking-tight text-foreground">
               Purchase Summary (Paid)
             </CardTitle>
-            <p className="text-xs text-slate-500 mt-1">{data?.rangeLabel ?? ""}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {data?.rangeLabel ?? ""}
+            </p>
           </div>
 
           <Select value={timeframe} onValueChange={(v) => setTimeframe(v as PurchaseTF)}>
-            <SelectTrigger className="h-9 w-[120px] rounded-full border border-slate-200 bg-white text-xs shadow-sm">
+            <SelectTrigger className="h-9 w-[120px] rounded-full border border-border/60 bg-background text-xs text-foreground shadow-sm">
               <SelectValue placeholder="Month" />
             </SelectTrigger>
             <SelectContent>
@@ -94,34 +102,33 @@ const CardPurchaseSummary: React.FC = () => {
         </div>
       </CardHeader>
 
-      {/* IMPORTANT: flex-1 + min-h-0 prevents clipping bugs */}
-      <CardContent className="pt-0 flex-1 min-h-0 flex flex-col">
+      <CardContent className="flex min-h-0 flex-1 flex-col pt-0">
         {isLoading ? (
-          <div className="py-8 text-sm text-slate-500">Loading...</div>
+          <div className="py-8 text-sm text-muted-foreground">Loading...</div>
         ) : (
-          // This wrapper scrolls if the card is too short, instead of cutting off the footer
-          <div className="flex-1 min-h-0 flex flex-col overflow-y-auto pr-1">
-            {/* Top KPI */}
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pr-1">
             <div className="mb-3 mt-2 shrink-0">
-              <p className="text-xs text-slate-500">Total Paid (from Invoice Payments)</p>
+              <p className="text-xs text-muted-foreground">
+                Total Paid (from Invoice Payments)
+              </p>
 
-              <div className="flex items-center gap-3 mt-1 flex-wrap">
-                <p className="text-2xl font-extrabold text-slate-900">
+              <div className="mt-1 flex flex-wrap items-center gap-3">
+                <p className="text-2xl font-extrabold text-foreground">
                   {numeral(totalPaid).format("$0,0.00")}
                 </p>
 
                 {changePct !== null && (
                   <div
-                    className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border ${
+                    className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold ${
                       changePct >= 0
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                        : "bg-red-50 text-red-700 border-red-100"
+                        ? "border-emerald-200/60 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                        : "border-red-200/60 bg-red-500/10 text-red-700 dark:text-red-400"
                     }`}
                   >
                     {changePct >= 0 ? (
-                      <TrendingUp className="w-4 h-4" />
+                      <TrendingUp className="h-4 w-4" />
                     ) : (
-                      <TrendingDown className="w-4 h-4" />
+                      <TrendingDown className="h-4 w-4" />
                     )}
                     <span>{Math.abs(changePct).toFixed(1)}%</span>
                   </div>
@@ -129,31 +136,46 @@ const CardPurchaseSummary: React.FC = () => {
               </div>
             </div>
 
-            {/* Chart grows */}
-            <div className="flex-1 min-h-[260px] shrink-0">
-              <div className="h-full rounded-2xl bg-slate-50/60 border border-slate-200 p-3">
+            <div className="min-h-[260px] shrink-0 flex-1">
+              <div className="h-full rounded-2xl border border-border/60 bg-muted/30 p-3">
                 {hasData ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 10 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <AreaChart
+                      data={chartData}
+                      margin={{ top: 10, right: 10, left: -10, bottom: 10 }}
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        vertical={false}
+                        stroke="hsl(var(--border))"
+                        opacity={0.35}
+                      />
                       <XAxis
                         dataKey="dateLabel"
                         tickLine={false}
                         axisLine={false}
-                        interval={0}          // ✅ show all labels
-                        tick={{ fontSize: 11, fill: "#9ca3af" }}
+                        interval={0}
+                        tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
                       />
                       <YAxis
                         tickLine={false}
                         axisLine={false}
                         width={55}
-                        tick={{ fontSize: 11, fill: "#9ca3af" }}
+                        tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
                         tickFormatter={(value: number) => numeral(value).format("$0a")}
                       />
                       <Tooltip
-                        cursor={{ stroke: "#e5e7eb", strokeWidth: 1 }}
-                        formatter={(value: number | undefined) => [numeral(value ?? 0).format("$0,0.00"), "Paid"]}
-                        
+                        cursor={{ stroke: "hsl(var(--border))", strokeWidth: 1 }}
+                        contentStyle={{
+                          borderRadius: "12px",
+                          border: "1px solid hsl(var(--border))",
+                          backgroundColor: "hsl(var(--popover))",
+                          color: "hsl(var(--popover-foreground))",
+                        }}
+                        formatter={(value: number | undefined) => [
+                          numeral(value ?? 0).format("$0,0.00"),
+                          "Paid",
+                        ]}
                       />
                       <defs>
                         <linearGradient id="paidArea" x1="0" y1="0" x2="0" y2="1">
@@ -172,65 +194,63 @@ const CardPurchaseSummary: React.FC = () => {
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-full flex items-center justify-center text-xs text-gray-400 border border-dashed border-gray-200 rounded-xl">
+                  <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-border/60 text-xs text-muted-foreground">
                     No payment data yet
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Bottom cards: responsive so they always fit */}
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 shrink-0">
-              <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <Wallet className="h-4 w-4 text-emerald-700" />
+            <div className="mt-4 grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="rounded-2xl border border-border/60 bg-card p-3">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Wallet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   <span>Paid</span>
                 </div>
-                <p className="mt-1 text-lg font-extrabold text-slate-900">
+                <p className="mt-1 text-lg font-extrabold text-foreground">
                   {numeral(totalPaid).format("$0,0")}
                 </p>
-                <p className="text-[11px] text-slate-500 mt-1">
+                <p className="mt-1 text-[11px] text-muted-foreground">
                   {paidVsOutstandingPct.toFixed(0)}% of (paid + outstanding)
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <AlertCircle className="h-4 w-4 text-amber-600" />
+              <div className="rounded-2xl border border-border/60 bg-card p-3">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                   <span>Outstanding</span>
                 </div>
-                <p className="mt-1 text-lg font-extrabold text-slate-900">
+                <p className="mt-1 text-lg font-extrabold text-foreground">
                   {numeral(outstanding).format("$0,0")}
                 </p>
-                <p className="text-[11px] text-slate-500 mt-1">
+                <p className="mt-1 text-[11px] text-muted-foreground">
                   {invoicesPending} pending invoices
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <Receipt className="h-4 w-4 text-slate-700" />
+              <div className="rounded-2xl border border-border/60 bg-card p-3">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Receipt className="h-4 w-4 text-foreground/80" />
                   <span>Highest Paid</span>
                 </div>
-                <p className="mt-1 text-lg font-extrabold text-slate-900">
+                <p className="mt-1 text-lg font-extrabold text-foreground">
                   {highest ? numeral(highest.paid).format("$0,0") : "—"}
                 </p>
-                <p className="text-[11px] text-slate-500 mt-1">
+                <p className="mt-1 text-[11px] text-muted-foreground">
                   {highest ? highest.label : "No data"}
                 </p>
               </div>
             </div>
 
-            {/* Footer always visible (or scrollable inside CardContent) */}
-            <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50/30 p-3 flex items-center justify-between shrink-0">
-              <div className="text-xs text-slate-600">
-                <p className="font-semibold text-slate-900">Payments-based Purchases</p>
+            <div className="mt-3 flex shrink-0 items-center justify-between rounded-2xl border border-emerald-200/40 bg-emerald-500/10 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/30">
+              <div className="text-xs text-muted-foreground">
+                <p className="font-semibold text-foreground">Payments-based Purchases</p>
                 <p className="mt-0.5">
                   This chart reflects actual cash outflow (Invoice Payments), not PO estimates.
                 </p>
               </div>
-              <div className="h-9 w-9 rounded-xl bg-white border border-emerald-100 flex items-center justify-center">
-                <ArrowUpRight className="h-4 w-4 text-emerald-700" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-200/50 bg-background dark:border-emerald-800/40">
+                <ArrowUpRight className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
               </div>
             </div>
           </div>

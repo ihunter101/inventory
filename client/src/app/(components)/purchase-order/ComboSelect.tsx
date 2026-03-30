@@ -127,10 +127,12 @@ export function ComboSelect({
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className={`w-full justify-between h-11 text-base ${className}`}
+          className={`h-11 w-full justify-between text-left text-sm sm:text-base ${className}`}
         >
           {/* Show the selected label if we found the selected option; otherwise show placeholder */}
-          {selected ? selected.label : placeholder || "Select..."}
+          <span className="truncate">
+            {selected ? selected.label : placeholder || "Select..."}
+          </span>
           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -138,22 +140,22 @@ export function ComboSelect({
       <PopoverContent
         align="start"
         sideOffset={6}
-        className="w-[var(--radix-popover-trigger-width)] p-0 bg-white border shadow-lg"
+        className="w-[var(--radix-popover-trigger-width)] min-w-[220px] border border-border/60 bg-popover p-0 shadow-xl"
       >
-        <Command className="bg-white">
+        <Command className="bg-popover">
           <CommandInput
             placeholder="Search..."
             value={search}
             onValueChange={setSearch}
-            className="h-11 bg-white"
+            className="h-11 bg-popover"
           />
 
-          <CommandList className="max-h-72 bg-white">
-            <CommandEmpty className="bg-white">
+          <CommandList className="max-h-72 bg-popover">
+            <CommandEmpty className="px-3 py-3 text-sm text-muted-foreground">
               {showCreate ? "Press enter to create" : "No results found"}
             </CommandEmpty>
 
-            <CommandGroup className="bg-white">
+            <CommandGroup className="bg-popover">
               {/* Clears selection by sending an empty value */}
               {value && (
                 <CommandItem
@@ -162,7 +164,7 @@ export function ComboSelect({
                     setOpen(false);
                     setSearch("");
                   }}
-                  className="cursor-pointer bg-white hover:bg-slate-100 text-red-600"
+                  className="cursor-pointer text-red-600 hover:bg-red-500/10 focus:bg-red-500/10 dark:text-red-400"
                 >
                   Clear selection
                 </CommandItem>
@@ -179,14 +181,14 @@ export function ComboSelect({
                     setOpen(false);
                     setSearch("");
                   }}
-                  className="cursor-pointer bg-white hover:bg-slate-100"
+                  className="cursor-pointer text-foreground hover:bg-muted/50 focus:bg-muted/50"
                 >
                   <Check
-                    className={`mr-2 h-4 w-4 ${
+                    className={`mr-2 h-4 w-4 shrink-0 ${
                       value === opt.value ? "opacity-100" : "opacity-0"
                     }`}
                   />
-                  {opt.label}
+                  <span className="truncate">{opt.label}</span>
                 </CommandItem>
               ))}
 
@@ -203,10 +205,10 @@ export function ComboSelect({
                     setOpen(false);
                     setSearch("");
                   }}
-                  className="text-blue-600 cursor-pointer bg-white hover:bg-slate-100"
+                  className="cursor-pointer text-primary hover:bg-primary/10 focus:bg-primary/10"
                 >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create "{search}"
+                  <Plus className="mr-2 h-4 w-4 shrink-0" />
+                  <span className="truncate">Create "{search}"</span>
                 </CommandItem>
               )}
             </CommandGroup>

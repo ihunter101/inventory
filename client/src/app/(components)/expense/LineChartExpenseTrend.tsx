@@ -49,21 +49,23 @@ const ExpenseTrendChart = ({ expenses }: Props) => {
       totals[monthKey] = (totals[monthKey] ?? 0) + expense.amount;
     });
 
-    const result = Object.entries(totals)
+    return Object.entries(totals)
       .map(([month, amount]) => ({ month, amount }))
-      .sort((a, b) => new Date(`1 ${a.month}`).getTime() - new Date(`1 ${b.month}`).getTime());
-
-    return result;
+      .sort(
+        (a, b) =>
+          new Date(`1 ${a.month}`).getTime() - new Date(`1 ${b.month}`).getTime()
+      );
   }, [expenses, selectedPeriod]);
 
   return (
-    <div className="lg:col-span-2 bg-white rounded-lg shadow border border-slate-200 p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-slate-900">Expense Trend</h3>
+    <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm lg:col-span-2">
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <h3 className="text-lg font-semibold text-foreground">Expense Trend</h3>
+
         <select
           value={selectedPeriod}
           onChange={(e) => setSelectedPeriod(e.target.value)}
-          className="text-sm border border-slate-300 rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="rounded-md border border-border/60 bg-background px-3 py-1 text-sm text-foreground outline-none ring-0 transition focus:border-primary focus:ring-2 focus:ring-primary/20"
         >
           <option value="all">All Time</option>
           <option value="6m">Last 6 Months</option>
@@ -75,26 +77,45 @@ const ExpenseTrendChart = ({ expenses }: Props) => {
         <AreaChart data={monthlyData}>
           <defs>
             <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
+              <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.28} />
               <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-          <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#64748B" />
+
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke="hsl(var(--border))"
+            opacity={0.35}
+          />
+
+          <XAxis
+            dataKey="month"
+            tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+            stroke="hsl(var(--muted-foreground))"
+            tickLine={false}
+            axisLine={false}
+          />
+
           <YAxis
             tickFormatter={(value) => `$${(value / 1000).toFixed(0)}K`}
-            tick={{ fontSize: 12 }}
-            stroke="#64748B"
+            tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+            stroke="hsl(var(--muted-foreground))"
+            tickLine={false}
+            axisLine={false}
           />
+
           <Tooltip
-            formatter={(value: number | undefined) => [formatCurrency(value ?? 0), "Amount"]}
+            formatter={(value: number | undefined) => [ formatCurrency(value ?? 0),"Amount", ]}
             contentStyle={{
-              backgroundColor: "white",
-              border: "1px solid #E2E8F0",
-              borderRadius: "8px",
-              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+              backgroundColor: "hsl(var(--popover))",
+              border: "1px solid hsl(var(--border))",
+              borderRadius: "12px",
+              color: "hsl(var(--popover-foreground))",
+              boxShadow: "0 10px 25px rgba(0, 0, 0, 0.18)",
             }}
+            cursor={{ stroke: "hsl(var(--border))", strokeWidth: 1 }}
           />
+
           <Area
             type="monotone"
             dataKey="amount"

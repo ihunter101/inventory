@@ -10,7 +10,6 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   genPONumber,
   safeNumber,
-  todayYMD,
   type ComboOption,
 } from "@/app/(components)/purchase-order/utils/po";
 import {
@@ -26,14 +25,17 @@ import {
 import { POTotalsCard } from "./POTotalCards";
 import {
   useGetPurchaseOrdersQuery,
-  useCreatePurchaseOrderMutation,
   useGetDraftProductsQuery,
   useCreateDraftProductMutation,
   PurchaseOrderDTO,
   NewPurchaseOrderDTO,
 } from "@/app/state/api";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { ChevronDownIcon } from "lucide-react";
 
 /**
@@ -41,41 +43,13 @@ import { ChevronDownIcon } from "lucide-react";
  */
 export type PurchaseOrderFormPayload = NewPurchaseOrderDTO;
 
-/**
- * Props for the PurchaseOrderForm component
- */
 type PurchaseOrderFormProps = {
-  /** Whether we're creating a new PO or editing an existing one */
   mode: "create" | "edit";
-  
-  /** The existing PO data (only used when mode is "edit") */
   initial?: PurchaseOrderDTO;
-  
-  /** Function called when user submits the form */
   onSubmit: (data: PurchaseOrderFormPayload) => Promise<void>;
-  
-  /** Whether the form is currently being submitted */
   submitting?: boolean;
 };
 
-/**
- * PurchaseOrderForm - A form for creating or editing purchase orders
- * 
- * Features:
- * - Select existing supplier or create new one
- * - Add/remove line items with draft products
- * - Calculate subtotal, tax, and total automatically
- * - Validates all required fields before submission
- * 
- * @example
- * ```tsx
- * <PurchaseOrderForm
- *   mode="create"
- *   onSubmit={handleCreate}
- *   submitting={isLoading}
- * />
- * ```
- */
 export default function PurchaseOrderForm({
   mode,
   initial,
@@ -84,43 +58,33 @@ export default function PurchaseOrderForm({
 }: PurchaseOrderFormProps) {
   const router = useRouter();
 
-  // ========================================
-  // FORM STATE - These hold all the form data
-  // ========================================
-  
- const [orderDateOpen, setOrderDateOpen] = React.useState(false);
-const [dueDateOpen, setDueDateOpen] = React.useState(false);
+  const [orderDateOpen, setOrderDateOpen] = React.useState(false);
+  const [dueDateOpen, setDueDateOpen] = React.useState(false);
 
-  /** The PO number (e.g., "PO-2024-001") */
   const [poNumber, setPoNumber] = React.useState(
     mode === "edit" && initial ? initial.poNumber : genPONumber()
   );
 
-  /** When the PO was created (YYYY-MM-DD format) */
-const [orderDate, setOrderDate] = React.useState<Date>(
-  mode === "edit" && initial?.orderDate ? new Date(initial.orderDate) : new Date()
-);
-/** When the PO was created (YYYY-MM-DD format) */
-const [dueDate, setDueDate] = React.useState<Date | undefined>(
-  mode === "edit" && initial?.dueDate ? new Date(initial.dueDate) : undefined
-);
+  const [orderDate, setOrderDate] = React.useState<Date>(
+    mode === "edit" && initial?.orderDate
+      ? new Date(initial.orderDate)
+      : new Date()
+  );
 
+  const [dueDate, setDueDate] = React.useState<Date | undefined>(
+    mode === "edit" && initial?.dueDate
+      ? new Date(initial.dueDate)
+      : undefined
+  );
 
-  /** Any special notes or terms for this PO */
   const [notes, setNotes] = React.useState(
     mode === "edit" && initial ? initial.notes || "" : ""
   );
 
-  /** 
-   * The supplier information - can be either:
-   * - Existing supplier (mode: "existing" with supplierId)
-   * - New supplier (mode: "new" with all details)
-   */
   const [supplierDraft, setSupplierDraft] = React.useState<SupplierDraft>(() => {
     if (mode === "edit" && initial?.supplier) {
       const supplier = initial.supplier;
-      
-      // If editing an existing supplier
+
       if (supplier.supplierId) {
         return {
           mode: "existing",
@@ -131,8 +95,7 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
           address: supplier.address || "",
         };
       }
-      
-      // If it was a new supplier when created
+
       return {
         mode: "new",
         supplierId: "",
@@ -142,8 +105,7 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
         address: supplier.address || "",
       };
     }
-    
-    // Default for new POs
+
     return {
       mode: "new",
       supplierId: "",
@@ -154,21 +116,12 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
     };
   });
 
-  /** Tax percentage (e.g., 8.5 for 8.5%) */
   const [taxPercent, setTaxPercent] = React.useState(
     mode === "edit" && initial
       ? (Number(initial.tax) / Number(initial.subtotal || 1)) * 100
       : 0
   );
 
-  /** 
-   * The line items in the PO - each row has:
-   * - name: product name
-   * - quantity: how many units
-   * - unitPrice: price per unit
-   * - unit: measurement unit (e.g., "box", "each")
-   * - draftProductId: the ID of the draft product
-   */
   const [rows, setRows] = React.useState<ItemRow[]>(() => {
     if (mode === "edit" && initial) {
       return initial.items.map((item) => ({
@@ -179,47 +132,31 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
         draftProductId: item.productId || "",
       }));
     }
-    // Default empty row for new POs
-    return [{ name: "", quantity: 1, unitPrice: 0, unit: "", draftProductId: "" }];
-  });
-  console.log("Initial Rows: ", rows)
-  console.log("Second check for initial Rows: ", rows)
 
-  // ========================================
-  // DATA FETCHING - Get suppliers and products from backend
-  // ========================================
-  
-  /** Get all purchase orders (we extract suppliers from these) */
+    return [
+      {
+        name: "",
+        quantity: 1,
+        unitPrice: 0,
+        unit: "",
+        draftProductId: "",
+      },
+    ];
+  });
+
   const { data: purchaseOrders = [] } = useGetPurchaseOrdersQuery(undefined);
-  
-  /** Get all draft products that can be added to PO */
   const { data: draftProducts = [] } = useGetDraftProductsQuery(undefined);
-  
-  /** Function to create a new draft product */
   const [createDraftProduct] = useCreateDraftProductMutation();
 
-  // ========================================
-  // PREVENT DOUBLE SUBMISSION
-  // ========================================
-  
-  /** Track if we're currently submitting to prevent duplicate submissions */
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  // ========================================
-  // DERIVE SUPPLIERS LIST from existing POs
-  // ========================================
-  
-  /**
-   * Extract unique suppliers from all purchase orders
-   * We do this because there's no separate "getSuppliers" endpoint
-   */
   const suppliers: SupplierLite[] = React.useMemo(() => {
     const map = new Map<string, SupplierLite>();
-    
+
     for (const po of purchaseOrders as any[]) {
       const s = po?.supplier;
       if (!s || typeof s === "string") continue;
-      
+
       if (s.supplierId && !map.has(s.supplierId)) {
         map.set(s.supplierId, {
           supplierId: s.supplierId,
@@ -230,25 +167,16 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
         });
       }
     }
-    
-    return Array.from(map.values()).sort((a, b) =>
-      a.name.localeCompare(b.name)
-    );
+
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [purchaseOrders]);
 
-  /** Convert suppliers to dropdown options format */
   const supplierOptions: ComboOption[] = React.useMemo(
     () => suppliers.map((s) => ({ value: s.supplierId, label: s.name })),
     [suppliers]
   );
 
-  // ========================================
-  // DRAFT PRODUCTS - Convert to dropdown options
-  // ========================================
-  
-  /** Normalize draft products from API */
-  const drafts: DraftProductLite[] = React.useMemo(() => {5
-
+  const drafts: DraftProductLite[] = React.useMemo(() => {
     return (draftProducts as any[]).map((d) => ({
       id: d.id,
       name: d.name,
@@ -256,25 +184,15 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
     }));
   }, [draftProducts]);
 
-  console.log("drafts", drafts);
-  
-
-
-
-  /** Convert to dropdown options */
   const baseDraftOptions: ComboOption[] = React.useMemo(
     () => drafts.map((d) => ({ value: d.id, label: d.name })),
     [drafts]
   );
-  console.log("Double Checking: ", draftProducts);
 
-  /** 
-   * Local cache for newly created draft products
-   * This lets users see their new products immediately without waiting for refetch
-   */
-  const [localDraftOptions, setLocalDraftOptions] = React.useState<ComboOption[]>([]);
+  const [localDraftOptions, setLocalDraftOptions] = React.useState<ComboOption[]>(
+    []
+  );
 
-  /** Combine server products and locally created products */
   const draftOptions = React.useMemo(() => {
     const map = new Map<string, ComboOption>();
     for (const opt of [...localDraftOptions, ...baseDraftOptions]) {
@@ -283,29 +201,14 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
     return Array.from(map.values());
   }, [localDraftOptions, baseDraftOptions]);
 
-  // ========================================
-  // CREATE NEW DRAFT PRODUCT
-  // ========================================
-  
-  /**
-   * Creates a new draft product in the database
-   * Called when user types a new product name in the dropdown
-   * 
-   * @param label - The product name entered by user
-   * @returns The created product as a dropdown option
-   */
   const onCreateDraft = React.useCallback(
     async (label: string): Promise<ComboOption> => {
       const name = label.trim();
       if (!name) return { value: "", label: "" };
 
-      // Optionally ask for unit
       const unit = (window.prompt("Unit (optional) e.g. box, each") || "").trim();
-
-      // Create in database
       const created = await createDraftProduct({ name, unit }).unwrap();
 
-      // Add to local cache
       const opt: ComboOption = { value: created.id, label: created.name };
       setLocalDraftOptions((prev) => [opt, ...prev]);
 
@@ -314,11 +217,6 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
     [createDraftProduct]
   );
 
-  // ========================================
-  // CALCULATIONS - Automatically computed values
-  // ========================================
-  
-  /** Sum of all line items (quantity × price) */
   const subtotal = React.useMemo(
     () =>
       rows.reduce(
@@ -328,27 +226,24 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
     [rows]
   );
 
-  /** Tax amount based on subtotal and tax percentage */
   const tax = subtotal * (safeNumber(taxPercent) / 100);
-
-  /** Final total including tax */
   const total = subtotal + tax;
 
-  // ========================================
-  // FORM ACTIONS
-  // ========================================
-  
-  /**
-   * Resets all form fields to initial empty state
-   * Used after successful creation
-   */
   const reset = React.useCallback(() => {
     setPoNumber(genPONumber());
     setOrderDate(new Date());
     setDueDate(undefined);
     setNotes("");
     setTaxPercent(0);
-    setRows([{ quantity: 1, unitPrice: 0, unit: "", name: "", draftProductId: "" }]);
+    setRows([
+      {
+        quantity: 1,
+        unitPrice: 0,
+        unit: "",
+        name: "",
+        draftProductId: "",
+      },
+    ]);
     setSupplierDraft({
       mode: "new",
       supplierId: "",
@@ -359,17 +254,7 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
     });
   }, []);
 
-  /**
-   * Validates the form before submission
-   * Checks:
-   * - Supplier is selected or created
-   * - At least one item exists
-   * - All items have valid product and quantity
-   * 
-   * @returns true if form is valid, false otherwise
-   */
   function validate(): boolean {
-    // Check supplier
     if (supplierDraft.mode === "existing") {
       if (!supplierDraft.supplierId) {
         toast.error("Select a supplier or create a new one");
@@ -382,13 +267,11 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
       }
     }
 
-    // Check items
     if (!rows.length) {
       toast.error("Add at least one item");
       return false;
     }
 
-    // Each item must have product and valid quantity
     if (rows.some((r) => !r.draftProductId || safeNumber(r.quantity) <= 0)) {
       toast.error("Each item must have a product and quantity > 0");
       return false;
@@ -397,120 +280,100 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
     return true;
   }
 
-  /**
-   * Handles form submission
-   * Validates, builds payload, and calls onSubmit callback
-   */
-  const handleSubmit = React.useCallback(
-    async () => {
-      // Prevent double submission
-      if (isSubmitting || submitting) return;
+  const handleSubmit = React.useCallback(async () => {
+    if (isSubmitting || submitting) return;
+    if (!validate()) return;
 
-      // Validate form
-      if (!validate()) return;
+    setIsSubmitting(true);
 
-      setIsSubmitting(true);
+    try {
+      const items = rows.map((r) => {
+        const quantity = safeNumber(r.quantity);
+        const unitPrice = safeNumber(r.unitPrice);
 
-      try {
-        // Build line items
-        const items = rows.map((r) => {
-          const quantity = safeNumber(r.quantity);
-          const unitPrice = safeNumber(r.unitPrice);
-          return {
-            productId: r.productId ?? r.draftProductId, // Real DB ID
-            draftProductId: r.draftProductId,
-            name: (r.name || "").trim(),
-            unit: (r.unit || "").trim(),
-            quantity,
-            unitPrice,
-            lineTotal: quantity * unitPrice,
-          };
-        });
-
-        // Build base payload
-        const base: NewPurchaseOrderDTO = {
-          poNumber,
-          orderDate: orderDate.toISOString(),
-          dueDate: dueDate ? dueDate.toISOString() : undefined,
-          notes: notes || undefined,
-          items,
-          subtotal,
-          status: initial?.status || "DRAFT",
-          tax,
-          total,
+        return {
+          productId: r.productId ?? r.draftProductId,
+          draftProductId: r.draftProductId,
+          name: (r.name || "").trim(),
+          unit: (r.unit || "").trim(),
+          quantity,
+          unitPrice,
+          lineTotal: quantity * unitPrice,
         };
+      });
 
-        // Add supplier info based on mode
-        let payload: PurchaseOrderFormPayload;
-        
-        if (supplierDraft.mode === "existing") {
-          // Link to existing supplier
-          payload = {
-            ...base,
-            supplierId: supplierDraft.supplierId,
-          };
-        } else {
-          // Create new supplier
-          payload = {
-            ...base,
-            supplier: {
-              name: supplierDraft.name.trim(),
-              email: supplierDraft.email?.trim() || "",
-              phone: supplierDraft.phone?.trim() || "",
-              address: supplierDraft.address?.trim() || "",
-            },
-          };
-        }
+      const base: NewPurchaseOrderDTO = {
+        poNumber,
+        orderDate: orderDate.toISOString(),
+        dueDate: dueDate ? dueDate.toISOString() : undefined,
+        notes: notes || undefined,
+        items,
+        subtotal,
+        status: initial?.status || "DRAFT",
+        tax,
+        total,
+      };
 
-        // Submit to backend
-        await onSubmit(payload);
+      let payload: PurchaseOrderFormPayload;
 
-        // Reset form only on create mode
-        if (mode === "create") {
-          reset();
-        }
-      } finally {
-        setIsSubmitting(false);
+      if (supplierDraft.mode === "existing") {
+        payload = {
+          ...base,
+          supplierId: supplierDraft.supplierId,
+        };
+      } else {
+        payload = {
+          ...base,
+          supplier: {
+            name: supplierDraft.name.trim(),
+            email: supplierDraft.email?.trim() || "",
+            phone: supplierDraft.phone?.trim() || "",
+            address: supplierDraft.address?.trim() || "",
+          },
+        };
       }
-    },
-    [
-      isSubmitting,
-      submitting,
-      rows,
-      poNumber,
-      orderDate,
-      dueDate,
-      notes,
-      subtotal,
-      tax,
-      total,
-      supplierDraft,
-      onSubmit,
-      initial,
-      mode,
-      reset,
-    ]
-  );
 
-  // ========================================
-  // RENDER
-  // ========================================
+      await onSubmit(payload);
+
+      if (mode === "create") {
+        reset();
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [
+    isSubmitting,
+    submitting,
+    rows,
+    poNumber,
+    orderDate,
+    dueDate,
+    notes,
+    subtotal,
+    tax,
+    total,
+    supplierDraft,
+    onSubmit,
+    initial,
+    mode,
+    reset,
+  ]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* Header */}
-      <div className="rounded-2xl border-2 border-blue-100 bg-blue-50/30 p-6">
-        <h2 className="text-2xl font-bold text-slate-900">
+      <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm sm:p-6">
+        <h2 className="text-xl font-bold text-foreground sm:text-2xl">
           {mode === "create" ? "Create " : "Edit "}Purchase Order
         </h2>
-        <p className="mt-2 text-slate-600">
+        <p className="mt-2 text-sm leading-6 text-muted-foreground sm:text-base">
           {mode === "create"
-            ? "Create a new purchase order using draft products (not posted to inventory yet)."
+            ? "Create a new purchase order using draft products."
             : "Update the purchase order details below."}
         </p>
       </div>
 
-      {/* Supplier Section */}
+      {/* Supplier */}
       <SupplierSection
         suppliers={suppliers}
         supplierOptions={supplierOptions}
@@ -519,22 +382,23 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
         disabled={submitting || isSubmitting}
       />
 
-      {/* Items Table */}
-      <POItemsTable
-        rows={rows}
-        onChange={setRows}
-        drafts={drafts}
-        draftOptions={draftOptions}
-        onCreateDraft={onCreateDraft}
-        disabled={submitting || isSubmitting}
-      />
+      {/* Items */}
+      <div className="overflow-hidden rounded-2xl">
+        <POItemsTable
+          rows={rows}
+          onChange={setRows}
+          drafts={drafts}
+          draftOptions={draftOptions}
+          onCreateDraft={onCreateDraft}
+          disabled={submitting || isSubmitting}
+        />
+      </div>
 
-      {/* Metadata and Totals */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Left: PO Metadata */}
-        <div className="space-y-6 rounded-2xl border-2 border-slate-200 bg-slate-50/50 p-6">
+      {/* Metadata + totals */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <div className="space-y-5 rounded-2xl border border-border/60 bg-card p-4 shadow-sm sm:p-6">
           <div>
-            <Label className="text-sm font-medium text-slate-700">PO Number</Label>
+            <Label className="text-sm font-medium text-foreground">PO Number</Label>
             <Input
               className="mt-2 h-11 text-base"
               value={poNumber}
@@ -543,31 +407,28 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
             />
           </div>
 
-          <div>
-            <Label className="text-sm font-medium text-slate-700">Order Date</Label>
-            {/* <Input
-              type="date"
-              className="mt-2 h-11 text-base"
-              value={orderDate}
-              onChange={(e) => setOrderDate(e.target.value)}
-              disabled={submitting || isSubmitting}
-            /> */}
-            <div className="flex flex-col gap-3">
-              <Label htmlFor="date" className="px-1">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="flex min-w-0 flex-col gap-2">
+              <Label htmlFor="order-date" className="text-sm font-medium text-foreground">
                 Order Date
               </Label>
               <Popover open={orderDateOpen} onOpenChange={setOrderDateOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    id="date"
-                    className="w-48 justify-between font-normal"
+                    id="order-date"
+                    className="h-11 w-full justify-between font-normal"
                   >
-                    {orderDate ? orderDate.toLocaleDateString() : "Select an Order Date"}
-                    <ChevronDownIcon />
+                    <span className="truncate">
+                      {orderDate ? orderDate.toLocaleDateString() : "Select an order date"}
+                    </span>
+                    <ChevronDownIcon className="h-4 w-4 shrink-0" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto overflow-hidden p-0" align="start">
+                <PopoverContent
+                  className="w-auto overflow-hidden border border-border/60 bg-popover p-0"
+                  align="start"
+                >
                   <Calendar
                     mode="single"
                     selected={orderDate}
@@ -580,40 +441,44 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
                 </PopoverContent>
               </Popover>
             </div>
-          </div>
 
-
-            <div className="flex flex-col gap-3">
-              <Label htmlFor="date" className="px-1">
+            <div className="flex min-w-0 flex-col gap-2">
+              <Label htmlFor="due-date" className="text-sm font-medium text-foreground">
                 Due Date
               </Label>
               <Popover open={dueDateOpen} onOpenChange={setDueDateOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    id="date"
-                    className="w-48 justify-between font-normal"
+                    id="due-date"
+                    className="h-11 w-full justify-between font-normal"
                   >
-                    {dueDate ? dueDate.toLocaleDateString() : "Select a due date"}
-                    <ChevronDownIcon />
+                    <span className="truncate">
+                      {dueDate ? dueDate.toLocaleDateString() : "Select a due date"}
+                    </span>
+                    <ChevronDownIcon className="h-4 w-4 shrink-0" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto overflow-hidden p-0" align="start">
+                <PopoverContent
+                  className="w-auto overflow-hidden border border-border/60 bg-popover p-0"
+                  align="start"
+                >
                   <Calendar
                     mode="single"
                     selected={dueDate}
                     captionLayout="dropdown"
-                    onSelect={(dueDate) => {
-                      setDueDate(dueDate)
-                      setDueDateOpen(false)
+                    onSelect={(d) => {
+                      setDueDate(d);
+                      setDueDateOpen(false);
                     }}
                   />
                 </PopoverContent>
               </Popover>
             </div>
+          </div>
 
           <div>
-            <Label className="text-sm font-medium text-slate-700">
+            <Label className="text-sm font-medium text-foreground">
               Notes / Terms
             </Label>
             <Textarea
@@ -626,22 +491,23 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
           </div>
         </div>
 
-        {/* Right: Totals */}
-        <POTotalsCard
-          subtotal={subtotal}
-          taxPercent={taxPercent}
-          onTaxPercentChange={setTaxPercent}
-        />
+        <div className="min-w-0">
+          <POTotalsCard
+            subtotal={subtotal}
+            taxPercent={taxPercent}
+            onTaxPercentChange={setTaxPercent}
+          />
+        </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex items-center justify-end gap-4">
+      {/* Actions */}
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
         <Button
           variant="outline"
           type="button"
           onClick={() => router.back()}
           disabled={submitting || isSubmitting}
-          className="h-11 px-6 text-base"
+          className="h-11 w-full px-6 text-base sm:w-auto"
         >
           Cancel
         </Button>
@@ -650,7 +516,7 @@ const [dueDate, setDueDate] = React.useState<Date | undefined>(
           type="button"
           onClick={handleSubmit}
           disabled={submitting || isSubmitting}
-          className="h-11 px-8 text-base"
+          className="h-11 w-full px-8 text-base sm:w-auto"
         >
           {submitting || isSubmitting
             ? mode === "create"

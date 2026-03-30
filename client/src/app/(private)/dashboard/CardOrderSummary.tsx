@@ -55,11 +55,11 @@ export default function CardProcurementOverview() {
   const CustomTooltip = ({ active, payload }: any) => {
     if (!active || !payload?.length) return null;
     return (
-      <div className="rounded border border-slate-200 bg-white p-2 shadow-sm">
-        <div className="text-xs font-semibold text-slate-900">
+      <div className="rounded-xl border border-border/60 bg-popover/95 p-3 shadow-xl backdrop-blur supports-[backdrop-filter]:bg-popover/90">
+        <div className="text-xs font-semibold text-popover-foreground">
           {payload[0].name}
         </div>
-        <div className="text-xs text-slate-600">{payload[0].value}</div>
+        <div className="text-xs text-muted-foreground">{payload[0].value}</div>
       </div>
     );
   };
@@ -81,7 +81,7 @@ export default function CardProcurementOverview() {
                 className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-sm"
                 style={{ backgroundColor: entry.color }}
               />
-              <span className="break-words text-slate-700">
+              <span className="break-words text-muted-foreground">
                 {entry.value}
               </span>
             </div>
@@ -93,8 +93,8 @@ export default function CardProcurementOverview() {
 
   if (isError) {
     return (
-      <Card className="flex h-full items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="text-sm text-slate-500">
+      <Card className="flex h-full items-center justify-center rounded-2xl border border-border/60 bg-card shadow-sm">
+        <div className="text-sm text-muted-foreground">
           Failed to load procurement overview
         </div>
       </Card>
@@ -102,20 +102,20 @@ export default function CardProcurementOverview() {
   }
 
   return (
-    <Card className="h-full rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <Card className="h-full overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/95">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <CardTitle className="text-base font-semibold tracking-tight">
+            <CardTitle className="text-base font-semibold tracking-tight text-foreground">
               Procurement Overview
             </CardTitle>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               {data?.rangeLabel ?? "—"}
             </p>
           </div>
 
           <Select value={tf} onValueChange={(v) => setTf(v as ProcurementTF)}>
-            <SelectTrigger className="h-9 w-[120px] rounded-full border border-slate-200 bg-white text-xs shadow-sm">
+            <SelectTrigger className="h-9 w-[120px] rounded-full border border-border/60 bg-background text-xs text-foreground shadow-sm">
               <SelectValue placeholder="Last 90d" />
             </SelectTrigger>
             <SelectContent>
@@ -129,48 +129,50 @@ export default function CardProcurementOverview() {
 
       <CardContent className="pt-0">
         {isLoading ? (
-          <div className="py-8 text-sm text-slate-500">Loading...</div>
+          <div className="py-8 text-sm text-muted-foreground">Loading...</div>
         ) : (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-blue-100 bg-blue-50 p-3">
+              <div className="rounded-2xl border border-primary/15 bg-primary/10 p-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-blue-700">
+                  <p className="text-xs font-medium text-primary">
                     Purchase Orders
                   </p>
-                  <ShoppingCart className="h-4 w-4 text-blue-600" />
+                  <ShoppingCart className="h-4 w-4 text-primary" />
                 </div>
-                <p className="mt-1 text-2xl font-extrabold text-blue-900">
+                <p className="mt-1 text-2xl font-extrabold text-foreground">
                   {data?.po.total ?? 0}
                 </p>
-                <p className="mt-1 text-xs text-blue-700">
+                <p className="mt-1 text-xs text-muted-foreground">
                   Active: {data?.po.active ?? 0} • Closed: {data?.po.closed ?? 0}
                 </p>
-                <p className="mt-1 text-xs font-semibold text-blue-900">
+                <p className="mt-1 text-xs font-semibold text-foreground">
                   Active value: {formatCurrency(data?.po.activeValue ?? 0)}
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-purple-100 bg-purple-50 p-3">
+              <div className="rounded-2xl border border-purple-200/40 bg-purple-500/10 p-3 dark:border-purple-900/40 dark:bg-purple-950/30">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-purple-700">Invoices</p>
-                  <FileText className="h-4 w-4 text-purple-600" />
+                  <p className="text-xs font-medium text-purple-700 dark:text-purple-300">
+                    Invoices
+                  </p>
+                  <FileText className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                 </div>
-                <p className="mt-1 text-2xl font-extrabold text-purple-900">
+                <p className="mt-1 text-2xl font-extrabold text-foreground">
                   {data?.invoices.total ?? 0}
                 </p>
-                <p className="mt-1 text-xs text-purple-700">
+                <p className="mt-1 text-xs text-muted-foreground">
                   Pending: {data?.invoices.pending ?? 0} • Paid: {data?.invoices.paid ?? 0}
                 </p>
-                <p className="mt-1 text-xs font-semibold text-purple-900">
+                <p className="mt-1 text-xs font-semibold text-foreground">
                   Total: {formatCurrency(data?.invoices.totalAmount ?? 0)}
                 </p>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                <p className="mb-2 text-xs font-semibold text-slate-700">
+              <div className="rounded-2xl border border-border/60 bg-muted/30 p-3">
+                <p className="mb-2 text-xs font-semibold text-foreground">
                   PO Status
                 </p>
 
@@ -208,8 +210,8 @@ export default function CardProcurementOverview() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                <p className="mb-2 text-xs font-semibold text-slate-700">
+              <div className="rounded-2xl border border-border/60 bg-muted/30 p-3">
+                <p className="mb-2 text-xs font-semibold text-foreground">
                   Invoice Status
                 </p>
 
@@ -248,23 +250,23 @@ export default function CardProcurementOverview() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-2">
+            <div className="space-y-2 rounded-2xl border border-border/60 bg-muted/30 p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                  <p className="text-sm text-slate-700">Paid Invoices</p>
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <p className="text-sm text-foreground">Paid Invoices</p>
                 </div>
-                <p className="text-sm font-semibold text-slate-900">
+                <p className="text-sm font-semibold text-foreground">
                   {formatCurrency(data?.invoices.paidAmount ?? 0)}
                 </p>
               </div>
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-amber-600" />
-                  <p className="text-sm text-slate-700">Pending Invoices</p>
+                  <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <p className="text-sm text-foreground">Pending Invoices</p>
                 </div>
-                <p className="text-sm font-semibold text-amber-700">
+                <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
                   {formatCurrency(data?.invoices.pendingAmount ?? 0)}
                 </p>
               </div>

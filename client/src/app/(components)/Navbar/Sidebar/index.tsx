@@ -214,7 +214,7 @@ export function AppSidebar() {
 
             {hasFinance && <NavSection label="Finance" items={visible.finance} isActive={isActive} />}
 
-            {/* Dev notice sticks near bottom, but doesn't create empty Finance space */}
+            {/* Dev notice sticks near bottom, but doesn't create empty Finance space
             <SidebarGroup className="mt-auto">
               <div className="rounded-lg border bg-amber-50 p-3 dark:bg-amber-950/20 group-data-[collapsible=icon]:hidden">
                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-900 dark:text-amber-200">
@@ -224,7 +224,7 @@ export function AppSidebar() {
                   Some features are still being built. You&apos;ll see them light up here soon.
                 </p>
               </div>
-            </SidebarGroup>
+            </SidebarGroup> */}
 
             {hasSettings && <SidebarSeparator />}
 

@@ -181,26 +181,25 @@ export default function InvoiceForm({
       // ✅ Only seed items that still have remainingToInvoice > 0
       // ✅ Default invoice quantity to remainingToInvoice (not full PO quantity)
       const seeded: LineRow[] = (po.items ?? [])
-  .filter((it: any) => (it.remainingToInvoice ?? 0) > 0)
-  .map((it: any) => {
-    const draft = productIndex.byId.get(it.draftProductId ?? it.productId);
+        .filter((it: any) => (it.remainingToInvoice ?? 0) > 0)
+        .map((it: any) => {
+          const draft = productIndex.byId.get(it.draftProductId ?? it.productId);
 
-    return {
-      id: crypto.randomUUID(),
-      poItemId: it.id,
-      productId: it.draftProductId ?? it.productId,
+          return {
+            id: crypto.randomUUID(),
+            poItemId: it.id,
+            productId: it.draftProductId ?? it.productId,
 
-      name: it.name ?? it.product?.name ?? draft?.name ?? "",
-      unit: it.unit ?? it.product?.unit ?? draft?.unit ?? "",
+            name: it.name ?? it.product?.name ?? draft?.name ?? "",
+            unit: it.unit ?? it.product?.unit ?? draft?.unit ?? "",
 
-      // ✅ default quantity to what remains to invoice
-      quantity: it.remainingToInvoice ?? 1,
-      unitPrice: Number(it.unitPrice ?? 0),
-    };
-  });
+            // ✅ default quantity to what remains to invoice
+            quantity: it.remainingToInvoice ?? 1,
+            unitPrice: Number(it.unitPrice ?? 0),
+          };
+        });
 
-setRows(seeded.length ? seeded : [makeEmptyRow()]);
-
+      setRows(seeded.length ? seeded : [makeEmptyRow()]);
     },
     [productIndex]
   );
@@ -314,7 +313,7 @@ setRows(seeded.length ? seeded : [makeEmptyRow()]);
 
     try {
       // ✅ Build payload lines to match CreateSupplierInvoiceDTO EXACTLY
-      const lines: CreateSupplierInvoiceDTO["lines"] = rows.map((r) => {
+      const lines: SupplierInvoiceFormPayload["lines"] = rows.map((r) => {
         const found = r.productId ? productIndex.byId.get(r.productId) : undefined;
 
         return {
@@ -383,30 +382,30 @@ setRows(seeded.length ? seeded : [makeEmptyRow()]);
   const busy = submitting || isSubmitting;
 
   return (
-    <Card className="relative rounded-3xl border-slate-200 bg-white/95 shadow-xl ring-1 ring-black/5">
+    <Card className="relative overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm sm:rounded-3xl">
       {busy && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-3xl bg-white/70 backdrop-blur-sm">
-          <div className="flex items-center gap-2 text-slate-700">
+        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-background/70 backdrop-blur-sm sm:rounded-3xl">
+          <div className="flex items-center gap-2 text-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="text-base">
+            <span className="text-sm sm:text-base">
               {mode === "create" ? "Creating invoice…" : "Updating invoice…"}
             </span>
           </div>
         </div>
       )}
 
-      <CardHeader className="gap-2 p-8 pb-4 md:p-10 md:pb-6">
-        <CardTitle className="text-3xl font-semibold tracking-tight text-slate-900">
+      <CardHeader className="gap-2 px-4 pb-4 pt-5 sm:px-6 sm:pb-5 sm:pt-6 lg:px-8 lg:pb-6 lg:pt-8">
+        <CardTitle className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
           {mode === "create" ? "Create " : "Edit "}Supplier Invoice
         </CardTitle>
-        <CardDescription className="text-[15px] text-slate-500">
+        <CardDescription className="text-sm text-muted-foreground sm:text-[15px]">
           {mode === "create"
             ? "Find a purchase order; we'll capture the supplier and you can refine the lines."
             : "Update the invoice details below."}
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="p-8 pt-0 md:p-10 md:pt-0">
+      <CardContent className="px-4 pb-4 pt-0 sm:px-6 sm:pb-6 lg:px-8 lg:pb-8">
         <InvoiceMetaFields
           invoiceNumber={invoiceNumber}
           setInvoiceNumber={setInvoiceNumber}
@@ -417,26 +416,30 @@ setRows(seeded.length ? seeded : [makeEmptyRow()]);
           disabled={busy}
         />
 
-        <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-3">
-          <PurchaseOrderPicker
-            poSearch={poSearch}
-            setPoSearch={setPoSearch}
-            poSearching={poSearching}
-            displayedPOs={displayedPOs}   // ✅ this is the correct list
-            selectedPO={activePO}
-            onChoosePO={choosePO}
-            disabled={busy || mode === "edit"}
-            onClearPO={onClearPO}
-          />
+        <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
+          <div className="min-w-0 xl:col-span-2">
+            <PurchaseOrderPicker
+              poSearch={poSearch}
+              setPoSearch={setPoSearch}
+              poSearching={poSearching}
+              displayedPOs={displayedPOs}   // ✅ this is the correct list
+              selectedPO={activePO}
+              onChoosePO={choosePO}
+              disabled={busy || mode === "edit"}
+              onClearPO={onClearPO}
+            />
+          </div>
 
-          <InvoiceSummaryCard
-            subtotal={subtotal}
-            taxPct={taxPct}
-            poTax={tax}
-            tax={tax}
-            amount={amount}
-            disabled={busy}
-          />
+          <div className="min-w-0">
+            <InvoiceSummaryCard
+              subtotal={subtotal}
+              taxPct={taxPct}
+              poTax={tax}
+              tax={tax}
+              amount={amount}
+              disabled={busy}
+            />
+          </div>
         </div>
 
         <InvoiceLinesSection
@@ -450,14 +453,19 @@ setRows(seeded.length ? seeded : [makeEmptyRow()]);
         />
       </CardContent>
 
-      <CardFooter className="flex items-center justify-end gap-3 p-8 pt-4 md:p-10 md:pt-6">
-        <Button variant="outline" onClick={() => router.back()} disabled={busy}>
+      <CardFooter className="flex flex-col-reverse gap-3 px-4 pb-5 pt-2 sm:flex-row sm:items-center sm:justify-end sm:px-6 sm:pb-6 lg:px-8 lg:pb-8">
+        <Button
+          variant="outline"
+          onClick={() => router.back()}
+          disabled={busy}
+          className="h-11 w-full sm:w-auto"
+        >
           Cancel
         </Button>
 
         <Button
           type="button"
-          className="h-11 px-6 text-base"
+          className="h-11 w-full px-6 text-base sm:w-auto"
           onClick={handleSubmit}
           disabled={busy || !activePOId}
         >

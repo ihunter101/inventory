@@ -9,6 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
+  Cell,
 } from "recharts";
 import { Expense } from "@/app/state/api";
 import { getCategoryColor } from "@/utils/categoryColors";
@@ -32,49 +33,64 @@ const BarChartCategoryAnalysis = ({ expenses }: Props) => {
     return Object.entries(totals).map(([name, value]) => ({
       name,
       value,
-      fill: getCategoryColor(name), // 👈 use helper
+      fill: getCategoryColor(name),
     }));
   }, [expenses]);
 
   return (
-    <div className="bg-white rounded-lg shadow border border-slate-200 p-6 mb-8">
-      <h3 className="text-lg font-semibold text-slate-900 mb-6">
+    <div className="mb-8 rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
+      <h3 className="mb-6 text-lg font-semibold text-foreground">
         Category Analysis
       </h3>
+
       <ResponsiveContainer width="100%" height={350}>
         <BarChart
           data={categoryData}
-          margin={{ top: 10, right: 20, left: 10, bottom: 60 }}
+          margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke="hsl(var(--border))"
+            opacity={0.35}
+          />
+
           <XAxis
             dataKey="name"
-            angle={-35}
+            angle={-45}
             textAnchor="end"
-            height={60}
+            height={80}
             interval={0}
-            tick={{ fontSize: 11 }}
-            stroke="#64748B"
+            tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+            stroke="hsl(var(--muted-foreground))"
+            tickLine={false}
+            axisLine={false}
           />
+
           <YAxis
             tickFormatter={(value) => `$${(value / 1000).toFixed(0)}K`}
-            tick={{ fontSize: 12 }}
-            stroke="#64748B"
+            tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+            stroke="hsl(var(--muted-foreground))"
+            tickLine={false}
+            axisLine={false}
           />
+
           <Tooltip
             formatter={(value: any) => [formatCurrency(value), "Amount"]}
             contentStyle={{
-              backgroundColor: "white",
-              border: "1px solid #E2E8F0",
-              borderRadius: "8px",
-              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+              backgroundColor: "hsl(var(--popover))",
+              border: "1px solid hsl(var(--border))",
+              borderRadius: "12px",
+              color: "hsl(var(--popover-foreground))",
+              boxShadow: "0 10px 25px rgba(0, 0, 0, 0.18)",
             }}
+            cursor={{ fill: "hsl(var(--muted) / 0.35)" }}
           />
-          <Bar
-            dataKey="value"
-            radius={[4, 4, 0, 0]}
-            fill="#3B82F6"
-          />
+
+          <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+            {categoryData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.fill} />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>

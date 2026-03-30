@@ -24,7 +24,7 @@ export default function SalesPage() {
   const { data: todaySaleData, isLoading: isLoadingToday } = useGetTodaySaleQuery();
   const { data } = useGetMeQuery();
 
-  if (!isLoaded) return <div className="p-6">Loading...</div>;
+  if (!isLoaded) return <div className="p-6 text-muted-foreground">Loading...</div>;
   if (!user) redirect("/sign-in");
 
   const role =
@@ -39,21 +39,16 @@ export default function SalesPage() {
 
   const locationDisplay = locationLabels(location);
 
-  const isPrivileged = role === "admin"; // expand later if you add manager/supervisor
+  const isPrivileged = role === "admin";
   const sale = todaySaleData?.sale ?? null;
 
-  // page mode: create (no sale), view (sale exists), edit (privileged edits)
   const [isEditing, setIsEditing] = useState(false);
 
-  // once a sale exists, staff should never see the form; admins only if editing
   const showEntryForm = !sale || (isPrivileged && isEditing);
 
-  // build a minimal summary shape (adapt field names to your backend response)
   const summary = useMemo(() => {
     if (!sale) return null;
 
-    // You must map these to your real API fields.
-    // Example assumes sale has: totalCash, creditCardTotal, debitCardTotal, chequeTotal, grandTotal
     return {
       cashTotal: sale.cashTotal ?? 0,
       credit: sale.creditCardTotal ?? 0,
@@ -65,23 +60,26 @@ export default function SalesPage() {
   }, [sale]);
 
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-gradient-to-b from-slate-50 to-white">
-      <div className="container mx-auto py-8 px-4">
+    <div className="min-h-[calc(100vh-64px)] bg-background">
+      <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <Card className="mb-8 p-6 border bg-gradient-to-r from-slate-50 to-white">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <Card className="mb-8 rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <h1 className="text-3xl font-semibold text-gray-900">Sales Management</h1>
-              <p className="text-gray-600 mt-1">
+              <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+                Sales Management
+              </h1>
+              <p className="mt-1 text-muted-foreground">
                 Record your daily sales for{" "}
-                <span className="text-green-600">{locationDisplay}</span> today
+                <span className="font-medium text-primary">{locationDisplay}</span> today
               </p>
             </div>
+
             <div className="flex flex-wrap gap-2">
-              <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-medium">
+              <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
                 Location: {locationDisplay}
               </span>
-              <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-sm font-medium">
+              <span className="rounded-full border border-border/60 bg-muted/40 px-3 py-1 text-sm font-medium text-foreground">
                 Role: {role}
               </span>
             </div>
@@ -89,65 +87,74 @@ export default function SalesPage() {
         </Card>
 
         {/* Today strip */}
-        <Card className="mb-6 p-5 border bg-white">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+        <Card className="mb-6 rounded-2xl border border-border/60 bg-card p-5 shadow-sm">
+          <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
             <div>
-              <p className="text-gray-500">Date</p>
-              <p className="font-semibold">{new Date().toLocaleDateString()}</p>
+              <p className="text-muted-foreground">Date</p>
+              <p className="font-semibold text-foreground">
+                {new Date().toLocaleDateString()}
+              </p>
             </div>
 
             <div>
-              <p className="text-gray-500">Cash Sheet Status</p>
-              <p className="font-semibold text-green-700">
+              <p className="text-muted-foreground">Cash Sheet Status</p>
+              <p
+                className={`font-semibold ${
+                  isLoadingToday
+                    ? "text-muted-foreground"
+                    : sale
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-amber-600 dark:text-amber-400"
+                }`}
+              >
                 {isLoadingToday ? "Loading..." : sale ? "Submitted" : "Not Submitted"}
               </p>
             </div>
 
             <div>
-              <p className="text-gray-500">Editing Allowed</p>
-              <p className="font-semibold">{isPrivileged ? "Yes" : "No"}</p>
+              <p className="text-muted-foreground">Editing Allowed</p>
+              <p className="font-semibold text-foreground">
+                {isPrivileged ? "Yes" : "No"}
+              </p>
             </div>
 
             <div>
-              <p className="text-gray-500">Last Updated</p>
-              <p className="font-semibold">
-                {summary?.updatedAt ? new Date(summary.updatedAt).toLocaleTimeString() : "—"}
+              <p className="text-muted-foreground">Last Updated</p>
+              <p className="font-semibold text-foreground">
+                {summary?.updatedAt
+                  ? new Date(summary.updatedAt).toLocaleTimeString()
+                  : "—"}
               </p>
             </div>
           </div>
         </Card>
 
-        <Card className="p-6 border bg-white">
+        <Card className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
           <Tabs defaultValue="entry" className="w-full">
-            <TabsList>
+            <TabsList className="bg-muted/40">
               <TabsTrigger value="entry">Sales Entry</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
             </TabsList>
 
             <TabsContent value="entry" className="mt-6">
-              {/* CASE A: No sale yet OR admin chose edit */}
               {showEntryForm ? (
                 <SalesEntryForm
                   mode={!sale ? "create" : "edit"}
-                  // pass sale to prefill when editing (you implement this inside SalesEntryForm)
                   initialSale={sale ?? undefined}
-                  // require note ONLY for edits by privileged users
                   requireEditNote={!!sale && isPrivileged}
                   onCancelEdit={() => setIsEditing(false)}
                   onSubmitted={() => {
-                    // after submit/update, always exit edit mode so they see summary state
                     setIsEditing(false);
                   }}
                 />
               ) : (
-                /* CASE B: Sale submitted -> show summary “empty state” */
-                <Card className="p-6 border bg-slate-50">
+                <Card className="rounded-2xl border border-border/60 bg-muted/20 p-6 shadow-none">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h2 className="text-xl font-semibold text-gray-900">
+                      <h2 className="text-xl font-semibold text-foreground">
                         Today’s Sales Submitted
                       </h2>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <p className="mt-1 text-sm text-muted-foreground">
                         Entry is locked for staff. Contact an administrator for corrections.
                       </p>
                     </div>
@@ -164,35 +171,46 @@ export default function SalesPage() {
                     )}
                   </div>
 
-                  <Separator className="my-5" />
+                  <Separator className="my-5 bg-border/60" />
 
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="rounded-lg bg-white border p-4">
-                      <p className="text-sm text-gray-500">Total Cash</p>
-                      <p className="text-lg font-semibold text-green-700">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                    <div className="rounded-xl border border-border/60 bg-background p-4">
+                      <p className="text-sm text-muted-foreground">Total Cash</p>
+                      <p className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
                         {money(Number(summary?.cashTotal))}
                       </p>
                     </div>
-                    <div className="rounded-lg bg-white border p-4">
-                      <p className="text-sm text-gray-500">Credit Card</p>
-                      <p className="text-lg font-semibold">{money(Number((summary?.credit)))}</p>
+
+                    <div className="rounded-xl border border-border/60 bg-background p-4">
+                      <p className="text-sm text-muted-foreground">Credit Card</p>
+                      <p className="text-lg font-semibold text-foreground">
+                        {money(Number(summary?.credit))}
+                      </p>
                     </div>
-                    <div className="rounded-lg bg-white border p-4">
-                      <p className="text-sm text-gray-500">Debit Card</p>
-                      <p className="text-lg font-semibold">{money(Number(summary?.debit))}</p>
+
+                    <div className="rounded-xl border border-border/60 bg-background p-4">
+                      <p className="text-sm text-muted-foreground">Debit Card</p>
+                      <p className="text-lg font-semibold text-foreground">
+                        {money(Number(summary?.debit))}
+                      </p>
                     </div>
-                    <div className="rounded-lg bg-white border p-4">
-                      <p className="text-sm text-gray-500">Cheque</p>
-                      <p className="text-lg font-semibold">{money(Number(summary?.cheque))}</p>
+
+                    <div className="rounded-xl border border-border/60 bg-background p-4">
+                      <p className="text-sm text-muted-foreground">Cheque</p>
+                      <p className="text-lg font-semibold text-foreground">
+                        {money(Number(summary?.cheque))}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="mt-5 rounded-lg bg-white border p-5 flex items-center justify-between">
-                    <p className="text-base font-semibold text-gray-900">Grand Total</p>
-                    <p className="text-2xl font-bold text-blue-700">{money(Number(summary?.grand))}</p>
+                  <div className="mt-5 flex items-center justify-between rounded-xl border border-primary/15 bg-primary/10 p-5">
+                    <p className="text-base font-semibold text-foreground">Grand Total</p>
+                    <p className="text-2xl font-bold text-primary">
+                      {money(Number(summary?.grand))}
+                    </p>
                   </div>
                 </Card>
-            )}
+              )}
             </TabsContent>
 
             <TabsContent value="history" className="mt-6">
@@ -201,7 +219,7 @@ export default function SalesPage() {
           </Tabs>
         </Card>
 
-        <p className="text-xs text-gray-500 text-center mt-6">
+        <p className="mt-6 text-center text-xs text-muted-foreground">
           Sales entries are logged and audited. Contact an administrator for corrections.
         </p>
       </div>

@@ -22,11 +22,9 @@ export type ItemRow = {
 type Props = {
   rows: ItemRow[];
   onChange: (rows: ItemRow[]) => void;
-
   drafts: DraftProductLite[];
   draftOptions: ComboOption[];
   onCreateDraft: (label: string) => Promise<ComboOption>;
-
   disabled?: boolean;
 };
 
@@ -60,34 +58,163 @@ export function POItemsTable({
   );
 
   return (
-    <div className="mb-8">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-xl font-semibold text-slate-900">Order Items</h3>
-        <Button variant="secondary" size="sm" onClick={addRow} disabled={disabled}>
-          <Plus className="mr-2 h-4 w-4" /> Add Item
+    <div className="mb-8 space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h3 className="text-lg font-semibold text-foreground sm:text-xl">
+          Order Items
+        </h3>
+
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={addRow}
+          disabled={disabled}
+          className="w-full sm:w-auto"
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Add Item
         </Button>
       </div>
 
+      {/* MOBILE / SMALL TABLET CARDS */}
+      <div className="space-y-4 md:hidden">
+        {rows.map((r, idx) => {
+          const selected = drafts.find((d) => d.id === r.draftProductId);
+          const line = safeNumber(r.quantity) * safeNumber(r.unitPrice);
+
+          return (
+            <div
+              key={idx}
+              className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
+            >
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    Item {idx + 1}
+                  </p>
+                  {!!r.draftProductId && (
+                    <p className="mt-1 break-all text-xs text-muted-foreground">
+                      Draft ID: {r.draftProductId}
+                    </p>
+                  )}
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeRow(idx)}
+                  disabled={disabled || rows.length === 1}
+                  title={rows.length === 1 ? "Keep at least one row" : "Remove"}
+                  className="shrink-0"
+                >
+                  <Trash2 className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-2 block text-xs font-medium text-muted-foreground">
+                    Product (Draft)
+                  </label>
+                  <ComboSelect
+                    value={r.draftProductId ?? ""}
+                    onChange={(v) => {
+                      const d = drafts.find((dd) => dd.id === v);
+                      updateRow(idx, {
+                        draftProductId: v,
+                        name: d?.name ?? r.name ?? "",
+                        unit: d?.unit ?? r.unit ?? "",
+                      });
+                    }}
+                    options={draftOptions}
+                    placeholder="Select or create draft product"
+                    allowCreate
+                    onCreate={onCreateDraft}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-xs font-medium text-muted-foreground">
+                      Unit
+                    </label>
+                    <Input
+                      className="h-11 text-base"
+                      value={r.unit ?? ""}
+                      placeholder={selected?.unit ?? "e.g. box"}
+                      onChange={(e) => updateRow(idx, { unit: e.target.value })}
+                      disabled={disabled}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-xs font-medium text-muted-foreground">
+                      Quantity
+                    </label>
+                    <Input
+                      className="h-11 text-base"
+                      type="number"
+                      min={0}
+                      value={r.quantity}
+                      onChange={(e) =>
+                        updateRow(idx, { quantity: Number(e.target.value) })
+                      }
+                      disabled={disabled}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-xs font-medium text-muted-foreground">
+                      Unit Price
+                    </label>
+                    <Input
+                      className="h-11 text-base"
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      value={r.unitPrice}
+                      onChange={(e) =>
+                        updateRow(idx, { unitPrice: Number(e.target.value) })
+                      }
+                      disabled={disabled}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-xs font-medium text-muted-foreground">
+                      Line Total
+                    </label>
+                    <div className="flex h-11 items-center rounded-md border border-border/60 bg-muted/30 px-3 text-sm font-semibold text-foreground">
+                      ${line.toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* TABLET / DESKTOP TABLE */}
       <div
         className="
-          h-[42vh] overflow-y-auto rounded-2xl border-2 border-slate-200 shadow-sm
-          scroll-smooth
+          hidden md:block
+          overflow-x-auto rounded-2xl border border-border/60 bg-card shadow-sm
           [scrollbar-width:thin]
-          [scrollbar-color:theme(colors.slate.300)_transparent]
         "
       >
-        <table className="w-full table-fixed text-[15px]">
+        <table className="min-w-[920px] w-full text-sm lg:text-[15px]">
           <colgroup>
-            <col className="w-[38%]" />
+            <col className="w-[34%]" />
             <col className="w-[14%]" />
-            <col className="w-[14%]" />
+            <col className="w-[12%]" />
             <col className="w-[16%]" />
-            <col className="w-[14%]" />
-            <col className="w-[4%]" />
+            <col className="w-[16%]" />
+            <col className="w-[8%]" />
           </colgroup>
 
-          <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur supports-[backdrop-filter]:bg-slate-50/60">
-            <tr className="[&>th]:px-4 [&>th]:py-3 text-left text-slate-700 font-semibold">
+          <thead className="sticky top-0 z-10 bg-muted/30 backdrop-blur supports-[backdrop-filter]:bg-muted/20">
+            <tr className="[&>th]:px-4 [&>th]:py-3 text-left font-semibold text-muted-foreground">
               <th>Product (Draft)</th>
               <th>Unit</th>
               <th>Quantity</th>
@@ -103,7 +230,10 @@ export function POItemsTable({
               const line = safeNumber(r.quantity) * safeNumber(r.unitPrice);
 
               return (
-                <tr key={idx} className="border-t align-top">
+                <tr
+                  key={idx}
+                  className="border-t border-border/60 align-top transition-colors hover:bg-muted/20"
+                >
                   <td className="px-4 py-4">
                     <ComboSelect
                       value={r.draftProductId ?? ""}
@@ -122,7 +252,7 @@ export function POItemsTable({
                     />
 
                     {!!r.draftProductId && (
-                      <div className="mt-1.5 truncate text-xs text-slate-500">
+                      <div className="mt-1.5 truncate text-xs text-muted-foreground">
                         Draft ID: {r.draftProductId}
                       </div>
                     )}
@@ -130,7 +260,7 @@ export function POItemsTable({
 
                   <td className="px-4 py-4">
                     <Input
-                      className="h-12 text-base px-3"
+                      className="h-11 text-base"
                       value={r.unit ?? ""}
                       placeholder={selected?.unit ?? "e.g. box"}
                       onChange={(e) => updateRow(idx, { unit: e.target.value })}
@@ -140,28 +270,32 @@ export function POItemsTable({
 
                   <td className="px-4 py-4">
                     <Input
-                      className="h-12 text-base px-3 text-center"
+                      className="h-11 text-base text-center"
                       type="number"
                       min={0}
                       value={r.quantity}
-                      onChange={(e) => updateRow(idx, { quantity: Number(e.target.value) })}
+                      onChange={(e) =>
+                        updateRow(idx, { quantity: Number(e.target.value) })
+                      }
                       disabled={disabled}
                     />
                   </td>
 
                   <td className="px-4 py-4">
                     <Input
-                      className="h-12 text-base px-3 text-right tabular-nums"
+                      className="h-11 text-base text-right tabular-nums"
                       type="number"
                       step="0.01"
                       min={0}
                       value={r.unitPrice}
-                      onChange={(e) => updateRow(idx, { unitPrice: Number(e.target.value) })}
+                      onChange={(e) =>
+                        updateRow(idx, { unitPrice: Number(e.target.value) })
+                      }
                       disabled={disabled}
                     />
                   </td>
 
-                  <td className="px-4 py-4 text-right font-semibold tabular-nums text-base">
+                  <td className="px-4 py-4 text-right text-base font-semibold tabular-nums text-foreground">
                     ${line.toFixed(2)}
                   </td>
 
@@ -173,7 +307,7 @@ export function POItemsTable({
                       disabled={disabled || rows.length === 1}
                       title={rows.length === 1 ? "Keep at least one row" : "Remove"}
                     >
-                      <Trash2 className="h-4 w-4 text-rose-600" />
+                      <Trash2 className="h-4 w-4 text-rose-600 dark:text-rose-400" />
                     </Button>
                   </td>
                 </tr>

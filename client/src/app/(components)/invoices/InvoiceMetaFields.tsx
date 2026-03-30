@@ -39,8 +39,8 @@ function DatePickerField({
   const [open, setOpen] = React.useState(false);
 
   return (
-    <div>
-      <Label className="text-sm text-slate-600">{label}</Label>
+    <div className="min-w-0">
+      <Label className="text-sm text-muted-foreground">{label}</Label>
 
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
@@ -50,12 +50,17 @@ function DatePickerField({
             disabled={disabled}
             className="mt-2 h-11 w-full justify-between text-[15px] font-normal"
           >
-            {value ? format(value, "PPP") : "Select date"}
-            <ChevronDownIcon className="h-4 w-4 opacity-70" />
+            <span className="truncate">
+              {value ? format(value, "PPP") : "Select date"}
+            </span>
+            <ChevronDownIcon className="h-4 w-4 shrink-0 opacity-70" />
           </Button>
         </PopoverTrigger>
 
-        <PopoverContent className="w-auto overflow-hidden p-0" align="start">
+        <PopoverContent
+          className="w-auto overflow-hidden border border-border/60 bg-popover p-0 shadow-lg"
+          align="start"
+        >
           <Calendar
             mode="single"
             selected={value}
@@ -81,9 +86,9 @@ export default function InvoiceMetaFields({
   disabled,
 }: Props) {
   return (
-    <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-3">
-      <div>
-        <Label className="text-sm text-slate-600">Invoice #</Label>
+    <div className="mb-8 grid grid-cols-1 gap-5 lg:grid-cols-3">
+      <div className="min-w-0">
+        <Label className="text-sm text-muted-foreground">Invoice #</Label>
         <Input
           className="mt-2 h-11 text-[15px]"
           value={invoiceNumber}
@@ -93,9 +98,19 @@ export default function InvoiceMetaFields({
         />
       </div>
 
-      <DatePickerField label="Date" value={date} onChange={setDate} disabled={disabled} />
+      <DatePickerField
+        label="Date"
+        value={date}
+        onChange={setDate}
+        disabled={disabled}
+      />
 
-      <DatePickerField label="Due date" value={dueDate} onChange={setDueDate} disabled={disabled} />
+      <DatePickerField
+        label="Due date"
+        value={dueDate}
+        onChange={setDueDate}
+        disabled={disabled}
+      />
     </div>
   );
 }

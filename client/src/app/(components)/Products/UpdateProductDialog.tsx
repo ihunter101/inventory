@@ -33,8 +33,6 @@ const DEPARTMENT_OPTIONS = [
   { value: "SpecialChemistry", label: "Special Chemistry" },
 ] as const;
 
-export type Category = typeof CATEGORY_OPTIONS[number];
-
 type Props = {
   isOpen: boolean;
   onClose: () => void;
@@ -124,9 +122,9 @@ export function UpdateProductDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[650px] p-6 rounded-2xl border border-neutral-200 bg-white shadow-xl">
+      <DialogContent className="w-[95vw] max-w-[650px] rounded-2xl border border-border/60 bg-card p-4 shadow-xl sm:p-6">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-semibold text-gray-900">
+          <DialogTitle className="text-xl font-semibold text-foreground sm:text-2xl">
             Update Product
           </DialogTitle>
         </DialogHeader>
@@ -140,10 +138,10 @@ export function UpdateProductDialog({
               onValueChange={setSelectedProductId}
               disabled={loadingProducts || isCreating}
             >
-              <SelectTrigger>
+              <SelectTrigger className="mt-2">
                 <SelectValue placeholder={loadingProducts ? "Loading..." : "Choose a product"} />
               </SelectTrigger>
-              <SelectContent className="z-[70] bg-white border-slate-200 shadow-lg" position="popper">
+              <SelectContent className="z-[70] border border-border/60 bg-popover shadow-lg" position="popper">
                 {productOptions.map((p: any) => (
                   <SelectItem key={p.productId} value={p.productId}>
                     {p.name}
@@ -161,10 +159,11 @@ export function UpdateProductDialog({
               value={form.name}
               onChange={handleNameChange}
               disabled={!selectedProductId || disabled}
+              className="mt-2"
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {/* Category */}
             <div>
               <Label htmlFor="category">Category</Label>
@@ -173,10 +172,10 @@ export function UpdateProductDialog({
                 onValueChange={(v) => setForm((prev) => ({ ...prev, category: v }))}
                 disabled={!selectedProductId || disabled}
               >
-                <SelectTrigger>
+                <SelectTrigger className="mt-2">
                   <SelectValue placeholder="Select Category" />
                 </SelectTrigger>
-                <SelectContent className="bg-white border-slate-200 z-[70] shadow-lg" position="popper">
+                <SelectContent className="z-[70] border border-border/60 bg-popover shadow-lg" position="popper">
                   {CATEGORY_OPTIONS.map((cat) => (
                     <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                   ))}
@@ -193,6 +192,7 @@ export function UpdateProductDialog({
                 onChange={handleUnitChange}
                 disabled={!selectedProductId || disabled}
                 placeholder="e.g. box, ml, tubes"
+                className="mt-2"
               />
             </div>
 
@@ -204,10 +204,10 @@ export function UpdateProductDialog({
                 onValueChange={(v) => setForm((prev) => ({ ...prev, rating: Number(v) }))}
                 disabled={!selectedProductId || disabled}
               >
-                <SelectTrigger>
+                <SelectTrigger className="mt-2">
                   <SelectValue placeholder="Select Rating" />
                 </SelectTrigger>
-                <SelectContent className="z-[70] bg-white border-slate-200 shadow-lg" position="popper">
+                <SelectContent className="z-[70] border border-border/60 bg-popover shadow-lg" position="popper">
                   {RATING_OPTIONS.map((num) => (
                     <SelectItem key={num} value={String(num)}>{num}</SelectItem>
                   ))}
@@ -223,10 +223,10 @@ export function UpdateProductDialog({
                 onValueChange={(v) => setForm((prev) => ({ ...prev, Department: v }))}
                 disabled={!selectedProductId || disabled}
               >
-                <SelectTrigger>
+                <SelectTrigger className="mt-2">
                   <SelectValue placeholder="Select Department" />
                 </SelectTrigger>
-                <SelectContent className="z-[70] bg-white border-slate-200 shadow-lg" position="popper">
+                <SelectContent className="z-[70] border border-border/60 bg-popover shadow-lg" position="popper">
                   {DEPARTMENT_OPTIONS.map((d) => (
                     <SelectItem key={d.value} value={d.value}>
                       {d.label}
@@ -241,34 +241,36 @@ export function UpdateProductDialog({
           <div className="mt-3 mb-4">
             <Label>Product Image</Label>
 
-            <UploadButton
-              endpoint="imageUploader"
-              onClientUploadComplete={(res) => {
-                const file = res?.[0];
-                if (!file) return;
+            <div className="mt-2">
+              <UploadButton
+                endpoint="imageUploader"
+                onClientUploadComplete={(res) => {
+                  const file = res?.[0];
+                  if (!file) return;
 
-                setForm((prev) => ({ ...prev, imageUrl: file.ufsUrl }));
-                toast.success("Image uploaded");
-              }}
-              onUploadError={(error: Error) => {
-                // ✅ show real reason
-                console.error("UploadThing error:", error);
-                toast.error(`Upload failed: ${error.message}`);
-              }}
-            />
+                  setForm((prev) => ({ ...prev, imageUrl: file.ufsUrl }));
+                  toast.success("Image uploaded");
+                }}
+                onUploadError={(error: Error) => {
+                  // ✅ show real reason
+                  console.error("UploadThing error:", error);
+                  toast.error(`Upload failed: ${error.message}`);
+                }}
+              />
+            </div>
 
             {form.imageUrl && (
-              <p className="text-xs text-gray-500 mt-1 break-all">
+              <p className="mt-1 break-all text-xs text-muted-foreground">
                 Image selected ✔
               </p>
             )}
           </div>
 
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="ghost" onClick={onClose} disabled={isCreating}>
+          <div className="flex flex-col-reverse justify-end gap-3 pt-4 sm:flex-row">
+            <Button variant="ghost" onClick={onClose} disabled={isCreating} className="w-full sm:w-auto">
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={!selectedProductId || disabled}>
+            <Button onClick={handleSubmit} disabled={!selectedProductId || disabled} className="w-full sm:w-auto">
               {isCreating ? "Updating..." : "Update"}
             </Button>
           </div>

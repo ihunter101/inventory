@@ -33,11 +33,11 @@ export default function InvoiceLineRow({
   //const isReadOnly = mode === "edit"
 
   return (
-    <tr className="border-t align-top">
-      <td className="px-4 py-3">
+    <tr className="border-t border-border/60 align-top transition-colors hover:bg-muted/20">
+      <td className="px-3 py-3 sm:px-4">
         <Input
           list={`inv-products-${row.id}`}
-          className="h-11 w-full"
+          className="h-10 w-full text-sm sm:h-11 sm:text-base"
           value={displayName}
           placeholder="Type product name"
           onChange={(e) => {
@@ -60,14 +60,14 @@ export default function InvoiceLineRow({
           ))}
         </datalist>
 
-        <div className="mt-1 truncate text-xs text-slate-500">
+        <div className="mt-1 truncate text-xs text-muted-foreground">
           {row.productId ? `ID: ${row.productId}` : "Unlinked product"}
         </div>
       </td>
 
-      <td className="px-4 py-3">
+      <td className="px-3 py-3 sm:px-4">
         <Input
-          className="h-11 w-full"
+          className="h-10 w-full text-sm sm:h-11 sm:text-base"
           value={row.unit}
           placeholder={p?.unit ?? "e.g. box"}
           onChange={(e) => onPatch(row.id, { unit: e.target.value })}
@@ -76,9 +76,9 @@ export default function InvoiceLineRow({
         />
       </td>
 
-      <td className="px-4 py-3">
+      <td className="px-3 py-3 sm:px-4">
         <Input
-          className="h-11 w-full text-center"
+          className="h-10 w-full text-center text-sm sm:h-11 sm:text-base"
           type="number"
           min={0}
           value={row.quantity}
@@ -88,9 +88,9 @@ export default function InvoiceLineRow({
         />
       </td>
 
-      <td className="px-4 py-3">
+      <td className="px-3 py-3 sm:px-4">
         <Input
-          className="h-11 w-full text-right tabular-nums"
+          className="h-10 w-full text-right text-sm tabular-nums sm:h-11 sm:text-base"
           type="number"
           step="0.01"
           min={0}
@@ -101,13 +101,19 @@ export default function InvoiceLineRow({
         />
       </td>
 
-      <td className="px-4 py-3 text-right font-semibold tabular-nums">
+      <td className="px-3 py-3 text-right font-semibold tabular-nums text-foreground sm:px-4">
         ${lineTotal.toFixed(2)}
       </td>
 
-      <td className="px-4 py-3 text-right">
-        <Button variant="ghost" size="icon" onClick={() => onRemove(row.id)} disabled={disabled}>
-          <Trash2 className="h-4 w-4 text-rose-600" />
+      <td className="px-3 py-3 text-right sm:px-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onRemove(row.id)}
+          disabled={disabled}
+          className="h-8 w-8 sm:h-9 sm:w-9"
+        >
+          <Trash2 className="h-4 w-4 text-rose-600 dark:text-rose-400" />
         </Button>
       </td>
     </tr>

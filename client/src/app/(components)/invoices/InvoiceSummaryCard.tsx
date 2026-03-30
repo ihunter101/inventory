@@ -22,33 +22,40 @@ export default function InvoiceSummaryCard({
   disabled,
 }: Props) {
   return (
-    <div className="rounded-2xl border p-4 shadow-sm">
-      <div className="flex items-center justify-between text-[15px]">
-        <span className="text-slate-600">Subtotal</span>
-        <span className="font-semibold">${subtotal.toFixed(2)}</span>
+    <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm sm:p-5">
+      <div className="flex items-center justify-between gap-4 text-sm sm:text-[15px]">
+        <span className="text-muted-foreground">Subtotal</span>
+        <span className="font-semibold tabular-nums text-foreground">
+          ${subtotal.toFixed(2)}
+        </span>
       </div>
 
-      <div className="mt-2 flex items-center justify-between text-[15px]">
-        <div className="flex items-center gap-2">
-          <span className="text-slate-600">Tax</span>
+      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:text-[15px]">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-muted-foreground">Tax</span>
           <Input
-            className="h-9 w-20"
+            className="h-9 w-20 text-center"
             type="number"
             min={0}
             step="0.5"
             value={poTax}
             //onChange={(e) => setTaxPct(Number(e.target.value))}
             disabled={disabled}
-            readOnly={poTax !==null }
+            readOnly={poTax !== null}
           />
-          <span className="text-slate-600">%</span>
+          <span className="text-muted-foreground">%</span>
         </div>
-        <span className="font-semibold">${tax.toFixed(2)}</span>
+
+        <span className="font-semibold tabular-nums text-foreground">
+          ${tax.toFixed(2)}
+        </span>
       </div>
 
-      <div className="mt-3 flex items-center justify-between text-lg">
-        <span className="font-semibold">Total</span>
-        <span className="font-semibold">${amount.toFixed(2)}</span>
+      <div className="mt-4 flex items-center justify-between gap-4 border-t border-border/60 pt-4 text-base sm:text-lg">
+        <span className="font-semibold text-foreground">Total</span>
+        <span className="font-semibold tabular-nums text-foreground">
+          ${amount.toFixed(2)}
+        </span>
       </div>
     </div>
   );

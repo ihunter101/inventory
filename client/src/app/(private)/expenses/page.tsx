@@ -1,15 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import {
-  Container,
-  Typography,
-  Grid,
-  Card,
-  CardContent,
-  CardHeader,
-  Box,
-} from "@mui/material";
+import { Container, Typography, Grid, Card, CardContent, CardHeader, Box } from "@mui/material";
 import { useGetExpensesQuery } from "../../state/api";
 
 import ExpenseTrendChart from "../../(components)/expense/LineChartExpenseTrend";
@@ -17,147 +9,133 @@ import AddExpenseDialog from "../../(components)/expense/AddExpenseDialog";
 import ExpenseKPICards from "../../(components)/expense/ExpenseKPICard";
 import RecentTransactionsTable from "../../(components)/expense/RecentTransactionTable";
 import BarChartCategoryAnalysis from "../../(components)/expense/BarChartCategoryAnalysis";
-
-// 👉 make sure this file actually exists with the group donut code we wrote
 import ExpenseGroupDonutCard from "@/app/(components)/expense/PieChartExpenses";
-import { skipToken } from "@reduxjs/toolkit/query";
 
-type Range = "1w" | "1m" | "6m" | "1y" | "fresh";
+type Range = "1w" | "1m" | "6m" | "1y" | "all";
 
-// const filterByRange = (expenses: any[], range: Range) => {
-//   if (range === "all") return expenses;
+const filterByRange = (expenses: any[], range: Range) => {
+  if (range === "all") return expenses;
 
-//   const now = new Date();
-//   const from = new Date(now);
-
-//   if (range === "1w") from.setDate(now.getDate() - 7);
-//   if (range === "1m") from.setMonth(now.getMonth() - 1);
-//   if (range === "6m") from.setMonth(now.getMonth() - 6);
-//   if (range === "1y") from.setFullYear(now.getFullYear() - 1);
-
-//   return expenses.filter((e) => new Date(e.date) >= from);
-// };
-
-const dateRange = (viewType: Range) => {
   const now = new Date();
-  let from: Date
+  const from = new Date(now);
 
-  switch (viewType) {
-    case "1w": 
-      from = new Date(now.setDate(now.getDate() - 7));
-      break;
+  if (range === "1w") from.setDate(now.getDate() - 7);
+  if (range === "1m") from.setMonth(now.getMonth() - 1);
+  if (range === "6m") from.setMonth(now.getMonth() - 6);
+  if (range === "1y") from.setFullYear(now.getFullYear() - 1);
 
-    case "1m": 
-      from =new Date(now.setMonth(now.getMonth()) - 1);
-      break;
-
-    case "6m": 
-      from = new Date(now.setMonth(now.getMonth()) - 6);
-      break;
-
-    case "1y": 
-      from = new Date(now.setFullYear(now.getFullYear() - 1));
-      break;
-
-      case "fresh":
-        default: 
-          from = new Date(now.getFullYear(), now.getMonth(), 1);
-  }
-
-    return {
-        from,
-        end: new Date()
-      }
-}
+  return expenses.filter((e) => new Date(e.date) >= from);
+};
 
 const ExpenseDashboard = () => {
-  const [range, setRange] = useState<Range>("fresh");
+  const [range, setRange] = useState<Range>("1m");
 
-  const { from, end } = dateRange(range)
+  const { data: expenses = [], isLoading, isError } = useGetExpensesQuery();
 
-  const { data: expenses = [], isLoading, isError } = useGetExpensesQuery(
-    dateRange(range) 
-      ? {from: from.toISOString(), end: end.toISOString()} 
-      : skipToken
-
+  const filteredExpenses = useMemo(
+    () => filterByRange(expenses, range),
+    [expenses, range]
   );
-  console.log("EXPENSES FROM API:", expenses, { isLoading, isError });
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
-      {/* HEADER + RANGE FILTER + ADD BUTTON */}
-      <Grid
-        container
-        justifyContent="space-between"
-        alignItems="center"
-        sx={{ mb: 2 }}
+      {/* HEADER */}
+      <Box
+        className="mb-6 rounded-2xl border border-border/60 bg-card shadow-sm"
+        sx={{ p: { xs: 2, md: 3 } }}
       >
-        <Typography variant="h4" fontWeight={700}>
-          Expense Dashboard
-        </Typography>
+        <Grid container justifyContent="space-between" alignItems="center" spacing={2}>
+          <Grid item xs={12} md="auto">
+            <Typography
+              variant="h4"
+              fontWeight={700}
+              className="text-foreground"
+              sx={{ letterSpacing: "-0.02em" }}
+            >
+              Expense Dashboard
+            </Typography>
+            <Typography
+              className="text-muted-foreground"
+              sx={{ mt: 0.75, fontSize: "0.95rem" }}
+            >
+              Track expense trends, categories, and transaction activity
+            </Typography>
+          </Grid>
 
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          {/* range pills */}
-          <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-            {(["1w", "1m", "6m", "1y", "all"] as Range[]).map((r) => (
-              <button
-                key={r}
-                onClick={() => setRange(r)}
-                className={`px-3 py-1 text-xs rounded-full border ${
-                  range === r
-                    ? "bg-slate-900 text-white border-slate-900"
-                    : "bg-white text-slate-600 border-slate-200"
-                }`}
-              >
-                {r === "1w"
-                  ? "1w"
-                  : r === "1m"
-                  ? "1m"
-                  : r === "6m"
-                  ? "6m"
-                  : r === "1y"
-                  ? "1y"
-                  : "All"}
-              </button>
-            ))}
-          </Box>
+          <Grid item xs={12} md="auto">
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: { xs: "stretch", sm: "center" },
+                gap: 1.5,
+                flexWrap: "wrap",
+              }}
+            >
+              <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
+                {(["1w", "1m", "6m", "1y", "all"] as Range[]).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setRange(r)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                      range === r
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border/60 bg-background text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                    }`}
+                  >
+                    {r === "all" ? "All" : r}
+                  </button>
+                ))}
+              </Box>
 
-          {/* Add Expense button */}
-          <AddExpenseDialog />
-        </Box>
-      </Grid>
+              <AddExpenseDialog />
+            </Box>
+          </Grid>
+        </Grid>
+      </Box>
 
       {/* KPI CARDS */}
-      <ExpenseKPICards expenses={expenses} />
+      <ExpenseKPICards expenses={filteredExpenses} />
 
-      {/* TREND FULL WIDTH */}
+      {/* TREND */}
       <Grid container spacing={2}>
         <Grid item xs={12}>
-          <ExpenseTrendChart expenses={expenses} />
+          <ExpenseTrendChart expenses={filteredExpenses} />
         </Grid>
       </Grid>
 
-      {/* DONUT + BAR – force equal height */}
+      {/* DONUT + BAR */}
       <Grid container spacing={2} sx={{ mt: 2 }} alignItems="stretch">
         <Grid item xs={12} md={4} lg={4} sx={{ display: "flex" }}>
           <Box sx={{ flex: 1 }}>
-            <ExpenseGroupDonutCard expenses={expenses} />
+            <ExpenseGroupDonutCard expenses={filteredExpenses} />
           </Box>
         </Grid>
 
         <Grid item xs={12} md={8} lg={8} sx={{ display: "flex" }}>
           <Box sx={{ flex: 1, minHeight: 360 }}>
-            <BarChartCategoryAnalysis expenses={expenses} />
+            <BarChartCategoryAnalysis expenses={filteredExpenses} />
           </Box>
         </Grid>
       </Grid>
 
-
-      {/* RECENT TRANSACTIONS TABLE */}
-      <Card sx={{ mt: 4 }}>
-        <CardHeader title="Recent Transactions" />
-        <CardContent>
-          <RecentTransactionsTable expenses={expenses} />
+      {/* RECENT TRANSACTIONS */}
+      <Card
+        className="mt-6 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm"
+        sx={{ mt: 4 }}
+      >
+        <CardHeader
+          title={
+            <Typography className="text-foreground" sx={{ fontWeight: 700 }}>
+              Recent Transactions
+            </Typography>
+          }
+          sx={{
+            borderBottom: "1px solid hsl(var(--border) / 0.6)",
+            backgroundColor: "hsl(var(--muted) / 0.2)",
+          }}
+        />
+        <CardContent sx={{ p: 0 }}>
+          <RecentTransactionsTable expenses={filteredExpenses} />
         </CardContent>
       </Card>
     </Container>

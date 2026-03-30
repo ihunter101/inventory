@@ -20,9 +20,6 @@ import {
   CheckCircle2,
   FileText,
   CircleDollarSignIcon,
-  CreditCard,
-  Hash,
-  Calendar,
   Clock,
   Banknote,
 } from "lucide-react";
@@ -53,8 +50,6 @@ export type PaymentRecord = {
   status: string;
 };
 
-
-
 export default function MatchTable({
   po,
   relatedInvoices,
@@ -66,22 +61,23 @@ export default function MatchTable({
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="rounded-xl border bg-white p-5 shadow-sm">
-        <div className="flex items-center gap-2 mb-1">
-          <div className="h-5 w-1 rounded-full bg-zinc-900" />
-          <div className="text-base font-bold tracking-tight text-zinc-900">
+      <div className="rounded-xl border border-border/60 bg-card p-4 shadow-sm sm:p-5">
+        <div className="mb-1 flex items-center gap-2">
+          <div className="h-5 w-1 rounded-full bg-foreground/80" />
+          <div className="text-base font-bold tracking-tight text-foreground">
             Three-Way Match Dashboard
           </div>
         </div>
-        <div className="text-sm text-zinc-500 mb-4">
+
+        <div className="mb-4 text-sm text-muted-foreground">
           Reviewing:{" "}
-          <span className="font-semibold text-zinc-800">
+          <span className="font-semibold text-foreground">
             {po?.poNumber ?? "Select a Purchase Order"}
           </span>
         </div>
 
         <select
-          className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900 transition-shadow"
+          className="w-full rounded-lg border border-border/60 bg-background px-3 py-2.5 text-sm text-foreground transition-shadow focus:outline-none focus:ring-2 focus:ring-ring"
           value={currentPOId ?? ""}
           onChange={(e) => onChangePO(e.target.value)}
         >
@@ -96,12 +92,12 @@ export default function MatchTable({
         </select>
 
         {!currentPOId && (
-          <p className="mt-3 text-sm text-zinc-400">
+          <p className="mt-3 text-sm text-muted-foreground">
             Please select a Purchase Order to view matches.
           </p>
         )}
         {currentPOId && relatedInvoices.length === 0 && (
-          <p className="mt-3 text-sm text-zinc-400">
+          <p className="mt-3 text-sm text-muted-foreground">
             No invoices found for this Purchase Order yet.
           </p>
         )}
@@ -139,17 +135,18 @@ function MatchCard({
   const [updateInvoiceStatus, { isLoading: isUpdating }] =
     useUpdateInvoiceStatusMutation();
 
-  const { data: rawPayments = [] } = useGetPoInvoicePaymentsQuery
-  ({ id: po!.id},
-    {skip: !po?.id}
-   );
+  const { data: rawPayments = [] } = useGetPoInvoicePaymentsQuery(
+    { id: po!.id },
+    { skip: !po?.id }
+  );
 
-   const paymentsArray = Array.isArray(rawPayments) 
-    ? rawPayments 
+  const paymentsArray = Array.isArray(rawPayments)
+    ? rawPayments
     : (rawPayments as any)?.payments ?? (rawPayments as any)?.data ?? [];
 
   const thisInvoicePayments: PaymentRecord[] = useMemo(
-    () => paymentsArray
+    () =>
+      paymentsArray
         .filter((p: PaymentRecord) => p.invoiceId === invoice.id)
         .map((p: PaymentRecord) => ({
           id: p.id,
@@ -163,7 +160,6 @@ function MatchCard({
     [paymentsArray, invoice.id]
   );
 
-
   const rows = useMemo(() => {
     if (!po) return [];
     return buildMatchRows(po, invoice, grn);
@@ -173,9 +169,10 @@ function MatchCard({
   const allLinesMatch = rows.length > 0 && rows.every((r) => r.lineOk);
   const payableTotal = rows.reduce((acc, r) => acc + (r.payableAmount || 0), 0);
   const invoiceTotal = Number(invoice.amount ?? 0);
-  const balanceRemaining = invoice.balanceRemaining != null
-    ? Number(invoice.balanceRemaining)
-    : invoiceTotal;
+  const balanceRemaining =
+    invoice.balanceRemaining != null
+      ? Number(invoice.balanceRemaining)
+      : invoiceTotal;
 
   const isPaid = invoice.status === "PAID";
   const isPartiallyPaid = invoice.status === "PARTIALLY_PAID";
@@ -184,9 +181,6 @@ function MatchCard({
 
   const canApprove =
     !!po && !!grn && isGrnPosted && allLinesMatch && !isAlreadyApproved;
-
-
-    
 
   // Greedy: mark lines as "paid" for partial payment UI
   const totalPaid = thisInvoicePayments.reduce((s, p) => s + p.amount, 0);
@@ -203,25 +197,24 @@ function MatchCard({
     });
   }, [rows, isPartiallyPaid, totalPaid, thisInvoicePayments]);
 
-   const selectedCount = useMemo(() => {
-  return rowsWithState.reduce((count, row: any) => {
-    const isSelected = !!checkedLines[row.key];
-    const isAlreadyPaid = !!row._paid || isPaid;
-    if (!isSelected || isAlreadyPaid) return count;
-    return count + 1;
-  }, 0);
-}, [rowsWithState, checkedLines, isPaid]);
+  const selectedCount = useMemo(() => {
+    return rowsWithState.reduce((count, row: any) => {
+      const isSelected = !!checkedLines[row.key];
+      const isAlreadyPaid = !!row._paid || isPaid;
+      if (!isSelected || isAlreadyPaid) return count;
+      return count + 1;
+    }, 0);
+  }, [rowsWithState, checkedLines, isPaid]);
 
-const selectedPayAmount = useMemo(() => {
-  return rowsWithState.reduce((sum, row: any) => {
-    const isSelected = !!checkedLines[row.key];
-    const isAlreadyPaid = !!row._paid || isPaid;
-    if (!isSelected || isAlreadyPaid) return sum;
+  const selectedPayAmount = useMemo(() => {
+    return rowsWithState.reduce((sum, row: any) => {
+      const isSelected = !!checkedLines[row.key];
+      const isAlreadyPaid = !!row._paid || isPaid;
+      if (!isSelected || isAlreadyPaid) return sum;
 
-    return sum + Number(row.payableAmount ?? 0);
-  }, 0);
-}, [rowsWithState, checkedLines, isPaid]);
-
+      return sum + Number(row.payableAmount ?? 0);
+    }, 0);
+  }, [rowsWithState, checkedLines, isPaid]);
 
   const handleApproveMatch = async () => {
     if (!po || !grn) return;
@@ -250,41 +243,54 @@ const selectedPayAmount = useMemo(() => {
     ? "border-l-4 border-l-amber-400"
     : isReadyToPay
     ? "border-l-4 border-l-blue-500"
-    : "border-l-4 border-l-zinc-200";
+    : "border-l-4 border-l-border";
 
   return (
-    <div className={`rounded-xl border bg-white shadow-sm overflow-hidden ${accentBorder}`}>
-
+    <div
+      className={`overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm ${accentBorder}`}
+    >
       {/* ── Header row ── */}
       <button
         type="button"
         onClick={() => setIsExpanded((v) => !v)}
-        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left hover:bg-zinc-50/70 transition-colors"
+        className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left transition-colors hover:bg-muted/20 sm:px-5"
       >
-        <div className="flex items-center gap-3">
-          {isExpanded
-            ? <ChevronDown size={16} className="text-zinc-400 shrink-0" />
-            : <ChevronRight size={16} className="text-zinc-400 shrink-0" />}
-          <div>
-            <div className="text-sm font-bold text-zinc-900">
+        <div className="flex min-w-0 items-center gap-3">
+          {isExpanded ? (
+            <ChevronDown size={16} className="shrink-0 text-muted-foreground" />
+          ) : (
+            <ChevronRight size={16} className="shrink-0 text-muted-foreground" />
+          )}
+
+          <div className="min-w-0">
+            <div className="truncate text-sm font-bold text-foreground">
               Invoice #{invoice.invoiceNumber}
             </div>
-            <div className="text-xs text-zinc-500 mt-0.5">{invoiceDate}</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">{invoiceDate}</div>
           </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="text-right hidden sm:block">
-            <div className="text-[10px] text-zinc-400 uppercase tracking-widest">Amount</div>
-            <div className="text-sm font-bold text-zinc-800">{currency(invoiceTotal)}</div>
+
+        <div className="flex shrink-0 items-center gap-3">
+          <div className="hidden text-right sm:block">
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              Amount
+            </div>
+            <div className="text-sm font-bold text-foreground">
+              {currency(invoiceTotal)}
+            </div>
           </div>
           <StatusBadge status={invoice.status} />
         </div>
       </button>
 
       {/* ── Meta strip ── */}
-      <div className="grid grid-cols-2 gap-px bg-zinc-100 border-t border-b md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-px border-y border-border/60 bg-border/40 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { icon: <FileText size={13} />, label: "Invoice", value: `#${invoice.invoiceNumber}` },
+          {
+            icon: <FileText size={13} />,
+            label: "Invoice",
+            value: `#${invoice.invoiceNumber}`,
+          },
           {
             icon: <ChevronRight size={13} />,
             label: "GRN",
@@ -297,23 +303,26 @@ const selectedPayAmount = useMemo(() => {
             value: currency(payableTotal),
           },
           {
-            icon: isGrnPosted && allLinesMatch
-              ? <CheckCircle2 size={13} className="text-emerald-500" />
-              : <AlertCircle size={13} className="text-amber-500" />,
+            icon:
+              isGrnPosted && allLinesMatch ? (
+                <CheckCircle2 size={13} className="text-emerald-500" />
+              ) : (
+                <AlertCircle size={13} className="text-amber-500" />
+              ),
             label: "Match Status",
             value: isGrnPosted && allLinesMatch ? "All Lines Matched" : "Review Needed",
-            accent: isGrnPosted && allLinesMatch ? "text-emerald-700" : "text-amber-700",
+            accent: isGrnPosted && allLinesMatch ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400",
           },
         ].map((cell, i) => (
-          <div key={i} className="flex items-center gap-2 bg-white px-4 py-3">
-            <span className="text-zinc-400 shrink-0">{cell.icon}</span>
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">
+          <div key={i} className="flex items-center gap-2 bg-card px-4 py-3">
+            <span className="shrink-0 text-muted-foreground">{cell.icon}</span>
+            <div className="min-w-0">
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                 {cell.label}
               </div>
               <div
-                className={`text-xs font-semibold mt-0.5 ${
-                  cell.accent ?? (cell.muted ? "text-zinc-400 italic" : "text-zinc-800")
+                className={`mt-0.5 truncate text-xs font-semibold ${
+                  cell.accent ?? (cell.muted ? "italic text-muted-foreground" : "text-foreground")
                 }`}
               >
                 {cell.value}
@@ -325,11 +334,10 @@ const selectedPayAmount = useMemo(() => {
 
       {/* ── Expanded body ── */}
       {isExpanded && (
-        <div className="p-5 space-y-4">
-
+        <div className="space-y-4 p-4 sm:p-5">
           {/* GRN draft warning */}
           {!isGrnPosted && grn && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-start gap-2">
+            <div className="flex items-start gap-2 rounded-lg border border-amber-200/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:border-amber-900/40 dark:text-amber-400">
               <AlertCircle size={15} className="mt-0.5 shrink-0" />
               <span>
                 Goods Receipt <strong>{grn.grnNumber}</strong> is still in{" "}
@@ -349,8 +357,8 @@ const selectedPayAmount = useMemo(() => {
 
           {/* Outstanding balance callout */}
           {isPartiallyPaid && balanceRemaining > 0 && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-amber-800 text-sm">
+            <div className="flex flex-col gap-2 rounded-lg border border-amber-200/50 bg-amber-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
                 <Clock size={14} />
                 <span>
                   Outstanding balance:{" "}
@@ -361,17 +369,123 @@ const selectedPayAmount = useMemo(() => {
             </div>
           )}
 
-          {/* ── Lines table ── */}
-          <div className="overflow-x-auto rounded-xl border border-zinc-100">
+          {/* ── Mobile line cards ── */}
+          <div className="space-y-3 lg:hidden">
+            {rowsWithState.map((row: any) => {
+              const linePaid = row._paid === true;
+              const lineUnpaid = row._paid === false;
+
+              return (
+                <div
+                  key={row.key}
+                  className={`rounded-xl border p-4 ${
+                    linePaid || isPaid
+                      ? "border-emerald-200/50 bg-emerald-500/5"
+                      : lineUnpaid
+                      ? "border-amber-200/50 bg-amber-500/5"
+                      : "border-border/60 bg-card"
+                  }`}
+                >
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-foreground">{row.name}</div>
+                      <div className="mt-0.5 text-[11px] text-muted-foreground">
+                        {[row.sku, row.unit].filter(Boolean).join(" · ")}
+                      </div>
+                    </div>
+
+                    <input
+                      type="checkbox"
+                      checked={linePaid || isPaid || !!checkedLines[row.key]}
+                      disabled={linePaid || isPaid}
+                      onChange={(e) =>
+                        setCheckedLines((prev) => ({
+                          ...prev,
+                          [row.key]: e.target.checked,
+                        }))
+                      }
+                      className="mt-0.5 h-4 w-4 rounded border-border accent-primary"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        PO Qty
+                      </div>
+                      <div className="font-medium text-foreground">{row.poQty}</div>
+                    </div>
+
+                    <div>
+                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Recv Qty
+                      </div>
+                      <div className="font-medium text-foreground">{row.grQty ?? "—"}</div>
+                    </div>
+
+                    <div>
+                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Unit Price
+                      </div>
+                      <div className="font-medium text-foreground">
+                        {row.invUnitPrice == null ? "—" : currency(row.invUnitPrice)}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Pay Qty
+                      </div>
+                      <div className="font-medium text-foreground">{row.payableQty}</div>
+                    </div>
+
+                    <div className="col-span-2">
+                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Payable
+                      </div>
+                      <div className="font-bold text-foreground">
+                        {currency(row.payableAmount)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3">
+                    {linePaid || isPaid ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200/50 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:border-emerald-900/40 dark:text-emerald-400">
+                        <CheckCircle2 size={11} /> Paid
+                      </span>
+                    ) : row.lineOk ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-blue-200/50 bg-blue-500/10 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:border-blue-900/40 dark:text-blue-400">
+                        <CheckCircle2 size={11} /> Matched
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-200/50 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:border-amber-900/40 dark:text-amber-400">
+                        <AlertCircle size={11} /> {row.notes}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {rows.length === 0 && (
+              <div className="py-10 text-center text-sm text-muted-foreground">
+                No match rows to display.
+              </div>
+            )}
+          </div>
+
+          {/* ── Desktop lines table ── */}
+          <div className="hidden overflow-x-auto rounded-xl border border-border/60 lg:block">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="bg-zinc-50 border-b border-zinc-100">
-                  <th className="py-2.5 pl-4 pr-3 w-8" />
+                <tr className="border-b border-border/60 bg-muted/30">
+                  <th className="w-8 py-2.5 pl-4 pr-3" />
                   {["Item", "PO Qty", "Recv Qty", "Unit Price", "Pay Qty", "Payable", "Status"].map(
                     (h) => (
                       <th
                         key={h}
-                        className="py-2.5 pr-4 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-400"
+                        className="py-2.5 pr-4 text-left text-[10px] font-bold uppercase tracking-widest text-muted-foreground"
                       >
                         {h}
                       </th>
@@ -379,20 +493,21 @@ const selectedPayAmount = useMemo(() => {
                   )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-50">
-                {rowsWithState.map((row) => {
-                  const linePaid = (row as any)._paid === true;
-                  const lineUnpaid = (row as any)._paid === false;
+
+              <tbody className="divide-y divide-border/60">
+                {rowsWithState.map((row: any) => {
+                  const linePaid = row._paid === true;
+                  const lineUnpaid = row._paid === false;
 
                   return (
                     <tr
                       key={row.key}
                       className={`transition-colors ${
                         linePaid || isPaid
-                          ? "bg-emerald-50/30"
+                          ? "bg-emerald-500/5"
                           : lineUnpaid
-                          ? "bg-amber-50/30"
-                          : "hover:bg-zinc-50/60"
+                          ? "bg-amber-500/5"
+                          : "hover:bg-muted/20"
                       }`}
                     >
                       <td className="py-3 pl-4 pr-3">
@@ -406,36 +521,36 @@ const selectedPayAmount = useMemo(() => {
                               [row.key]: e.target.checked,
                             }))
                           }
-                          className="h-4 w-4 rounded border-zinc-300 accent-zinc-900"
+                          className="h-4 w-4 rounded border-border accent-primary"
                         />
                       </td>
 
                       <td className="py-3 pr-4">
-                        <div className="font-semibold text-zinc-800">{row.name}</div>
-                        <div className="text-[11px] text-zinc-400 mt-0.5">
+                        <div className="font-semibold text-foreground">{row.name}</div>
+                        <div className="mt-0.5 text-[11px] text-muted-foreground">
                           {[row.sku, row.unit].filter(Boolean).join(" · ")}
                         </div>
                       </td>
-                      <td className="py-3 pr-4 text-zinc-600">{row.poQty}</td>
-                      <td className="py-3 pr-4 text-zinc-600">{row.grQty ?? "—"}</td>
-                      <td className="py-3 pr-4 text-zinc-600">
+                      <td className="py-3 pr-4 text-muted-foreground">{row.poQty}</td>
+                      <td className="py-3 pr-4 text-muted-foreground">{row.grQty ?? "—"}</td>
+                      <td className="py-3 pr-4 text-muted-foreground">
                         {row.invUnitPrice == null ? "—" : currency(row.invUnitPrice)}
                       </td>
-                      <td className="py-3 pr-4 text-zinc-600">{row.payableQty}</td>
-                      <td className="py-3 pr-4 font-bold text-zinc-900">
+                      <td className="py-3 pr-4 text-muted-foreground">{row.payableQty}</td>
+                      <td className="py-3 pr-4 font-bold text-foreground">
                         {currency(row.payableAmount)}
                       </td>
                       <td className="py-3 pr-4">
                         {linePaid || isPaid ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200/50 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:border-emerald-900/40 dark:text-emerald-400">
                             <CheckCircle2 size={11} /> Paid
                           </span>
                         ) : row.lineOk ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-blue-200/50 bg-blue-500/10 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:border-blue-900/40 dark:text-blue-400">
                             <CheckCircle2 size={11} /> Matched
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-amber-200/50 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:border-amber-900/40 dark:text-amber-400">
                             <AlertCircle size={11} /> {row.notes}
                           </span>
                         )}
@@ -446,7 +561,7 @@ const selectedPayAmount = useMemo(() => {
 
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="py-10 text-center text-sm text-zinc-400">
+                    <td colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
                       No match rows to display.
                     </td>
                   </tr>
@@ -455,12 +570,12 @@ const selectedPayAmount = useMemo(() => {
 
               {rows.length > 0 && (
                 <tfoot>
-                  <tr className="bg-zinc-50 border-t-2 border-zinc-200">
+                  <tr className="border-t border-border/60 bg-muted/20">
                     <td colSpan={5} />
-                    <td className="py-3 pr-4 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                    <td className="py-3 pr-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                       Total
                     </td>
-                    <td className="py-3 pr-4 font-bold text-zinc-900 text-sm">
+                    <td className="py-3 pr-4 text-sm font-bold text-foreground">
                       {currency(payableTotal)}
                     </td>
                     <td />
@@ -471,56 +586,56 @@ const selectedPayAmount = useMemo(() => {
           </div>
 
           {/* ── Action footer ── */}
-          <div className="flex items-center justify-between pt-1 border-t border-zinc-100">
-            <div className="text-xs text-zinc-400">
+          <div className="flex flex-col gap-3 border-t border-border/60 pt-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-xs text-muted-foreground">
               {isPaid && (
-                <span className="flex items-center gap-1 text-emerald-600 font-medium">
+                <span className="flex items-center gap-1 font-medium text-emerald-600 dark:text-emerald-400">
                   <CheckCircle2 size={13} /> Invoice fully settled
                 </span>
               )}
               {isPartiallyPaid && (
-                <span className="flex items-center gap-1 text-amber-600 font-medium">
+                <span className="flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400">
                   <Clock size={13} /> {currency(balanceRemaining)} outstanding
                 </span>
               )}
               {isReadyToPay && (
-                <span className="flex items-center gap-1 text-blue-600 font-medium">
+                <span className="flex items-center gap-1 font-medium text-blue-600 dark:text-blue-400">
                   <CheckCircle2 size={13} /> Approved — awaiting payment
                 </span>
               )}
               {!isAlreadyApproved && canApprove && (
-                <span className="text-zinc-500">All lines matched · ready to approve</span>
+                <span>All lines matched · ready to approve</span>
               )}
               {!isAlreadyApproved && !canApprove && (
-                <span className="text-zinc-400">Resolve issues above before approving</span>
+                <span>Resolve issues above before approving</span>
               )}
             </div>
 
-            <div className="pt-3">
+            <div className="pt-1 sm:pt-3">
               {isPaid ? (
                 // FULLY PAID — disabled
                 <button
                   disabled
-                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-600 cursor-not-allowed select-none"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-200/50 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-700 select-none cursor-not-allowed dark:border-emerald-900/40 dark:text-emerald-400 sm:w-auto"
                 >
                   <CheckCircle2 size={15} />
                   Paid in Full
                 </button>
               ) : isPartiallyPaid ? (
                 // PARTIALLY PAID — pay remaining
-                 <PayInvoiceDialog
-                    invoiceId={invoice.id}
-                    invoice={invoice}
-                    payment={selectedPayAmount}
-                    disabled={selectedCount === 0 || isPaid}
-                    triggerLabel={
-                      selectedCount === 0
-                        ? "Select lines to pay"
-                        : `Pay Selected (${selectedCount}) — ${currency(selectedPayAmount)}`
-                    }
-                    onSuccess={() => setCheckedLines({})}   // ✅ clear checks after payment
-                  >
-                  <button className="inline-flex items-center gap-2 rounded-lg bg-amber-500 hover:bg-amber-600 active:bg-amber-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors">
+                <PayInvoiceDialog
+                  invoiceId={invoice.id}
+                  invoice={invoice}
+                  payment={selectedPayAmount}
+                  disabled={selectedCount === 0 || isPaid}
+                  triggerLabel={
+                    selectedCount === 0
+                      ? "Select lines to pay"
+                      : `Pay Selected (${selectedCount}) — ${currency(selectedPayAmount)}`
+                  }
+                  onSuccess={() => setCheckedLines({})} // ✅ clear checks after payment
+                >
+                  <button className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-600 active:bg-amber-700 sm:w-auto">
                     <Banknote size={15} />
                     Pay Remaining {currency(balanceRemaining)}
                   </button>
@@ -537,7 +652,7 @@ const selectedPayAmount = useMemo(() => {
                       ? "Select lines to pay"
                       : `Pay Selected (${selectedCount}) — ${currency(selectedPayAmount)}`
                   }
-                  onSuccess={() => setCheckedLines({})}   // ✅ clear checks after payment
+                  onSuccess={() => setCheckedLines({})} // ✅ clear checks after payment
                 />
               ) : (
                 // DEFAULT — approve match
@@ -545,11 +660,11 @@ const selectedPayAmount = useMemo(() => {
                   type="button"
                   disabled={!canApprove || isMatching || isUpdating}
                   onClick={handleApproveMatch}
-                  className="inline-flex items-center gap-2 rounded-lg bg-zinc-900 hover:bg-zinc-700 active:bg-black px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-foreground px-4 py-2 text-sm font-semibold text-background shadow-sm transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
                 >
                   {isMatching || isUpdating ? (
                     <>
-                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
                       Approving…
                     </>
                   ) : (
@@ -567,7 +682,3 @@ const selectedPayAmount = useMemo(() => {
     </div>
   );
 }
-
-
-
-

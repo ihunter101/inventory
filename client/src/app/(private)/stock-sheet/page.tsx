@@ -12,7 +12,15 @@ import {
   setQuantity,
   clear,
 } from "@/app/state/stockSheetSlice";
-import { Trash2, Plus, Minus, Clipboard, Download, Printer, MoreVertical } from "lucide-react";
+import {
+  Trash2,
+  Plus,
+  Minus,
+  Clipboard,
+  Download,
+  Printer,
+  MoreVertical,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -33,7 +41,8 @@ export default function StockSheetPage() {
   const totalQuantity = useAppSelector(selectSheetTotalQuantity);
   const [isPending, startTransition] = useTransition();
 
-  const [createStockRequest, {isLoading: isCreating}] = useCreateStockSheetMutation();
+  const [createStockRequest, { isLoading: isCreating }] =
+    useCreateStockSheetMutation();
 
   useEffect(() => {
     console.log("Stock sheet page mounted");
@@ -41,25 +50,24 @@ export default function StockSheetPage() {
 
   const handleSubmitStockSheet = async () => {
     const toastId = toast.loading("Submitting request...");
-    
+
     try {
       const payload = {
-        lines: lines.map((l) => ({ 
-          productId: l.productId, 
+        lines: lines.map((l) => ({
+          productId: l.productId,
           requestedQty: l.requestedQty,
           qtyOnHandAtRequest: l.qtyOnHandAtRequest,
-        }))
+        })),
       };
 
       await createStockRequest(payload).unwrap();
 
       toast.success("Request submitted successfully", { id: toastId });
-      
+
       dispatch(clear());
-      
-      // Use startTransition to make navigation non-blocking
+
       startTransition(() => {
-        router.push('/products');
+        router.push("/products");
       });
     } catch (e) {
       console.error(e);
@@ -107,23 +115,26 @@ export default function StockSheetPage() {
 
   if (lines.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="flex min-h-[60vh] items-center justify-center">
         <div className="mx-auto w-full max-w-2xl px-4">
-          <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center shadow-sm">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-emerald-50 to-green-50">
-              <Clipboard className="h-10 w-10 text-emerald-600" />
+          <div className="rounded-2xl border border-border/60 bg-card p-12 text-center shadow-sm">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-primary/15 bg-primary/10">
+              <Clipboard className="h-10 w-10 text-primary" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">
+
+            <h2 className="mb-3 text-2xl font-bold text-foreground">
               Your Stock Sheet is Empty
             </h2>
-            <p className="text-gray-600 mb-8 max-w-md mx-auto">
+
+            <p className="mx-auto mb-8 max-w-md text-muted-foreground">
               Add products from the Products page to create your stock request.
             </p>
+
             <Button
               onClick={handleBrowseProducts}
               disabled={isPending}
-              className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transition-all duration-300 px-8"
               size="lg"
+              className="px-8"
             >
               {isPending ? "Loading..." : "Browse Products"}
             </Button>
@@ -135,76 +146,65 @@ export default function StockSheetPage() {
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 pb-12">
-      {/* Header Section */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Stock Sheet</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {totalCount} {totalCount === 1 ? "product" : "products"} • Total quantity: {totalQuantity}
+          <h1 className="text-3xl font-bold text-foreground">Stock Sheet</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {totalCount} {totalCount === 1 ? "product" : "products"} • Total quantity:{" "}
+            {totalQuantity}
           </p>
         </div>
 
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={handleExportCSV}
-            className="gap-2"
-          >
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={handleExportCSV} className="gap-2">
             <Download className="h-4 w-4" />
             Export CSV
           </Button>
-          <Button
-            variant="outline"
-            onClick={handlePrint}
-            className="gap-2"
-          >
+
+          <Button variant="outline" onClick={handlePrint} className="gap-2">
             <Printer className="h-4 w-4" />
             Print
           </Button>
-          <Button
-            variant="destructive"
-            onClick={handleClearAll}
-            className="gap-2"
-          >
+
+          <Button variant="destructive" onClick={handleClearAll} className="gap-2">
             <Trash2 className="h-4 w-4" />
             Clear All
           </Button>
         </div>
       </div>
 
-      {/* Stock Sheet Table */}
-      <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
+      <div className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b">
+            <thead className="border-b border-border/60 bg-muted/30">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Product
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Unit
                 </th>
-                <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Qty On Hand
                 </th>
-                <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Quantity for request
                 </th>
-                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+
+            <tbody className="divide-y divide-border/60">
               {lines.map((line) => (
                 <tr
                   key={line.productId}
-                  className="hover:bg-gray-50 transition-colors"
+                  className="transition-colors hover:bg-muted/30"
                 >
-                  {/* Product Info */}
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="h-12 w-12 flex-shrink-0 rounded-lg bg-gray-100 overflow-hidden">
+                      <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg border border-border/60 bg-muted/40">
                         {line.imageUrl ? (
                           <img
                             src={line.imageUrl}
@@ -212,23 +212,25 @@ export default function StockSheetPage() {
                             className="h-full w-full object-contain"
                           />
                         ) : (
-                          <div className="h-full w-full flex items-center justify-center text-gray-400 text-xs">
+                          <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
                             No img
                           </div>
                         )}
                       </div>
+
                       <div>
-                        <p className="font-medium text-gray-900">{line.name}</p>
+                        <p className="font-medium text-foreground">{line.name}</p>
                         {line.category && (
-                          <p className="text-xs text-gray-500">{line.category}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {line.category}
+                          </p>
                         )}
                       </div>
                     </div>
                   </td>
 
-                  {/* Unit */}
                   <td className="px-6 py-4">
-                    <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+                    <span className="inline-flex items-center rounded-full border border-border/60 bg-muted/40 px-3 py-1 text-xs font-medium text-foreground">
                       {line.unit || "N/A"}
                     </span>
                   </td>
@@ -248,22 +250,21 @@ export default function StockSheetPage() {
                             })
                           );
                         }}
-                        className="w-24 rounded-md border border-gray-300 bg-white px-3 py-2 text-center text-sm font-semibold focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                        className="w-24 rounded-md border border-border/60 bg-background px-3 py-2 text-center text-sm font-semibold text-foreground outline-none ring-0 transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
                   </td>
 
-                  {/* Quantity Controls */}
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-center gap-2">
                       <button
                         onClick={() =>
                           dispatch(decrement({ productId: line.productId }))
                         }
-                        className="rounded-md border border-gray-300 bg-white px-3 py-2 hover:bg-gray-50 transition-colors"
+                        className="rounded-md border border-border/60 bg-background px-3 py-2 transition-colors hover:bg-muted/40"
                         title="Decrease"
                       >
-                        <Minus className="h-4 w-4 text-gray-600" />
+                        <Minus className="h-4 w-4 text-muted-foreground" />
                       </button>
 
                       <input
@@ -279,39 +280,38 @@ export default function StockSheetPage() {
                             })
                           );
                         }}
-                        className="w-20 rounded-md border border-gray-300 bg-white px-3 py-2 text-center text-sm font-semibold focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                        className="w-20 rounded-md border border-border/60 bg-background px-3 py-2 text-center text-sm font-semibold text-foreground outline-none ring-0 transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
 
                       <button
                         onClick={() =>
                           dispatch(increment({ productId: line.productId }))
                         }
-                        className="rounded-md border border-gray-300 bg-white px-3 py-2 hover:bg-gray-50 transition-colors"
+                        className="rounded-md border border-border/60 bg-background px-3 py-2 transition-colors hover:bg-muted/40"
                         title="Increase"
                       >
-                        <Plus className="h-4 w-4 text-gray-600" />
+                        <Plus className="h-4 w-4 text-muted-foreground" />
                       </button>
                     </div>
                   </td>
 
-                  {/* Actions Dropdown */}
                   <td className="px-6 py-4 text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                        >
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48 bg-white">
+
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-48 border-border/60 bg-popover"
+                      >
                         <DropdownMenuItem
                           onClick={() =>
                             dispatch(removeLine({ productId: line.productId }))
                           }
-                          className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+                          className="cursor-pointer text-red-600 focus:bg-red-500/10 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Remove from sheet
@@ -325,17 +325,18 @@ export default function StockSheetPage() {
           </table>
         </div>
 
-        {/* Footer Summary */}
-        <div className="border-t bg-gradient-to-r from-emerald-50/50 to-green-50/50 px-6 py-4">
+        <div className="border-t border-border/60 bg-muted/20 px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-700">
-              <span className="font-semibold text-emerald-700">{totalCount}</span> products •{" "}
-              <span className="font-semibold text-emerald-700">{totalQuantity}</span> total units
+            <div className="text-sm text-muted-foreground">
+              <span className="font-semibold text-primary">{totalCount}</span> products •{" "}
+              <span className="font-semibold text-primary">{totalQuantity}</span> total
+              units
             </div>
-            <Button 
+
+            <Button
               disabled={isCreating || isPending}
               onClick={handleSubmitStockSheet}
-              className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transition-all duration-300 gap-2"
+              className="gap-2"
             >
               <Clipboard className="h-4 w-4" />
               {isCreating || isPending ? "Submitting..." : "Submit Request"}

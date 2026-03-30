@@ -17,20 +17,12 @@ export type SupplierLite = {
 
 export type SupplierDraft = {
   mode: "existing" | "new";
-  supplierId: string; // only used when mode === "existing"
+  supplierId: string;
   name: string;
   email: string;
   phone: string;
   address: string;
 };
-
-/**
- * const [supplier, setSupplier ] = React.useState(
- * mode === "edit" && initial.supplier.mode ==="existing" 
- * ? initial.supplier 
- * : { mode: "new", name: "", email: "", phone: "", address: ""}
- * )
- */
 
 type Props = {
   suppliers: SupplierLite[];
@@ -51,74 +43,79 @@ export function SupplierSection({
   const lockFields = disabled || isExisting;
 
   return (
-    <div className="mb-8 rounded-2xl border-2 border-slate-200 bg-slate-50/50 p-6">
-      <div className="mb-4 flex items-center gap-2">
-        <Building2 className="h-5 w-5 text-slate-600" />
-        <h3 className="text-xl font-semibold text-slate-900">
-          Supplier Information
-        </h3>
+    <div className="mb-8 rounded-2xl border border-border/60 bg-card p-4 shadow-sm sm:p-6">
+      <div className="mb-5 flex items-start gap-3 sm:items-center">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10">
+          <Building2 className="h-5 w-5 text-primary" />
+        </div>
+
+        <div className="min-w-0">
+          <h3 className="text-lg font-semibold text-foreground sm:text-xl">
+            Supplier Information
+          </h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Select an existing supplier or enter details for a new one.
+          </p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <div className="md:col-span-2">
-          <Label className="text-sm font-medium text-slate-700">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <div className="lg:col-span-2 min-w-0">
+          <Label className="text-sm font-medium text-foreground">
             Select Existing or Create New Supplier
           </Label>
 
-          <ComboSelect
-            className="mt-2"
-            value={isExisting ? value.supplierId : ""}
-            onChange={(supplierId) => {
-              if (!supplierId) {
-                //  Clearing selection - switch to new mode
+          <div className="mt-2 min-w-0">
+            <ComboSelect
+              value={isExisting ? value.supplierId : ""}
+              onChange={(supplierId) => {
+                if (!supplierId) {
+                  onChange({
+                    mode: "new",
+                    supplierId: "",
+                    name: "",
+                    email: "",
+                    phone: "",
+                    address: "",
+                  });
+                } else {
+                  const s = suppliers.find((x) => x.supplierId === supplierId);
+                  onChange({
+                    mode: "existing",
+                    supplierId,
+                    name: s?.name ?? "",
+                    email: s?.email ?? "",
+                    phone: s?.phone ?? "",
+                    address: s?.address ?? "",
+                  });
+                }
+              }}
+              options={supplierOptions}
+              placeholder="Select existing supplier or type new name"
+              allowCreate
+              onCreate={async (label) => {
                 onChange({
                   mode: "new",
                   supplierId: "",
-                  name: "",
+                  name: label,
                   email: "",
                   phone: "",
                   address: "",
                 });
-              } else {
-                const s = suppliers.find((x) => x.supplierId === supplierId);
-                // Autopopulate from selected supplier
-                onChange({
-                  mode: "existing",
-                  supplierId,
-                  name: s?.name ?? "",
-                  email: s?.email ?? "",
-                  phone: s?.phone ?? "",
-                  address: s?.address ?? "",
-                });
-              }
-            }}
-            options={supplierOptions}
-            placeholder="Select existing supplier or type new name"
-            allowCreate
-            onCreate={async (label) => {
-              // ✅ Switch to “new supplier” mode (inputs editable)
-              onChange({
-                mode: "new",
-                supplierId: "",
-                name: label,
-                email: "",
-                phone: "",
-                address: "",
-              });
-              return { value: "", label };
-            }}
-            //disabled={disabled}
-          />
+                return { value: "", label };
+              }}
+            />
+          </div>
 
           {value.mode === "new" && (
-            <p className="mt-1.5 text-sm text-blue-600">
+            <p className="mt-2 text-sm text-primary">
               New supplier — fill in details below
             </p>
           )}
         </div>
 
-        <div>
-          <Label className="text-sm font-medium text-slate-700">
+        <div className="min-w-0">
+          <Label className="text-sm font-medium text-foreground">
             Supplier Name *
           </Label>
           <Input
@@ -130,8 +127,8 @@ export function SupplierSection({
           />
         </div>
 
-        <div>
-          <Label className="text-sm font-medium text-slate-700">
+        <div className="min-w-0">
+          <Label className="text-sm font-medium text-foreground">
             Email Address
           </Label>
           <Input
@@ -144,8 +141,8 @@ export function SupplierSection({
           />
         </div>
 
-        <div>
-          <Label className="text-sm font-medium text-slate-700">
+        <div className="min-w-0">
+          <Label className="text-sm font-medium text-foreground">
             Phone Number
           </Label>
           <Input
@@ -158,8 +155,10 @@ export function SupplierSection({
           />
         </div>
 
-        <div>
-          <Label className="text-sm font-medium text-slate-700">Address</Label>
+        <div className="min-w-0">
+          <Label className="text-sm font-medium text-foreground">
+            Address
+          </Label>
           <Input
             className="mt-2 h-11 text-base"
             value={value.address}

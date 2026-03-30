@@ -12,8 +12,6 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import {
-  LineChart,
-  Line,
   AreaChart,
   Area,
   XAxis,
@@ -29,32 +27,6 @@ type DateRange = "7d" | "30d" | "90d" | "1y";
 const CardRevenueAndProfit = () => {
   const [dateRange, setDateRange] = useState<DateRange>("30d");
 
-  // Calculate date range
-  const getDateRange = () => {
-    const end = new Date();
-    const start = new Date();
-
-    switch (dateRange) {
-      case "7d":
-        start.setDate(start.getDate() - 7);
-        break;
-      case "30d":
-        start.setDate(start.getDate() - 30);
-        break;
-      case "90d":
-        start.setDate(start.getDate() - 90);
-        break;
-      case "1y":
-        start.setFullYear(start.getFullYear() - 1);
-        break;
-    }
-
-    return {
-      startDate: start.toISOString(),
-      endDate: end.toISOString(),
-    };
-  };
-
   const { data, isLoading, isError } = useGetDashboardMetricsQuery();
   const revenueProfit = data?.revenueAndProfit?.[dateRange];
 
@@ -68,12 +40,8 @@ const CardRevenueAndProfit = () => {
   };
 
   const formatCompactCurrency = (value: number) => {
-    if (value >= 1000000) {
-      return `$${(value / 1000000).toFixed(1)}M`;
-    }
-    if (value >= 1000) {
-      return `$${(value / 1000).toFixed(0)}k`;
-    }
+    if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
+    if (value >= 1000) return `$${(value / 1000).toFixed(0)}k`;
     return formatCurrency(value);
   };
 
@@ -85,16 +53,16 @@ const CardRevenueAndProfit = () => {
       });
 
       return (
-        <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-800 mb-2">{date}</p>
+        <div className="rounded-xl border border-border/60 bg-popover/95 p-4 shadow-xl backdrop-blur supports-[backdrop-filter]:bg-popover/90">
+          <p className="mb-2 font-semibold text-popover-foreground">{date}</p>
           {payload.map((entry: any, index: number) => (
             <div key={index} className="flex items-center justify-between gap-4 text-sm">
               <div className="flex items-center gap-2">
                 <span
-                  className="w-3 h-3 rounded-full"
+                  className="h-3 w-3 rounded-full"
                   style={{ backgroundColor: entry.color }}
                 />
-                <span className="text-gray-600">{entry.name}:</span>
+                <span className="text-muted-foreground">{entry.name}:</span>
               </div>
               <span className="font-bold" style={{ color: entry.color }}>
                 {formatCurrency(entry.value)}
@@ -108,57 +76,55 @@ const CardRevenueAndProfit = () => {
   };
 
   if (isLoading) {
-  return (
-    <div className="h-full bg-white shadow-sm rounded-2xl border border-slate-200 flex items-center justify-center">
-      <div className="text-slate-500">Loading financial data...</div>
-    </div>
-  );
-}
-
+    return (
+      <div className="flex h-full items-center justify-center rounded-2xl border border-border/60 bg-card shadow-sm">
+        <div className="text-sm text-muted-foreground">Loading financial data...</div>
+      </div>
+    );
+  }
 
   if (isError || !data) {
     return (
-      <div className="row-span-4 xl:row-span-3 bg-white shadow-md rounded-2xl flex items-center justify-center">
-        <div className="text-red-500 text-center p-5">
-          <p className="font-semibold">Error loading financial data</p>
+      <div className="flex h-full items-center justify-center rounded-2xl border border-border/60 bg-card shadow-sm">
+        <div className="p-5 text-center">
+          <p className="font-semibold text-destructive">Error loading financial data</p>
         </div>
       </div>
     );
   }
 
   if (!revenueProfit) {
-  return (
-    <div className="row-span-4 xl:row-span-3 bg-white shadow-md rounded-2xl flex items-center justify-center">
-      <div className="text-gray-500">No data available for selected period</div>
-    </div>
-  );
-}
+    return (
+      <div className="flex h-full items-center justify-center rounded-2xl border border-border/60 bg-card shadow-sm">
+        <div className="text-sm text-muted-foreground">
+          No data available for selected period
+        </div>
+      </div>
+    );
+  }
 
-const { chartData, summary, topExpenseCategories } = revenueProfit;
-
-
+  const { chartData, summary, topExpenseCategories } = revenueProfit;
   const isProfitable = summary.totalProfit >= 0;
 
   return (
-    <div className="h-full bg-white shadow-sm rounded-2xl border border-slate-200 flex flex-col overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
       {/* HEADER */}
       <div className="px-7 pt-5 pb-3">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <DollarSign className="w-5 h-5 text-gray-600" />
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground">
+            <DollarSign className="h-5 w-5 text-primary" />
             Revenue & Profit
           </h2>
 
-          {/* Date Range Selector */}
-          <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+          <div className="flex gap-1 rounded-xl border border-border/60 bg-muted/60 p-1">
             {(["7d", "30d", "90d", "1y"] as DateRange[]).map((range) => (
               <button
                 key={range}
                 onClick={() => setDateRange(range)}
-                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${
                   dateRange === range
-                    ? "bg-white text-blue-600 shadow-sm"
-                    : "text-gray-600 hover:text-gray-900"
+                    ? "bg-background text-primary shadow-sm border border-border/50"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {range.toUpperCase()}
@@ -167,30 +133,31 @@ const { chartData, summary, topExpenseCategories } = revenueProfit;
           </div>
         </div>
       </div>
-      <hr />
+
+      <div className="border-t border-border/60" />
 
       {/* KEY METRICS */}
-      <div className="px-7 py-4 bg-gradient-to-r from-blue-50 to-purple-50">
+      <div className="bg-muted/30 px-7 py-4">
         <div className="grid grid-cols-3 gap-6">
           {/* Revenue */}
           <div>
-            <div className="flex items-center gap-1 text-xs text-gray-600 mb-1">
-              <TrendingUpIcon className="w-3 h-3" />
+            <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
+              <TrendingUpIcon className="h-3 w-3" />
               Total Revenue
             </div>
-            <p className="text-2xl font-bold text-blue-600">
+            <p className="text-2xl font-bold text-primary">
               {formatCurrency(summary.totalRevenue)}
             </p>
             {summary.revenueTrend !== null && (
-              <div className="flex items-center gap-1 mt-1">
+              <div className="mt-1 flex items-center gap-1">
                 {summary.revenueTrend >= 0 ? (
-                  <TrendingUp className="w-3 h-3 text-green-500" />
+                  <TrendingUp className="h-3 w-3 text-emerald-500" />
                 ) : (
-                  <TrendingDown className="w-3 h-3 text-red-500" />
+                  <TrendingDown className="h-3 w-3 text-red-500" />
                 )}
                 <span
                   className={`text-xs font-medium ${
-                    summary.revenueTrend >= 0 ? "text-green-600" : "text-red-600"
+                    summary.revenueTrend >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
                   }`}
                 >
                   {summary.revenueTrend >= 0 ? "+" : ""}
@@ -202,19 +169,19 @@ const { chartData, summary, topExpenseCategories } = revenueProfit;
 
           {/* Expenses */}
           <div>
-            <div className="flex items-center gap-1 text-xs text-gray-600 mb-1">
-              <Receipt className="w-3 h-3" />
+            <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
+              <Receipt className="h-3 w-3" />
               Total Expenses
             </div>
-            <p className="text-2xl font-bold text-orange-600">
+            <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
               {formatCurrency(summary.totalExpenses)}
             </p>
-            <div className="text-xs text-gray-600 mt-1">
-              <span className="font-medium">
+            <div className="mt-1 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">
                 {formatCompactCurrency(summary.totalRegularExpenses)}
               </span>{" "}
               +{" "}
-              <span className="font-medium">
+              <span className="font-medium text-foreground">
                 {formatCompactCurrency(summary.totalInvoiceExpenses)}
               </span>
             </div>
@@ -222,37 +189,41 @@ const { chartData, summary, topExpenseCategories } = revenueProfit;
 
           {/* Profit */}
           <div>
-            <div className="flex items-center gap-1 text-xs text-gray-600 mb-1">
-              <Minus className="w-3 h-3" />
+            <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
+              <Minus className="h-3 w-3" />
               Net Profit
             </div>
             <p
               className={`text-2xl font-bold ${
-                isProfitable ? "text-green-600" : "text-red-600"
+                isProfitable
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-red-600 dark:text-red-400"
               }`}
             >
               {formatCurrency(summary.totalProfit)}
             </p>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="mt-1 flex items-center gap-2">
               <span
-                className={`text-xs font-medium px-2 py-0.5 rounded ${
+                className={`rounded-md px-2 py-0.5 text-xs font-medium ${
                   isProfitable
-                    ? "bg-green-100 text-green-700"
-                    : "bg-red-100 text-red-700"
+                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+                    : "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300"
                 }`}
               >
                 {summary.profitMargin.toFixed(1)}% margin
               </span>
               {summary.profitTrend !== null && (
                 <span
-                  className={`text-xs flex items-center gap-0.5 ${
-                    summary.profitTrend >= 0 ? "text-green-600" : "text-red-600"
+                  className={`flex items-center gap-0.5 text-xs ${
+                    summary.profitTrend >= 0
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-red-600 dark:text-red-400"
                   }`}
                 >
                   {summary.profitTrend >= 0 ? (
-                    <TrendingUp className="w-3 h-3" />
+                    <TrendingUp className="h-3 w-3" />
                   ) : (
-                    <TrendingDown className="w-3 h-3" />
+                    <TrendingDown className="h-3 w-3" />
                   )}
                   {summary.profitTrend >= 0 ? "+" : ""}
                   {summary.profitTrend.toFixed(1)}%
@@ -282,10 +253,14 @@ const { chartData, summary, topExpenseCategories } = revenueProfit;
                   <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.35} />
+
               <XAxis
                 dataKey="date"
-                tick={{ fontSize: 11, fill: "#6b7280" }}
+                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                tickLine={false}
+                axisLine={false}
                 tickFormatter={(value) =>
                   new Date(value).toLocaleDateString("en-US", {
                     month: "short",
@@ -293,15 +268,24 @@ const { chartData, summary, topExpenseCategories } = revenueProfit;
                   })
                 }
               />
+
               <YAxis
-                tick={{ fontSize: 11, fill: "#6b7280" }}
+                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                tickLine={false}
+                axisLine={false}
                 tickFormatter={(value) => formatCompactCurrency(value)}
               />
+
               <Tooltip content={<CustomTooltip />} />
               <Legend
-                wrapperStyle={{ fontSize: "12px", paddingTop: "10px" }}
+                wrapperStyle={{
+                  fontSize: "12px",
+                  paddingTop: "10px",
+                  color: "hsl(var(--foreground))",
+                }}
                 iconType="line"
               />
+
               <Area
                 type="monotone"
                 dataKey="revenue"
@@ -329,27 +313,31 @@ const { chartData, summary, topExpenseCategories } = revenueProfit;
             </AreaChart>
           </ResponsiveContainer>
         ) : (
-          <div className="flex items-center justify-center h-full text-gray-500">
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             No data available for selected period
           </div>
         )}
       </div>
 
-      {/* FOOTER - Transaction Summary */}
+      {/* FOOTER */}
       <div className="px-7 pb-5">
-        <div className="bg-gray-50 rounded-lg p-3">
+        <div className="rounded-xl border border-border/60 bg-muted/40 p-3">
           <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-1 text-gray-600">
-              <ShoppingCart className="w-3 h-3" />
+            <div className="flex items-center gap-1 text-muted-foreground">
+              <ShoppingCart className="h-3 w-3" />
               <span>
                 {summary.transactionCounts.salesCount} sales •{" "}
                 {summary.transactionCounts.expenseCount} expenses •{" "}
                 {summary.transactionCounts.invoiceCount} invoices
               </span>
             </div>
+
             {topExpenseCategories.length > 0 && (
-              <div className="text-gray-600">
-                Top: <span className="font-semibold">{topExpenseCategories[0].category}</span>{" "}
+              <div className="text-muted-foreground">
+                Top:{" "}
+                <span className="font-semibold text-foreground">
+                  {topExpenseCategories[0].category}
+                </span>{" "}
                 ({formatCompactCurrency(topExpenseCategories[0].amount)})
               </div>
             )}

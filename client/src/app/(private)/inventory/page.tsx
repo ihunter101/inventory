@@ -10,30 +10,26 @@ import {
 } from "../../state/api";
 
 import type { Status } from "../../utils/stock";
-import {InventoryHeader} from "@/app/(components)/inventory/InventoryHeader";
-import {InventoryFilters} from "@/app/(components)/inventory/InventoryFilters";
-import {InventoryTable} from "@/app/(components)/inventory/InventoryTable";
-import {StocktakeDialog} from "@/app/(components)/inventory/StockTakeDialogue";
+import { InventoryHeader } from "@/app/(components)/inventory/InventoryHeader";
+import { InventoryFilters } from "@/app/(components)/inventory/InventoryFilters";
+import { InventoryTable } from "@/app/(components)/inventory/InventoryTable";
+import { StocktakeDialog } from "@/app/(components)/inventory/StockTakeDialogue";
 import {
   InventoryRow,
   deriveStatus,
 } from "@/app/(components)/inventory/InventoryTypes";
-import {InventoryItem as PdfItem} from "@/app/pdf/InventoryDocument";
-import type {  Category } from "@/app/(components)/Products/UpdateProductDialog";
+import { InventoryItem as PdfItem } from "@/app/pdf/InventoryDocument";
+import type { Category } from "@/app/(components)/Products/UpdateProductDialog";
 import { MissingExpiryTableCard } from "@/app/(components)/inventory/AddExpiryDate";
-
-
 
 export default function InventoryPage() {
   const { data = [], isLoading, isError, error, refetch } = useGetInventoryQuery();
   const [adjustInventory, { isLoading: adjusting }] = useAdjustInventoryMutation();
   const [setInventory, { isLoading: setting }] = useSetInventoryMutation();
 
-  // filters
   const [status, setStatus] = React.useState<"all" | Status>("all");
   const [category, setCategory] = React.useState<"all" | Category>("all");
 
-  // stocktake dialog state
   const [stocktakeOpen, setStocktakeOpen] = React.useState(false);
   const [stocktakeItem, setStocktakeItem] = React.useState<{
     productId: string;
@@ -70,18 +66,20 @@ export default function InventoryPage() {
     [filteredRows]
   );
 
-  // quick +/- adjust
-  const handleQuickAdjust = async (row: InventoryRow, delta: number, reason?: string) => {
-  try {
-    await adjustInventory({ productId: row.productId, delta, reason }).unwrap()
-    .then((payload) => console.log("fullfilled", payload));
-  } catch (e) {
-    console.error("Adjust inventory failed:", e);
-  }
-};
+  const handleQuickAdjust = async (
+    row: InventoryRow,
+    delta: number,
+    reason?: string
+  ) => {
+    try {
+      await adjustInventory({ productId: row.productId, delta, reason })
+        .unwrap()
+        .then((payload) => console.log("fulfilled", payload));
+    } catch (e) {
+      console.error("Adjust inventory failed:", e);
+    }
+  };
 
-
-  // stocktake open/close + save
   const handleOpenStocktake = (row: InventoryRow) => {
     setStocktakeItem({
       productId: row.productId,
@@ -112,51 +110,53 @@ export default function InventoryPage() {
 
   const busy = isLoading || adjusting || setting;
 
-  // initial load skeleton (optional)
   if (isLoading && !data.length) {
     return (
-      <Container maxWidth="lg" sx={{ py: 4, textAlign: "center" }}>
-        <CircularProgress />
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <div className="flex min-h-[240px] items-center justify-center rounded-2xl border border-border/60 bg-card shadow-sm">
+          <div className="flex flex-col items-center gap-3">
+            <CircularProgress size={28} />
+            <p className="text-sm text-muted-foreground">Loading inventory...</p>
+          </div>
+        </div>
       </Container>
     );
   }
 
   return (
     <Container maxWidth="lg" sx={{ py: 4, pb: 8 }}>
-      
-      <InventoryHeader
-        onAddItem={() => { }}
-          pdfItems={pdfItems} 
-      />
+      <div className="flex flex-col gap-6">
+        <InventoryHeader onAddItem={() => {}} pdfItems={pdfItems} />
 
-    <MissingExpiryTableCard />
+        <MissingExpiryTableCard />
 
-      <InventoryFilters
-        status={status}
-        category={category}
-        onStatusChange={setStatus}
-        onCategoryChange={setCategory}
-        isBusy={busy}
-      />
+        <InventoryFilters
+          status={status}
+          category={category}
+          onStatusChange={setStatus}
+          onCategoryChange={setCategory}
+          isBusy={busy}
+        />
 
-      <InventoryTable
-        rows={filteredRows}
-        isError={isError}
-        error={error}
-        onRefresh={refetch}
-        adjusting={adjusting}
-        setting={setting}
-        onQuickAdjust={handleQuickAdjust}
-        onOpenStocktake={handleOpenStocktake}
-      />
+        <InventoryTable
+          rows={filteredRows}
+          isError={isError}
+          error={error}
+          onRefresh={refetch}
+          adjusting={adjusting}
+          setting={setting}
+          onQuickAdjust={handleQuickAdjust}
+          onOpenStocktake={handleOpenStocktake}
+        />
 
-      <StocktakeDialog
-        open={stocktakeOpen}
-        item={stocktakeItem}
-        onClose={handleCloseStocktake}
-        onSave={handleSaveStocktake}
-        isSaving={setting}
-      />
+        <StocktakeDialog
+          open={stocktakeOpen}
+          item={stocktakeItem}
+          onClose={handleCloseStocktake}
+          onSave={handleSaveStocktake}
+          isSaving={setting}
+        />
+      </div>
     </Container>
   );
 }

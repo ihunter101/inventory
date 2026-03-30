@@ -148,7 +148,7 @@ export default function Navbar() {
         {/* Stock Sheet Button - Fixed */}
         <StockSheetNavbarButton />
 
-        {/* Notifications */}
+        {/* Notifications
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative">
@@ -189,7 +189,7 @@ export default function Navbar() {
               View all notifications
             </DropdownMenuItem>
           </DropdownMenuContent>
-        </DropdownMenu>
+        </DropdownMenu> */}
 
         {/* User Menu */}
         <DropdownMenu>

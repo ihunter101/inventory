@@ -1,4 +1,3 @@
-// app/(private)/purchases/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -32,7 +31,7 @@ const POSTATUS = {
   SENT: "SENT",
   PARTIALLY_RECEIVED: "PARTIALLY_RECEIVED",
   RECEIVED: "RECEIVED",
-  CLOSED: "CLOSED"
+  CLOSED: "CLOSED",
 } as const;
 
 // --- status mappers (with new enum) ---
@@ -47,7 +46,11 @@ function mapPOStatus(s?: string): POStatus | undefined {
   return m[s];
 }
 
-const InvStatus = { PENDING: "PENDING", PAID: "PAID", OVERDUE: "OVERDUE" } as const;
+const InvStatus = {
+  PENDING: "PENDING",
+  PAID: "PAID",
+  OVERDUE: "OVERDUE",
+} as const;
 
 function mapInvoiceStatus(s?: string): InvoiceStatus | undefined {
   if (!s || s === "all") return undefined;
@@ -74,21 +77,20 @@ export default function PurchasesPage() {
 
   const [matchInvoiceId, setMatchInvoiceId] = useState<string | null>(null);
 
-
   // adopt URL params on first render
-useEffect(() => {
-  const qTab = params.get("tab") as Tab | null;
-  const qStatus = params.get("status");
-  const qPO = params.get("po");
-  const qInv = params.get("inv"); // 1. Get it here
+  useEffect(() => {
+    const qTab = params.get("tab") as Tab | null;
+    const qStatus = params.get("status");
+    const qPO = params.get("po");
+    const qInv = params.get("inv"); // 1. Get it here
 
-  if (qTab) setActiveTab(qTab);
-  if (qStatus) setStatusFilter(qStatus);
-  if (qPO) setMatchPOId(qPO);
-  if (qInv) setMatchInvoiceId(qInv); // 2. Set it here
-  
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
+    if (qTab) setActiveTab(qTab);
+    if (qStatus) setStatusFilter(qStatus);
+    if (qPO) setMatchPOId(qPO);
+    if (qInv) setMatchInvoiceId(qInv); // 2. Set it here
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // queries
   const {
@@ -97,14 +99,15 @@ useEffect(() => {
     isError: poError,
     refetch: refetchPOs,
   } = useGetPurchaseOrdersQuery(
-  {
-    q: searchTerm,
-    status: activeTab === "purchases" || activeTab === "match"
-      ? mapPOStatus(statusFilter)
-      : undefined,
-  },
-  { refetchOnMountOrArgChange: true }
-);
+    {
+      q: searchTerm,
+      status:
+        activeTab === "purchases" || activeTab === "match"
+          ? mapPOStatus(statusFilter)
+          : undefined,
+    },
+    { refetchOnMountOrArgChange: true }
+  );
 
   const {
     data: invoices = [],
@@ -112,14 +115,15 @@ useEffect(() => {
     isError: invError,
     refetch: refetchInvoices,
   } = useGetSupplierInvoicesQuery(
-  {
-    q: searchTerm,
-    status: activeTab === "invoices" || activeTab === "match"
-      ? mapInvoiceStatus(statusFilter)
-      : undefined,
-  },
-  { refetchOnMountOrArgChange: true }
-);
+    {
+      q: searchTerm,
+      status:
+        activeTab === "invoices" || activeTab === "match"
+          ? mapInvoiceStatus(statusFilter)
+          : undefined,
+    },
+    { refetchOnMountOrArgChange: true }
+  );
 
   const [postGRN] = usePostGRNMutation();
 
@@ -133,7 +137,7 @@ useEffect(() => {
     { refetchOnMountOrArgChange: true }
   );
 
-  const {data: paymentSummary} = useGetAllPoPaymentsSummaryQuery();
+  const { data: paymentSummary } = useGetAllPoPaymentsSummaryQuery();
 
   // derived flags
   const loading =
@@ -156,73 +160,63 @@ useEffect(() => {
     { search: searchTerm, status: statusFilter }
   );
 
-  //quering to find a match invoice 
- 
-
-
+  //quering to find a match invoice
 
   // GRN draft from invoice
-const openGRNFromInvoice = (invoice: SupplierInvoiceDTO) => {
-  const po = purchaseOrders.find((p) => p.id === invoice.poId);
-  const poId = invoice.poId ?? po?.id;
-  if (!poId) return;
+  const openGRNFromInvoice = (invoice: SupplierInvoiceDTO) => {
+    const po = purchaseOrders.find((p) => p.id === invoice.poId);
+    const poId = invoice.poId ?? po?.id;
+    if (!poId) return;
 
-  const poItems = po?.items ?? [];
+    const poItems = po?.items ?? [];
 
-  // map draftProductId -> poItemId (for recovery)
-  const poItemIdByDraftId = new Map<string, string>();
-  for (const it of poItems as any[]) {
-    if (it.productId && it.id) poItemIdByDraftId.set(it.productId, it.id);
-  }
+    // map draftProductId -> poItemId (for recovery)
+    const poItemIdByDraftId = new Map<string, string>();
+    for (const it of poItems as any[]) {
+      if (it.productId && it.id) poItemIdByDraftId.set(it.productId, it.id);
+    }
 
-  const sourceLines = invoice.lines ?? [];
+    const sourceLines = invoice.lines ?? [];
     if (!sourceLines.length) return; // cannot create GRN without invoice lines in new workflow
 
+    const draft: GoodsReceiptDTO = {
+      id: `LSC-GR-${new Date().toISOString().slice(0, 10)}`,
+      grnNumber: `LSC-GR-${new Date().toISOString().slice(0, 10)}`,
+      poId,
+      poNumber: po?.poNumber,
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      date: new Date().toISOString().slice(0, 10),
+      status: "DRAFT",
+      lines: (sourceLines as any[]).map((ln) => {
+        const productDraftId = ln.draftProductId ?? ln.productId; // invoice line vs PO item
+        const poItemId =
+          ln.poItemId ??
+          (productDraftId ? poItemIdByDraftId.get(productDraftId) : undefined);
 
-  const draft: GoodsReceiptDTO = {
-    id: `LSC-GR-${new Date().toISOString().slice(0, 10)}`,
-    grnNumber: `LSC-GR-${new Date().toISOString().slice(0, 10)}`,
-    poId,
-    poNumber: po?.poNumber,
-    invoiceId: invoice.id,
-    invoiceNumber: invoice.invoiceNumber,
-    date: new Date().toISOString().slice(0, 10),
-    status: "DRAFT",
-    lines: (sourceLines as any[]).map((ln) => {
-      const productDraftId = ln.draftProductId ?? ln.productId; // invoice line vs PO item
-      const poItemId =
-        ln.poItemId ??
-        (productDraftId ? poItemIdByDraftId.get(productDraftId) : undefined)
+        //introduce the invoice item line id to address the concerns of the new  workflow
+        return {
+          invoiceItemId: ln.invoiceItemId,
+          productDraftId,
+          poItemId, // ✅
+          name: ln.name ?? ln.description ?? ln.product?.name ?? "",
+          unit: ln.unit ?? ln.uom ?? ln.product?.unit ?? "",
+          receivedQty: Number(ln.receivedQty ?? ln.quantity ?? 0),
+          unitPrice: Number(ln.unitPrice ?? 0),
+        };
+      }),
+    };
 
-
-        //introduce the invoice item line id to address the concerns of the new  workflow 
-      return {
-        invoiceItemId: ln.invoiceItemId ?? ln.id, // TODO CHECK WHICH IS RIGHT
-        productDraftId,
-        poItemId, // ✅
-        name: ln.name ?? ln.description ?? ln.product?.name ?? "",
-        unit: ln.unit ?? ln.uom ?? ln.product?.unit ?? "",
-        receivedQty: Number(ln.receivedQty ?? ln.quantity ?? 0),
-        unitPrice: Number(ln.unitPrice ?? 0),
-        lotNumber: String(ln.lotNumber ?? ""),
-        expiryDate: ln.expiryDate 
-      };
-    }),
+    setGrnDraft(draft);
+    setShowGRNModal(true);
   };
 
-  setGrnDraft(draft);
-  setShowGRNModal(true);
-};
-
-
-
   // matching context
-// 1. Identify the PO we are matching
+  // 1. Identify the PO we are matching
   const poForMatch: PurchaseOrderDTO | undefined = useMemo(() => {
     const id = matchPOId ?? filteredPOs[0]?.id;
     return purchaseOrders.find((p) => p.id === id);
   }, [matchPOId, filteredPOs, purchaseOrders]);
-
 
   // 2. Filter ALL invoices for this PO (Not just one)
   const invoicesForMatch = useMemo(() => {
@@ -233,25 +227,27 @@ const openGRNFromInvoice = (invoice: SupplierInvoiceDTO) => {
   // 3. Filter ALL GRNs for this PO (To be mapped in child)
   const grnsForMatch = useMemo(() => {
     if (!poForMatch) return [];
-    return goodsReceipts.filter(grn => grn.poId === poForMatch.id);
+    return goodsReceipts.filter((grn) => grn.poId === poForMatch.id);
   }, [poForMatch, goodsReceipts]);
 
-
   // after posting GRN
- async function handlePosted(ctx: { poId: string; invoiceId?: string; grnId: string }) {
-  await Promise.all([refetchGRNs(), refetchPOs(), refetchInvoices()]);
-  setActiveTab("match");
-  setMatchPOId(ctx.poId);
+  async function handlePosted(ctx: {
+    poId: string;
+    invoiceId?: string;
+    grnId: string;
+  }) {
+    await Promise.all([refetchGRNs(), refetchPOs(), refetchInvoices()]);
+    setActiveTab("match");
+    setMatchPOId(ctx.poId);
 
-  if (ctx.invoiceId) setMatchInvoiceId(ctx.invoiceId);
+    if (ctx.invoiceId) setMatchInvoiceId(ctx.invoiceId);
 
-  const url = `/purchases?tab=match&po=${encodeURIComponent(ctx.poId)}${
-    ctx.invoiceId ? `&inv=${encodeURIComponent(ctx.invoiceId)}` : ""
-  }`;
+    const url = `/purchases?tab=match&po=${encodeURIComponent(ctx.poId)}${
+      ctx.invoiceId ? `&inv=${encodeURIComponent(ctx.invoiceId)}` : ""
+    }`;
 
-  router.push(url);
-}
-
+    router.push(url);
+  }
 
   async function handlePostGRN(grnId: string) {
     setPostingId(grnId);
@@ -266,81 +262,106 @@ const openGRNFromInvoice = (invoice: SupplierInvoiceDTO) => {
     }
   }
 
-  const totalPayable = Number(paymentSummary?.totalPayble ?? 0)
-  const totalPaid  = Number(paymentSummary?.totalPaid ?? 0)
+  const totalPayable = Number(paymentSummary?.totalPayble ?? 0);
+  const totalPaid = Number(paymentSummary?.totalPaid ?? 0);
 
   return (
-    <div className="w-full">
-      <PurchasesHeader
-        poCount={purchaseOrders.length}
-        invoiceCount={invoices.filter((i) => i.status === "PENDING").length}
-        grnCount={goodsReceipts.length}
-        totalPaid={totalPaid}
-        totalPayable={totalPayable}
-      />
-
-      <div className="rounded-2xl bg-card shadow-card ring-1 ring-border backdrop-blur mt-6">
-        <PurchasesTabs active={activeTab} onChange={setActiveTab} />
-
-        <PurchasesToolbar
-          activeTab={activeTab}
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          statusFilter={statusFilter}
-          onStatusChange={setStatusFilter}
+    <div className="w-full px-3 py-3 sm:px-4 sm:py-4 lg:px-6">
+      <div className="mx-auto w-full max-w-[1600px]">
+        <PurchasesHeader
+          poCount={purchaseOrders.length}
+          invoiceCount={invoices.filter((i) => i.status === "PENDING").length}
+          grnCount={goodsReceipts.length}
+          totalPaid={totalPaid}
+          totalPayable={totalPayable}
         />
 
-        <div className="overflow-x-auto">
-          {loading && <div className="p-6 text-muted-foreground">Loading {activeTab}…</div>}
-          {errored && <div className="p-6 text-destructive">Error loading {activeTab}.</div>}
+        <div className="mt-4 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm sm:mt-6">
+          <div className="overflow-x-auto">
+            <PurchasesTabs active={activeTab} onChange={setActiveTab} />
+          </div>
 
-          {!loading && !errored && activeTab === "purchases" && (
-            <PurchaseTable data={filteredPOs} />
-          )}
-
-          {!loading && !errored && activeTab === "invoices" && (
-            <InvoiceTable
-              data={filteredInvoices}
-              goodsReceipts={goodsReceipts}
-              onCreateGRN={openGRNFromInvoice}
-              onOpenMatch={(poId) => {
-                setActiveTab("match");
-                if (poId) setMatchPOId(poId);
-                router.push(
-                  `/purchases?tab=match${poId ? `&po=${encodeURIComponent(poId)}` : ""}`
-                );
-              }}
+          <div className="border-t border-border/60">
+            <PurchasesToolbar
+              activeTab={activeTab}
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              statusFilter={statusFilter}
+              onStatusChange={setStatusFilter}
             />
-          )}
+          </div>
 
-          {!loading && !errored && activeTab === "grns" && (
-            <GRNTable
-              data={filteredGRNs}
-              onOpenMatch={(poId) => {
-                setActiveTab("match");
-                setMatchPOId(poId);
-                router.push(`/purchases?tab=match&po=${poId}`);
-              }}
-              orders={purchaseOrders}
-              invoices={invoices}
-              postingId={postingId}
-              onPost={handlePostGRN}
-            />
-          )}
+          <div className="min-w-0 overflow-x-auto">
+            {loading && (
+              <div className="p-4 text-sm text-muted-foreground sm:p-6">
+                Loading {activeTab}…
+              </div>
+            )}
 
-          {!loading && !errored && activeTab === "match" && (
-            <MatchTable
-              po={poForMatch}
-              relatedInvoices={invoicesForMatch} // ✅ Passed Array
-              relatedGRNs={grnsForMatch}         // ✅ Passed Array
-              allPOs={purchaseOrders}
-              currentPOId={matchPOId}
-              onChangePO={(poId) => {
-                setMatchPOId(poId);
-                router.push(`/purchases?tab=match&po=${poId}`);
-              }}
-            />
-          )}
+            {errored && (
+              <div className="p-4 text-sm text-destructive sm:p-6">
+                Error loading {activeTab}.
+              </div>
+            )}
+
+            {!loading && !errored && activeTab === "purchases" && (
+              <div className="min-w-0">
+                <PurchaseTable data={filteredPOs} />
+              </div>
+            )}
+
+            {!loading && !errored && activeTab === "invoices" && (
+              <div className="min-w-0">
+                <InvoiceTable
+                  data={filteredInvoices}
+                  goodsReceipts={goodsReceipts}
+                  onCreateGRN={openGRNFromInvoice}
+                  onOpenMatch={(poId) => {
+                    setActiveTab("match");
+                    if (poId) setMatchPOId(poId);
+                    router.push(
+                      `/purchases?tab=match${
+                        poId ? `&po=${encodeURIComponent(poId)}` : ""
+                      }`
+                    );
+                  }}
+                />
+              </div>
+            )}
+
+            {!loading && !errored && activeTab === "grns" && (
+              <div className="min-w-0">
+                <GRNTable
+                  data={filteredGRNs}
+                  onOpenMatch={(poId) => {
+                    setActiveTab("match");
+                    setMatchPOId(poId);
+                    router.push(`/purchases?tab=match&po=${poId}`);
+                  }}
+                  orders={purchaseOrders}
+                  invoices={invoices}
+                  postingId={postingId}
+                  onPost={handlePostGRN}
+                />
+              </div>
+            )}
+
+            {!loading && !errored && activeTab === "match" && (
+              <div className="min-w-0">
+                <MatchTable
+                  po={poForMatch}
+                  relatedInvoices={invoicesForMatch} // ✅ Passed Array
+                  relatedGRNs={grnsForMatch} // ✅ Passed Array
+                  allPOs={purchaseOrders}
+                  currentPOId={matchPOId}
+                  onChangePO={(poId) => {
+                    setMatchPOId(poId);
+                    router.push(`/purchases?tab=match&po=${poId}`);
+                  }}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

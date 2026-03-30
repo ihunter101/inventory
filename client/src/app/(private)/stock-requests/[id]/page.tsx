@@ -25,7 +25,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import {
   Table,
   TableHeader,
@@ -36,18 +42,15 @@ import {
 } from "@/components/ui/table";
 import StockRequestPDFDownload from "@/app/pdf/StockRequestPDFDownload";
 
-
 type StockLineOutcome = "PENDING" | "GRANTED" | "ADJUSTED" | "UNAVAILABLE";
 type Outcome = "GRANTED" | "ADJUSTED" | "UNAVAILABLE";
-
-
 
 function getStatusBadgeVariant(status: string) {
   switch (status) {
     case "FULFILLED":
       return "default";
     case "IN_REVIEW":
-      return "secondary"; // treat as partial-ish
+      return "secondary";
     case "CANCELLED":
       return "destructive";
     default:
@@ -57,31 +60,38 @@ function getStatusBadgeVariant(status: string) {
 
 function getStatusBadgeColor(status: string) {
   const colors: Record<string, string> = {
-    SUBMITTED: "bg-blue-100 text-blue-700 border-blue-200",
-    IN_REVIEW: "bg-orange-100 text-orange-700 border-orange-200", // now your partial-ish state
-    FULFILLED: "bg-green-100 text-green-700 border-green-200",
-    CANCELLED: "bg-red-100 text-red-700 border-red-200",
+    SUBMITTED:
+      "border-primary/20 bg-primary/10 text-primary",
+    IN_REVIEW:
+      "border-amber-200/50 bg-amber-500/10 text-amber-700 dark:border-amber-900/40 dark:text-amber-400",
+    FULFILLED:
+      "border-emerald-200/50 bg-emerald-500/10 text-emerald-700 dark:border-emerald-900/40 dark:text-emerald-400",
+    CANCELLED:
+      "border-red-200/50 bg-red-500/10 text-red-700 dark:border-red-900/40 dark:text-red-400",
   };
-  return colors[status] || "bg-gray-100 text-gray-700 border-gray-200";
+  return colors[status] || "border-border/60 bg-muted/40 text-foreground";
 }
-
 
 function getOutcomeBadgeColor(outcome: StockLineOutcome) {
   const colors: Record<StockLineOutcome, string> = {
-    GRANTED: "bg-green-100 text-green-700 border-green-200",
-    ADJUSTED: "bg-yellow-100 text-yellow-700 border-yellow-200",
-    UNAVAILABLE: "bg-red-100 text-red-700 border-red-200",
-    PENDING: "bg-gray-100 text-gray-700 border-gray-200",
+    GRANTED:
+      "border-emerald-200/50 bg-emerald-500/10 text-emerald-700 dark:border-emerald-900/40 dark:text-emerald-400",
+    ADJUSTED:
+      "border-amber-200/50 bg-amber-500/10 text-amber-700 dark:border-amber-900/40 dark:text-amber-400",
+    UNAVAILABLE:
+      "border-red-200/50 bg-red-500/10 text-red-700 dark:border-red-900/40 dark:text-red-400",
+    PENDING:
+      "border-border/60 bg-muted/40 text-foreground",
   };
   return colors[outcome];
 }
 
 function getOutcomeIcon(outcome: StockLineOutcome) {
   const icons: Record<StockLineOutcome, JSX.Element> = {
-    GRANTED: <CheckCircle2 className="w-3 h-3" />,
-    ADJUSTED: <Clock className="w-3 h-3" />,
-    UNAVAILABLE: <XCircle className="w-3 h-3" />,
-    PENDING: <Package className="w-3 h-3" />,
+    GRANTED: <CheckCircle2 className="h-3 w-3" />,
+    ADJUSTED: <Clock className="h-3 w-3" />,
+    UNAVAILABLE: <XCircle className="h-3 w-3" />,
+    PENDING: <Package className="h-3 w-3" />,
   };
   return icons[outcome];
 }
@@ -109,7 +119,7 @@ export default function StockRequestDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
 
-  const { data, isLoading, isError, error: queryError } = useGetStockRequestByIdQuery(id);
+  const { data, isLoading, isError } = useGetStockRequestByIdQuery(id);
   const [review, { isLoading: isSaving }] = useReviewStockRequestMutation();
   const [fulfill, { isLoading: isFulfilling }] = useFulfillStockRequestMutation();
 
@@ -129,7 +139,11 @@ export default function StockRequestDetailPage() {
 
     const initial = data.lines.map((l: any) => {
       const initialGranted = l.grantedQty ?? l.requestedQty;
-      const normalized = normalizeGranted(l.availableQty ?? 0, l.requestedQty, initialGranted);
+      const normalized = normalizeGranted(
+        l.availableQty ?? 0,
+        l.requestedQty,
+        initialGranted
+      );
 
       return {
         ...l,
@@ -187,14 +201,14 @@ export default function StockRequestDetailPage() {
       toast.success("Review saved successfully", { id: toastId });
     } catch (error: any) {
       console.error("Failed to save review:", error);
+      toast.error("Failed to save review", { id: toastId });
     }
   };
 
   const handleFulfillRequest = async () => {
     const toastId = toast.loading("Processing fulfillment...");
-    
+
     try {
-      // ✅ SAVE REVIEW FIRST
       const body = {
         messageToRequester: messageToRequester.trim() || null,
         expectedDeliveryAt: expectedDeliveryAt
@@ -205,20 +219,16 @@ export default function StockRequestDetailPage() {
           grantedQty: l.grantedQty,
         })),
       };
-        console.log("📤 SENDING TO BACKEND:", JSON.stringify(body, null, 2));
+
       await review({ id, body }).unwrap();
-      
-      // ✅ THEN FULFILL
       const result = await fulfill(id).unwrap();
-      
+
       console.log("Fulfill success:", result);
-      
       toast.success("Request fulfilled successfully!", { id: toastId });
-      
+
       setTimeout(() => {
         router.push("/stock-requests");
       }, 500);
-      
     } catch (err: any) {
       console.error(err);
       toast.error("Error", { id: toastId });
@@ -226,15 +236,17 @@ export default function StockRequestDetailPage() {
   };
 
   if (isLoading) return <SkeletonDemo />;
-  
+
   if (isError || !data) {
     return (
-      <div className="container mx-auto py-8 px-4 max-w-6xl">
-        <Card className="border-red-200 bg-red-50">
+      <div className="container mx-auto max-w-6xl px-4 py-8">
+        <Card className="border-red-200/50 bg-red-500/10 dark:border-red-900/40 dark:bg-red-950/20">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <XCircle className="w-6 h-6 text-red-600" />
-              <CardTitle className="text-red-800">Failed to load stock request</CardTitle>
+              <XCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+              <CardTitle className="text-red-700 dark:text-red-400">
+                Failed to load stock request
+              </CardTitle>
             </div>
           </CardHeader>
           <CardContent>
@@ -244,7 +256,7 @@ export default function StockRequestDetailPage() {
               </Button>
               <Button asChild variant="outline">
                 <Link href="/stock-requests">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  <ArrowLeft className="mr-2 h-4 w-4" />
                   Back to List
                 </Link>
               </Button>
@@ -255,35 +267,42 @@ export default function StockRequestDetailPage() {
     );
   }
 
-  const hasIssues = linesState.some(l => l.outcome === "UNAVAILABLE" || l.outcome === "ADJUSTED");
+  const hasIssues = linesState.some(
+    (l) => l.outcome === "UNAVAILABLE" || l.outcome === "ADJUSTED"
+  );
 
   return (
-    <div className="container mx-auto py-6 px-4 max-w-7xl space-y-6">
-      {/* Header Card */}
-      <Card>
+    <div className="container mx-auto max-w-7xl space-y-6 px-4 py-6">
+      <Card className="border-border/60 bg-card shadow-sm">
         <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-2">
               <div className="flex items-center gap-3">
-                <CardTitle className="text-2xl">Stock Request Details</CardTitle>
+                <CardTitle className="text-2xl text-foreground">
+                  Stock Request Details
+                </CardTitle>
                 <Badge
                   variant="outline"
-                  className={`${getStatusBadgeColor(data.status)} px-3 py-1 text-sm font-semibold`}
+                  className={`${getStatusBadgeColor(
+                    data.status
+                  )} px-3 py-1 text-sm font-semibold`}
                 >
                   {data.status.replace(/_/g, " ")}
                 </Badge>
               </div>
-              <CardDescription className="font-mono text-xs">
+              <CardDescription className="font-mono text-xs text-muted-foreground">
                 Request ID: {data.id}
               </CardDescription>
             </div>
-            
+
             {hasIssues && data.status === "SUBMITTED" && (
-              <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
-                <div className="text-xs text-yellow-800">
+              <div className="flex items-start gap-2 rounded-lg border border-amber-200/50 bg-amber-500/10 p-3 dark:border-amber-900/40 dark:bg-amber-950/20">
+                <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+                <div className="text-xs text-amber-700 dark:text-amber-400">
                   <p className="font-medium">Items need attention</p>
-                  <p className="text-yellow-700">Some items are unavailable or adjusted</p>
+                  <p className="text-amber-700/80 dark:text-amber-400/80">
+                    Some items are unavailable or adjusted
+                  </p>
                 </div>
               </div>
             )}
@@ -291,17 +310,19 @@ export default function StockRequestDetailPage() {
         </CardHeader>
 
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             <div className="space-y-1">
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Requester
               </Label>
-              <p className="font-medium text-base">{data.requestedByName}</p>
+              <p className="text-base font-medium text-foreground">
+                {data.requestedByName}
+              </p>
               <p className="text-sm text-muted-foreground">{data.requestedByEmail}</p>
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Location
               </Label>
               <Badge variant="outline" className="mt-1">
@@ -310,16 +331,18 @@ export default function StockRequestDetailPage() {
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Submitted
               </Label>
-              <p className="font-medium text-sm">{new Date(data.submittedAt).toLocaleString()}</p>
+              <p className="text-sm font-medium text-foreground">
+                {new Date(data.submittedAt).toLocaleString()}
+              </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+          <div className="grid grid-cols-1 gap-4 border-t border-border/60 pt-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="delivery" className="text-sm font-medium">
+              <Label htmlFor="delivery" className="text-sm font-medium text-foreground">
                 Expected Delivery
               </Label>
               <Input
@@ -328,11 +351,12 @@ export default function StockRequestDetailPage() {
                 disabled={isReadOnly}
                 value={expectedDeliveryAt}
                 onChange={(e) => setExpectedDeliveryAt(e.target.value)}
+                className="border-border/60 bg-background"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="message" className="text-sm font-medium">
+              <Label htmlFor="message" className="text-sm font-medium text-foreground">
                 Message to Requester
               </Label>
               <Input
@@ -341,51 +365,61 @@ export default function StockRequestDetailPage() {
                 value={messageToRequester}
                 onChange={(e) => setMessageToRequester(e.target.value)}
                 placeholder="e.g., Items will be ready for pickup tomorrow"
+                className="border-border/60 bg-background"
               />
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Lines Table */}
-      <Card>
+      <Card className="border-border/60 bg-card shadow-sm">
         <CardHeader>
-          <CardTitle>Requested Items ({linesState.length})</CardTitle>
-            <div className="flex items-center gap-2 justify-between">
-              <CardDescription>
-                Review and adjust quantities based on available stock
-              </CardDescription>
-              <StockRequestPDFDownload
-                request={data}
-                // ensure PDF reflects your current edited state (important)
-                linesOverride={linesState.map((l: any) => ({
-                  id: l.id,
-                  grantedQty: l.grantedQty,
-                  outcome: l.outcome,
-                }))}
-                messageOverride={messageToRequester}
-                expectedDeliveryOverride={expectedDeliveryAt}
-                preparedBy="Hunter"
-                notes={
-                  hasIssues
-                    ? "Some line items were adjusted or unavailable. Please review outcomes before fulfillment."
-                    : undefined
-                }
-              />
-            </div>
+          <CardTitle className="text-foreground">
+            Requested Items ({linesState.length})
+          </CardTitle>
+          <div className="flex items-center justify-between gap-2">
+            <CardDescription className="text-muted-foreground">
+              Review and adjust quantities based on available stock
+            </CardDescription>
+            <StockRequestPDFDownload
+              request={data}
+              linesOverride={linesState.map((l: any) => ({
+                id: l.id,
+                grantedQty: l.grantedQty,
+                outcome: l.outcome,
+              }))}
+              messageOverride={messageToRequester}
+              expectedDeliveryOverride={expectedDeliveryAt}
+              preparedBy="Hunter"
+              notes={
+                hasIssues
+                  ? "Some line items were adjusted or unavailable. Please review outcomes before fulfillment."
+                  : undefined
+              }
+            />
+          </div>
         </CardHeader>
 
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="font-semibold">Product</TableHead>
-                  <TableHead className="font-semibold text-center">Available</TableHead>
-                  <TableHead className="font-semibold text-center">Qty On Hand</TableHead>
-                  <TableHead className="font-semibold text-center">Requested</TableHead>
-                  <TableHead className="font-semibold text-center">Granted</TableHead>
-                  <TableHead className="font-semibold text-center">Status</TableHead>
+                <TableRow className="bg-muted/30">
+                  <TableHead className="font-semibold text-muted-foreground">
+                    Product
+                  </TableHead>
+                  <TableHead className="text-center font-semibold text-muted-foreground">
+                    Available
+                  </TableHead>
+                  <TableHead className="text-center font-semibold text-muted-foreground">
+                    Requested
+                  </TableHead>
+                  <TableHead className="text-center font-semibold text-muted-foreground">
+                    Granted
+                  </TableHead>
+                  <TableHead className="text-center font-semibold text-muted-foreground">
+                    Status
+                  </TableHead>
                 </TableRow>
               </TableHeader>
 
@@ -395,15 +429,15 @@ export default function StockRequestDetailPage() {
                   const isUnavailable = available === 0;
 
                   return (
-                    <TableRow 
-                      key={line.id} 
-                      className={`hover:bg-muted/50 transition-colors ${
-                        isUnavailable ? 'bg-red-50/30' : ''
+                    <TableRow
+                      key={line.id}
+                      className={`transition-colors hover:bg-muted/30 ${
+                        isUnavailable ? "bg-red-500/5" : ""
                       }`}
                     >
                       <TableCell>
                         <div className="space-y-1">
-                          <p className="font-medium">{line.productName}</p>
+                          <p className="font-medium text-foreground">{line.productName}</p>
                           <div className="flex gap-2">
                             <Badge variant="outline" className="text-xs">
                               {line.unit ?? "N/A"}
@@ -416,17 +450,11 @@ export default function StockRequestDetailPage() {
                       </TableCell>
 
                       <TableCell className="text-center">
-                        <Badge 
+                        <Badge
                           variant={isUnavailable ? "destructive" : "outline"}
                           className="font-mono"
                         >
                           {available}
-                        </Badge>
-                      </TableCell>
-
-                      <TableCell className="text-center">
-                        <Badge variant="outline" className="font-mono">
-                          {line.qtyOnHandAtRequest}
                         </Badge>
                       </TableCell>
 
@@ -444,8 +472,10 @@ export default function StockRequestDetailPage() {
                             max={available}
                             disabled={isReadOnly || isUnavailable}
                             value={line.grantedQty}
-                            onChange={(e) => handleGrantedChange(line.id, e.target.value)}
-                            className="w-24 text-center font-mono"
+                            onChange={(e) =>
+                              handleGrantedChange(line.id, e.target.value)
+                            }
+                            className="w-24 border-border/60 bg-background text-center font-mono"
                           />
                           <span className="text-[10px] text-muted-foreground">
                             max: {available}
@@ -456,7 +486,9 @@ export default function StockRequestDetailPage() {
                       <TableCell className="text-center">
                         <Badge
                           variant="outline"
-                          className={`${getOutcomeBadgeColor(line.outcome)} inline-flex items-center gap-1.5 px-2.5 py-1`}
+                          className={`${getOutcomeBadgeColor(
+                            line.outcome
+                          )} inline-flex items-center gap-1.5 px-2.5 py-1`}
                         >
                           {getOutcomeIcon(line.outcome)}
                           {line.outcome}
@@ -471,10 +503,9 @@ export default function StockRequestDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Action Buttons */}
-      <Card>
+      <Card className="border-border/60 bg-card shadow-sm">
         <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-3 justify-end">
+          <div className="flex flex-col justify-end gap-3 sm:flex-row">
             {data.status === "SUBMITTED" && (
               <>
                 <Button
@@ -483,7 +514,7 @@ export default function StockRequestDetailPage() {
                   onClick={handleSaveReview}
                   size="lg"
                 >
-                  <Package className="w-4 h-4 mr-2" />
+                  <Package className="mr-2 h-4 w-4" />
                   {isSaving ? "Saving..." : "Save Review"}
                 </Button>
 
@@ -492,7 +523,7 @@ export default function StockRequestDetailPage() {
                   onClick={handleFulfillRequest}
                   size="lg"
                 >
-                  <Send className="w-4 h-4 mr-2" />
+                  <Send className="mr-2 h-4 w-4" />
                   {isFulfilling ? "Processing..." : "Fulfill & Notify"}
                 </Button>
               </>
@@ -505,13 +536,13 @@ export default function StockRequestDetailPage() {
                   onClick={handleFulfillRequest}
                   size="lg"
                 >
-                  <Send className="w-4 h-4 mr-2" />
+                  <Send className="mr-2 h-4 w-4" />
                   {isFulfilling ? "Notifying..." : "Fulfill & Notify"}
                 </Button>
 
                 <Button asChild variant="outline" size="lg">
                   <Link href="/stock-requests">
-                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    <ArrowLeft className="mr-2 h-4 w-4" />
                     Go Back
                   </Link>
                 </Button>
@@ -521,7 +552,7 @@ export default function StockRequestDetailPage() {
             {(data.status === "FULFILLED" || data.status === "CANCELLED") && (
               <Button asChild variant="outline" size="lg">
                 <Link href="/stock-requests">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  <ArrowLeft className="mr-2 h-4 w-4" />
                   Go Back
                 </Link>
               </Button>
