@@ -10,63 +10,36 @@ import ExpenseKPICards from "../../(components)/expense/ExpenseKPICard";
 import RecentTransactionsTable from "../../(components)/expense/RecentTransactionTable";
 import BarChartCategoryAnalysis from "../../(components)/expense/BarChartCategoryAnalysis";
 import ExpenseGroupDonutCard from "@/app/(components)/expense/PieChartExpenses";
-import { endOfDay } from "date-fns";
 
 type Range = "1w" | "1m" | "6m" | "1y" | "all";
 
-const getDateRange = (range: Range): { from: string, end: string } => {
+//  Pure function — no hooks, lives outside component safely
+const getDateRange = (range: Range): { from: string; end: string } => {
   const now = new Date();
   const from = new Date(now);
 
+  switch (range) {
+    case "1w": from.setDate(now.getDate() - 7); break;
+    case "1m": from.setMonth(now.getMonth() - 1); break;
+    case "6m": from.setMonth(now.getMonth() - 6); break;
+    case "1y": from.setFullYear(now.getFullYear() - 1); break;
+    case "all":
+      from.setFullYear(2000, 0, 1); // distant past — fetch everything
+      break;
+  }
 
-switch (range) {
-  case "1w":
-    from.setDate(now.getDate() - 7);
-    break;
-  case "1m":
-    from.setMonth(now.getMonth() - 1);
-    break;
-  case "6m":
-    from.setMonth(now.getMonth() - 6);
-    break;
-  case "1y":
-    from.setFullYear(now.getFullYear() - 1);
-    break;
-  case 'all':
-    from.getFullYear()
-}
-return {
-  from: from.toISOString(),
-  end: now.toISOString()
-}
-}
-
-const [range, setRange] = useState<Range>("1m");
-const { from, end } = getDateRange(range);
-
-const filterByRange = (expenses: any[], range: Range) => {
-  if (range === "all") return expenses;
-
-  const now = new Date();
-  const from = new Date(now);
-
-  if (range === "1w") from.setDate(now.getDate() - 7);
-  if (range === "1m") from.setMonth(now.getMonth() - 1);
-  if (range === "6m") from.setMonth(now.getMonth() - 6);
-  if (range === "1y") from.setFullYear(now.getFullYear() - 1);
-
-  return expenses.filter((e) => new Date(e.date) >= from);
+  return { from: from.toISOString(), end: now.toISOString() };
 };
 
 const ExpenseDashboard = () => {
+  //  useState inside the component
   const [range, setRange] = useState<Range>("1m");
 
-  const { data: expenses = [], isLoading, isError } = useGetExpensesQuery({from, end});
+  //  Derived from range — no useMemo needed, it's just a function call
+  const { from, end } = getDateRange(range);
 
-  const filteredExpenses = useMemo(
-    () => filterByRange(expenses, range),
-    [expenses, range]
-  );
+  //  Backend does the filtering — no client-side filterByRange needed
+  const { data: expenses = [], isLoading, isError } = useGetExpensesQuery({ from, end });
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -94,14 +67,7 @@ const ExpenseDashboard = () => {
           </Grid>
 
           <Grid item xs={12} md="auto">
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: { xs: "stretch", sm: "center" },
-                gap: 1.5,
-                flexWrap: "wrap",
-              }}
-            >
+            <Box sx={{ display: "flex", alignItems: { xs: "stretch", sm: "center" }, gap: 1.5, flexWrap: "wrap" }}>
               <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
                 {(["1w", "1m", "6m", "1y", "all"] as Range[]).map((r) => (
                   <button
@@ -117,39 +83,34 @@ const ExpenseDashboard = () => {
                   </button>
                 ))}
               </Box>
-
               <AddExpenseDialog />
             </Box>
           </Grid>
         </Grid>
       </Box>
 
-      {/* KPI CARDS */}
-      <ExpenseKPICards expenses={filteredExpenses} />
+      {/* ✅ All children receive server-filtered expenses — no extra filtering */}
+      <ExpenseKPICards expenses={expenses} />
 
-      {/* TREND */}
       <Grid container spacing={2}>
         <Grid item xs={12}>
-          <ExpenseTrendChart expenses={filteredExpenses} />
+          <ExpenseTrendChart expenses={expenses} />
         </Grid>
       </Grid>
 
-      {/* DONUT + BAR */}
       <Grid container spacing={2} sx={{ mt: 2 }} alignItems="stretch">
         <Grid item xs={12} md={4} lg={4} sx={{ display: "flex" }}>
           <Box sx={{ flex: 1 }}>
-            <ExpenseGroupDonutCard expenses={filteredExpenses} />
+            <ExpenseGroupDonutCard expenses={expenses} />
           </Box>
         </Grid>
-
         <Grid item xs={12} md={8} lg={8} sx={{ display: "flex" }}>
           <Box sx={{ flex: 1, minHeight: 360 }}>
-            <BarChartCategoryAnalysis expenses={filteredExpenses} />
+            <BarChartCategoryAnalysis expenses={expenses} />
           </Box>
         </Grid>
       </Grid>
 
-      {/* RECENT TRANSACTIONS */}
       <Card
         className="mt-6 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm"
         sx={{ mt: 4 }}
@@ -166,7 +127,7 @@ const ExpenseDashboard = () => {
           }}
         />
         <CardContent sx={{ p: 0 }}>
-          <RecentTransactionsTable expenses={filteredExpenses} />
+          <RecentTransactionsTable expenses={expenses} />
         </CardContent>
       </Card>
     </Container>
