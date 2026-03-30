@@ -103,14 +103,16 @@ export const ROLE_PERMS: Record<Role, Perm[]> = {
         PERMS.ACCESS_HOME,
         PERMS.READ_SALES, PERMS.WRITE_SALES,
         PERMS.READ_PRODUCTS, PERMS.VIEW_SETTINGS,
-        PERMS.READ_ME, PERMS.WRITE_ME
+        PERMS.READ_ME, PERMS.WRITE_ME,
+        PERMS.WRITE_STOCK_SHEET
     ],
 
     orderAgent: [
         PERMS.ACCESS_HOME,
         PERMS.READ_PRODUCTS,
         PERMS.VIEW_SETTINGS,
-        PERMS.READ_ME, PERMS.WRITE_ME
+        PERMS.READ_ME, PERMS.WRITE_ME,
+        PERMS.WRITE_STOCK_SHEET,
     ],
 
     viewer: [

@@ -3,7 +3,7 @@ import { url } from "inspector";
 import page from "../(private)/sales/page";
 import { FulfillStockRequestResponse, Paginated, ReviewStockRequestBody, StockRequestDetailResponse, StockRequestListQuery, StockRequestListResponse, StockRequestStatus } from "./stockSheetSlice";
 import { parseAppSegmentConfig } from "next/dist/build/segment-config/app/app-segment-config";
-import { Role } from "@lab/shared/userRoleUtils";
+import { Role } from "@lab/shared/userRolesUtils";
 import { getClerkToken } from "@/lib/clerkTokenGetter";
 import { string } from "zod";
 

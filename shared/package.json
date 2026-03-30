@@ -8,13 +8,13 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./userRoleUtils": {
+    "./userRolesUtils": {
       "types": "./dist/userRolesUtils.d.ts",
       "default": "./dist/userRolesUtils.js"
     }
   },
   "scripts": {
-    "build": "rm -rf dist && tsc",
+    "build":  "rimraf dist && tsc",
     "build:watch": "tsc -w"
   },
   "devDependencies": {

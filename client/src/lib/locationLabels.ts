@@ -3,7 +3,7 @@ const LOCATION_LABELS: Record<string, any> = {
   sunnyAcres: "Sunny Acres",
   blueCoral: "Blue Coral",
   emCare: "Em-Care",
-  RodeneyBay: "Rodney Bay",
+  rodneyBay: "Rodney Bay",
   memberCare: "Member-Care",
   vieuxFort: "Vieux-Fort",
   soufriere: "Soufriere",

@@ -53,26 +53,33 @@ export function SignInForm() {
     return '/dashboard';
   };
 
-  const onSubmit = async (values: Values) => {
-    if (!isLoaded || !signIn) return;
+const onSubmit = async (values: Values) => {
+  if (!isLoaded || !signIn) return;
 
-    try {
-      const res = await signIn.create({
-        identifier: values.email,
-        password: values.password,
-      });
+  try {
+    const res = await signIn.create({
+      identifier: values.email,
+      password: values.password,
+    });
 
-      if (res.status === "complete") {
-        await setActive({ session: res.createdSessionId! });
+    if (res.status === "complete") {
+      await setActive({
+        session: res.createdSessionId!,
         navigate: async () => {
-      router.replace(getRedirectUrl()) }
-      } else {
-        form.setError("root", { message: "Sign in incomplete. Please try again." });
-      }
-    } catch (e: any) {
-      form.setError("root", { message: e?.errors?.[0]?.message ?? "Sign in failed" });
+          router.replace(getRedirectUrl());
+        },
+      });
+    } else {
+      form.setError("root", {
+        message: "Sign in incomplete. Please try again.",
+      });
     }
-  };
+  } catch (e: any) {
+    form.setError("root", {
+      message: e?.errors?.[0]?.message ?? "Sign in failed",
+    });
+  }
+};
 
 const sso = async (strategy: OAuthStrategy) => {
   if (!isLoaded) {
@@ -110,13 +117,11 @@ const sso = async (strategy: OAuthStrategy) => {
         {/* OAuth */}
         <div className="grid gap-3">
           <Button type="button" variant="outline"  disabled={!isLoaded || isPending || isSignedIn} onClick={() => sso("oauth_google")}>
-            <Image src="/logos/google.svg" alt="Google" width={18} height={18} />
+            <Image src="/google.svg" alt="Google" width={18} height={18} />
             Continue with Google
           </Button>
 
-          <Button type="button" variant="outline" disabled={isPending} onClick={() => sso("oauth_microsoft")}>
-            Continue with Microsoft
-          </Button>
+          {/* TODO: DELETE BUTTON IN PROD */}
           <Button
             type="button"
             variant="destructive"
@@ -124,7 +129,7 @@ const sso = async (strategy: OAuthStrategy) => {
             onClick={() => signOut({ redirectUrl: "/sign-in" })}
           >
             Sign out (debug)
-          </Button>
+          </Button> 
         </div>
 
         <div className="flex items-center gap-3">

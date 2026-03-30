@@ -1092,8 +1092,8 @@ async function seedExpenses() {
         expenseId: crypto.randomUUID(),
         category: pick(categories),
         amount: Number((Math.random() * 6500 + 350).toFixed(2)),
-        date: d,
-        group: pick(groups),
+       // date: d,
+       // group: pick(groups),
         description: pick(descriptions),
         status,
         notes:

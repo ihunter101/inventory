@@ -182,7 +182,7 @@ export default function OnboardingForm({
                         <SelectItem value="memberCare">Member Care</SelectItem>
                         <SelectItem value="sunnyAcres">Sunny Acres</SelectItem>
                         <SelectItem value="emCare">E-Care</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
                   )}

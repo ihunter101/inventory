@@ -4,7 +4,7 @@
   "main": "index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-  "build": "rimraf dist && prisma generate && tsc",
+  "build": "cd ../shared && npm run build && cd ../server && rimraf dist && prisma generate && tsc",
   "start": "prisma migrate deploy && node dist/index.js",
   "seed": "ts-node prisma/seed.ts",
   "dev": "concurrently \"tsc -w\" \"nodemon --exec ts-node -r tsconfig-paths/register src/index.ts\""

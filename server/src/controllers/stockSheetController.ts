@@ -83,6 +83,14 @@ export const createStockSheet = async (req: Request, res: Response) => {
             });
         }
 
+        const sender = process.env.RESEND_SENDER_EMAIL_FROM_CLIENT;
+
+        if (typeof sender !== "string" || !sender.trim()) {
+        throw new Error("RESEND_SENDER_EMAIL_LAB is missing");
+        }
+
+        const header = `Stock Request <${sender}>`;
+
         const linesHtml = created.lines
             .map((l) => {
                 const unit = l.product.unit ?? "";
@@ -97,7 +105,7 @@ export const createStockSheet = async (req: Request, res: Response) => {
 
         // ✅ Destructure the response to check for errors
         const { data, error } = await resend.emails.send({
-            from: process.env.RESEND_SENDER_EMAIL ?? "noreply@hgautomations.com",
+            from: header,
             to, // This should be an array of strings
             replyTo: requester.email,
             subject: `New Stock Request - ${created.requestedByLocation}`, // Fixed spacing
@@ -671,91 +679,104 @@ function determineRequestStatus(anyGranted: boolean): "FULFILLED" | "CANCELLED" 
 
 
 // Helper: Send fulfillment email
-async function sendFulfillmentEmail(fulfilled: any): Promise<void> {
-    if (!process.env.RESEND_API_KEY || !process.env.RESEND_SENDER_EMAIL) {
-        console.log("Email not configured, skipping notification");
-        return;
-    }
+async function getInventoryClerkReplyToEmails(): Promise<string[]> {
+  const clerks = await prisma.users.findMany({
+    where: {
+      role: "inventoryClerk", // or Role.inventoryClerk
+      email: { not: "" },
+    },
+    select: {
+      email: true,
+    },
+  });
 
-    try {
-        const resend = new Resend(process.env.RESEND_API_KEY);
+  // dedupe + remove null/empty just to be safe
+  return [...new Set(clerks.map((u) => u.email).filter(Boolean))];
+}
 
-        const rows = fulfilled.lines
-            .map(
-                (l: LineResult) => `
-            <tr>
-                <td style="padding:6px 8px;border-bottom:1px solid #eee;">${l.productName}</td>
-                <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">${l.requestedQty}</td>
-                <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">${l.grantedQty}</td>
-                <td style="padding:6px 8px;border-bottom:1px solid #eee;">${lineLabel(l.outcome)}</td>
-            </tr>
+export async function sendFulfillmentEmail(fulfilled: any): Promise<void> {
+  if (!process.env.RESEND_API_KEY || !process.env.RESEND_SENDER_EMAIL) {
+    console.log("Email not configured, skipping notification");
+    return;
+  }
+
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+
+    const replyToEmails = await getInventoryClerkReplyToEmails();
+
+    const rows = fulfilled.lines
+      .map(
+        (l: LineResult) => `
+          <tr>
+            <td style="padding:6px 8px;border-bottom:1px solid #eee;">${l.productName}</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">${l.requestedQty}</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">${l.grantedQty}</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #eee;">${lineLabel(l.outcome)}</td>
+          </tr>
         `
-            )
-            .join("");
+      )
+      .join("");
 
-        const deliveryLine = fulfilled.request.expectedDeliveryAt
-            ? `<p style="margin:8px 0 0;"><strong>Expected delivery:</strong> ${new Date(
-                fulfilled.request.expectedDeliveryAt
-                ).toLocaleString()}</p>`
-            : "";
+    const deliveryLine = fulfilled.request.expectedDeliveryAt
+      ? `<p style="margin:8px 0 0;"><strong>Expected delivery:</strong> ${new Date(
+          fulfilled.request.expectedDeliveryAt
+        ).toLocaleString()}</p>`
+      : "";
 
-        const messageLine = fulfilled.request.messageToRequester
-            ? `<p style="margin:8px 0 0;"><strong>Message:</strong> ${fulfilled.request.messageToRequester}</p>`
-            : "";
+    const messageLine = fulfilled.request.messageToRequester
+      ? `<p style="margin:8px 0 0;"><strong>Message:</strong> ${fulfilled.request.messageToRequester}</p>`
+      : "";
 
-        // ✅ Fixed: Use array for 'to' field
-        const { data, error } = await resend.emails.send({
-            from: process.env.RESEND_SENDER_EMAIL as string,
-            to: [fulfilled.request.requestedByEmail], // ✅ Array, not string
-            replyTo: "huntergaillard3@gmail.com", // Use replyTo if you want to receive replies
-            subject: `Stock Request Update — ${fulfilled.request.status}`,
-            html: `
-                <div style="font-family: Arial, sans-serif;">
-                    <h2 style="margin:0 0 8px;">Stock Request Update</h2>
-                    <p style="margin:0 0 8px;">
-                        <strong>Request ID:</strong> ${fulfilled.request.id}<br/>
-                        <strong>Location:</strong> ${fulfilled.request.requestedByLocation}<br/>
-                        <strong>Status:</strong> ${fulfilled.request.status}
-                    </p>
-                    ${deliveryLine}
-                    ${messageLine}
+    const payload: Parameters<typeof resend.emails.send>[0] = {
+      from: process.env.RESEND_SENDER_EMAIL,
+      to: [fulfilled.request.requestedByEmail],
+      subject: `Stock Request Update — ${fulfilled.request.status}`,
+      html: `
+        <div style="font-family: Arial, sans-serif;">
+          <h2 style="margin:0 0 8px;">Stock Request Update</h2>
+          <p style="margin:0 0 8px;">
+            <strong>Request ID:</strong> ${fulfilled.request.id}<br/>
+            <strong>Location:</strong> ${fulfilled.request.requestedByLocation}<br/>
+            <strong>Status:</strong> ${fulfilled.request.status}
+          </p>
+          ${deliveryLine}
+          ${messageLine}
 
-                    <table style="width:100%;border-collapse:collapse;margin-top:12px;">
-                        <thead>
-                            <tr>
-                                <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #ddd;">Item</th>
-                                <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #ddd;">Requested</th>
-                                <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #ddd;">Supplied</th>
-                                <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #ddd;">Result</th>
-                            </tr>
-                        </thead>
-                        <tbody>${rows}</tbody>
-                    </table>
-                </div>
-            `,
-        });
+          <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #ddd;">Item</th>
+                <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #ddd;">Requested</th>
+                <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #ddd;">Supplied</th>
+                <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #ddd;">Result</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `,
+    };
 
-        // ✅ Check for errors
-        if (error) {
-            console.error("Resend API Error:", error);
-            return;
-        }
-
-        console.log("Fulfillment email sent successfully to:", fulfilled.request.requestedByEmail);
-    } catch (error) {
-        console.error("Failed to send fulfillment email:", error);
-        // Don't throw - email failure shouldn't fail the request
+    // only add replyTo if at least one inventory clerk email exists
+    if (replyToEmails.length > 0) {
+      payload.replyTo = replyToEmails;
     }
+
+    const { data, error } = await resend.emails.send(payload);
+
+    if (error) {
+      console.error("Resend API Error:", error);
+      return;
+    }
+
+    console.log("Fulfillment email sent successfully to:", fulfilled.request.requestedByEmail);
+    console.log("Reply-to set to inventory clerks:", replyToEmails);
+  } catch (error) {
+    console.error("Failed to send fulfillment email:", error);
+  }
 }
 
 
 
 
-// product: {
-//                     select: {
-//                         name: true,
-//                         unit: true,
-//                         Department: true,
-//                         inventory: { select: { id: true, stockQuantity: true } },
-//                     },
-//                     },

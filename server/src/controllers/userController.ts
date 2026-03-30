@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
-import { Role, canModifyUserRole, ROLE_HIERARCHY } from "@lab/shared/userRoleUtils";
+import { Role, canModifyUserRole, ROLE_HIERARCHY } from "@lab/shared/userRolesUtils";
 
 //const prisma = new PrismaClient();
 

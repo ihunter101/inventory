@@ -18,7 +18,7 @@ import {
   useUpdateUserRoleMutation 
 } from "@/app/state/api";
 import { useUser } from "@clerk/nextjs";
-import { Role } from "@lab/shared/userRoleUtils"
+import { Role } from "@lab/shared/userRolesUtils"
 import { UserActions } from "@/app/(components)/users/UserAction";
 import { toast } from "sonner";
 import { EditUserDialog, getLocationLabel } from "@/app/(components)/users/EditUserDialog";
