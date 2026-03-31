@@ -29,7 +29,7 @@ export default function PendingAccessPage() {
   const router = useRouter();
 
   const { data, isLoading, isError } = useGetMeQuery(undefined, {
-    pollingInterval: 5000,
+    pollingInterval: 50000,
     refetchOnFocus: true,
     refetchOnReconnect: true,
   });

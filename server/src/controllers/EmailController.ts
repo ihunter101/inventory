@@ -24,7 +24,7 @@ type Body = {
 }
 
 // Use the verified sender email from your Resend setup (e.g., from the 'send' subdomain)
-const SENDER_EMAIL = process.env.RESEND_SENDER_EMAIL as string; 
+const SENDER_EMAIL = process.env.PROD_RESEND_SENDER_EMAIL as string; 
 
 export const resendPurchaseOrderEmail = async (req: Request<{}, {}, ResendEmailBody>, res: Response) => {
     console.log("Request body:", req.body);

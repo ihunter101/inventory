@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { Role, canModifyUserRole, ROLE_HIERARCHY } from "@lab/shared/userRolesUtils";
 import { verifyApprovalToken } from "../lib/approvalToken";
+import resend from "../config/resend"
+import { buildAccessDecisionEmail } from "../emails/accessDecisionEmail";
 
 
 //const prisma = new PrismaClient();
@@ -120,66 +122,91 @@ export const updateUser = async (req: Request, res: Response) => {
 
 
 export const updateUserRole = async (req: Request, res: Response) => {
-    try {
-        const {id } = req.params;
-        const { role: newRole }  = req.body
+  try {
+    const { id } = req.params;
+    const { role: newRole } = req.body;
 
-        if (!Object.values(Role).includes(newRole)){
-            return res.status(400).json({ error: "invalid Role"})
-        };
+    if (!Object.values(Role).includes(newRole)) {
+      return res.status(400).json({ error: "invalid Role" });
+    }
 
-        const auth = (req as any).auth as {userId: string};
-        const actorClerkId = auth.userId
+    const auth = (req as any).auth as { userId: string };
+    const actorClerkId = auth.userId;
 
-        const actor = await prisma.users.findUnique({
-            where: {clerkId: actorClerkId},
-            select: { role: true }
+    const actor = await prisma.users.findUnique({
+      where: { clerkId: actorClerkId },
+      select: { role: true },
+    });
+
+    if (!actor) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const targetUser = await prisma.users.findUnique({
+      where: { id },
+      select: {
+        role: true,
+        accessStatus: true,
+        name: true,
+        email: true,
+      },
+    });
+
+    if (!targetUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const { canModify, reason } = canModifyUserRole(
+      actor.role as Role,
+      targetUser.role as Role,
+      newRole as Role
+    );
+
+    if (!canModify) {
+      return res.status(403).json({ error: reason || "Insufficient Permissions" });
+    }
+
+    const updated = await prisma.users.update({
+      where: { id },
+      data: { role: newRole },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        location: true,
+        accessStatus: true,
+      },
+    });
+
+    // Only send the "you now have access" email when:
+    // 1. access is already granted
+    // 2. old role was viewer
+    // 3. new role is now a real role
+    if (
+      updated.accessStatus === "granted" &&
+      (targetUser.role === Role.viewer || Role.orderAgent || Role.labStaff || Role.inventoryClerk || Role.admin) &&
+      updated.role !== Role.viewer
+    ) {
+      try {
+        await messageToOnboardedUser({
+          name: updated.name,
+          email: updated.email,
+          role: updated.role,
         });
 
-        if (!actor) {
-            return res.status(401).json({error: "Unauthorized"})
-        };
+        console.log("✅ Final access email sent to:", updated.email);
+      } catch (emailError) {
+        console.error("❌ Failed to send final access email:", emailError);
+      }
+    }
 
-        const targetUser = await prisma.users.findUnique({
-            where: { id },
-            select: { role: true }
-        });
-        
-        if (!targetUser) {
-            return res.status(404).json({ error: "User not found"})
-        };
-
-        //check if actor can cahnge target user role to new Role
-
-        const {canModify, reason } = canModifyUserRole(
-            actor.role as Role,
-            targetUser.role as Role,
-            newRole as Role
-        );
-
-        if (!canModify) {
-            return res.status(403).json({ error: reason || "Insufficient Permissions"})
-        };
-
-        const updated = await prisma.users.update({
-            where: {id},
-            data: { role: newRole },
-            select: {
-                id: true,
-                name: true,
-                email: true,
-                role: true,
-                location: true,
-            }
-        });
-
-        return res.json(updated);
-    } catch (e) {
-        console.error("Error updating user role: ", e)
-        return res.status(500).json({error: "Failed to update user role"})
-    }    
-}
-
+    return res.json(updated);
+  } catch (e) {
+    console.error("Error updating user role:", e);
+    return res.status(500).json({ error: "Failed to update user role" });
+  }
+};
 
 export const deleteUser = async (req: Request, res: Response) => {
     try {
@@ -370,4 +397,53 @@ export const reviewUserAccess = async (req: Request, res: Response) => {
     message: `Access ${newStatus} successfully`,
     user: updated,
   });
+};
+
+// server/src/controllers/userController.ts
+
+
+export const messageToOnboardedUser = async (user: {
+  name: string | null;
+  email: string;
+  role: string;
+}) => {
+  const CLIENT_URL = process.env.CLIENT_URL!;
+  const sender = process.env.PROD_RESEND_SENDER_EMAIL;
+
+  if (!sender) {
+    throw new Error("PROD_RESEND_SENDER_EMAIL is missing");
+  }
+
+  const header = `Access Response <${sender}>`;
+
+  const subject = "Your access has been approved";
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
+      <h2>Access Approved</h2>
+      <p>Hello ${user.name ?? user.email},</p>
+      <p>Your account is now fully ready, thank you for your patience.</p>
+
+      <div style="margin-top: 24px;">
+        <a
+          href="${CLIENT_URL}/products"
+          style="display:inline-block;background:#2563eb;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600;"
+        >
+          Go to Products
+        </a>
+      </div>
+    </div>
+  `;
+
+  const result = await resend.emails.send({
+    from: header,
+    to: user.email,
+    subject,
+    html,
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  return result.data;
 };

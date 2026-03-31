@@ -83,7 +83,7 @@ export const createStockSheet = async (req: Request, res: Response) => {
             });
         }
 
-        const sender = process.env.RESEND_SENDER_EMAIL_FROM_CLIENT;
+        const sender = process.env.PROD_RESEND_SENDER_EMAIL_FROM_CLIENT;
 
         if (typeof sender !== "string" || !sender.trim()) {
         throw new Error("RESEND_SENDER_EMAIL_LAB is missing");
@@ -695,13 +695,17 @@ async function getInventoryClerkReplyToEmails(): Promise<string[]> {
 }
 
 export async function sendFulfillmentEmail(fulfilled: any): Promise<void> {
-  if (!process.env.RESEND_API_KEY || !process.env.RESEND_SENDER_EMAIL) {
+  if (!process.env.RESEND_API_KEY || !process.env.PROD_RESEND_SENDER_EMAIL_FROM_CLIENT) {
     console.log("Email not configured, skipping notification");
     return;
   }
 
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
+
+    const sender = process.env.PROD_RESEND_SENDER_EMAIL_FROM_CLIENT
+
+    const header = `Stock Request <${sender}>`
 
     const replyToEmails = await getInventoryClerkReplyToEmails();
 
@@ -729,7 +733,7 @@ export async function sendFulfillmentEmail(fulfilled: any): Promise<void> {
       : "";
 
     const payload: Parameters<typeof resend.emails.send>[0] = {
-      from: process.env.RESEND_SENDER_EMAIL,
+      from: header,
       to: [fulfilled.request.requestedByEmail],
       subject: `Stock Request Update — ${fulfilled.request.status}`,
       html: `

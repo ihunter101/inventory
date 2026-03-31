@@ -22,11 +22,18 @@ export default async function OnboardingPage() {
   const dbUser = data?.user;
 
 
-if (dbUser?.onboardedAt && dbUser?.accessStatus === "pending") redirect("/pending-access");
+if (dbUser?.onboardedAt && dbUser?.accessStatus === "pending") {
+  redirect("/pending-access");
+}
 
-if ((dbUser?.onboardedAt && dbUser?.accessStatus === "granted") && 
-    dbUser?.role === "admin" || dbUser?.role === "inventoryClerk") 
-      redirect("/dashboard");
+if (
+  dbUser?.onboardedAt &&
+  dbUser?.accessStatus === "granted" &&
+  (dbUser?.role === "admin" || dbUser?.role === "inventoryClerk")
+) {
+  redirect("/dashboard");
+}
+
 
 
 

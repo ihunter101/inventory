@@ -83,7 +83,7 @@ export default function OnboardingForm({
       }
 
       await waitForMetadataSync();
-      window.location.href = "/dashboard";
+      window.location.href = "/pending-access";
     } catch (error: any) {
       form.setError("root", {
         message: error.message || "Could not complete onboarding. Please try again.",

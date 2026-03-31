@@ -122,14 +122,14 @@ const sso = async (strategy: OAuthStrategy) => {
           </Button>
 
           {/* TODO: DELETE BUTTON IN PROD */}
-          <Button
+          {/* <Button
             type="button"
             variant="destructive"
             disabled={!isSignedIn}
             onClick={() => signOut({ redirectUrl: "/sign-in" })}
           >
             Sign out (debug)
-          </Button> 
+          </Button>  */}
         </div>
 
         <div className="flex items-center gap-3">

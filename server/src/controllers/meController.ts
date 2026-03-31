@@ -4,6 +4,7 @@ import { Location } from "@prisma/client";
 import { clerkClient } from "@clerk/express";
 import  resend  from "../config/resend";
 import { buildNewUserEmail } from "../emails/newUserNotification";
+
 export const getMe = async (req: Request, res: Response) => {
   try {
     const auth = (req as any).auth as { userId: string } | undefined;
@@ -35,16 +36,25 @@ export const getMe = async (req: Request, res: Response) => {
   }
 };
 
+
 export const onboarding = async (req: Request, res: Response) => {
   try {
     const auth = (req as any).auth as { userId: string } | undefined;
     const clerkId = auth?.userId;
 
-    if (!clerkId) return res.status(401).json({ error: "Unauthenticated" });
+    if (!clerkId) {
+      return res.status(401).json({ error: "Unauthenticated" });
+    }
 
-    const { name, location } = req.body as { name?: string; location: string };
+    const { name, location } = req.body as {
+      name?: string;
+      location: string;
+    };
 
-    if (name !== undefined && (typeof name !== "string" || name.trim().length < 2)) {
+    if (
+      name !== undefined &&
+      (typeof name !== "string" || name.trim().length < 2)
+    ) {
       return res.status(400).json({ error: "Name must be at least 2 characters" });
     }
 
@@ -52,9 +62,13 @@ export const onboarding = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Location is required" });
     }
 
-    const existing = await prisma.users.findUnique({ where: { clerkId } });
+    const existing = await prisma.users.findUnique({
+      where: { clerkId },
+    });
 
-    if (!existing) return res.status(404).json({ error: "User not found" });
+    if (!existing) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
     if (existing.onboardedAt) {
       try {
@@ -64,54 +78,62 @@ export const onboarding = async (req: Request, res: Response) => {
       } catch (clerkError) {
         console.error("❌ Clerk sync failed:", clerkError);
       }
+
       return res.json(existing);
     }
 
-    // First-time onboarding
     const updated = await prisma.users.update({
       where: { clerkId },
       data: {
         name: name ? name.trim() : existing.name,
         location: location as Location,
         onboardedAt: new Date(),
-        // accessStatus stays "pending" — already the default
       },
     });
 
-    // ✅ Notify all active admins + inventoryClerks
-    try {
-      const privileged = await prisma.users.findMany({
-        where: {
-          role: { in: ["admin", "inventoryClerk"] },
-          accessStatus: "granted",
-        },
-        select: { email: true },
-      });
+    console.log("✅ User onboarded:", updated.email);
 
-      if (privileged.length > 0) {
-        const { subject, html } = buildNewUserEmail(updated);
-        await resend.emails.send({
-          from: "Lab Inventory <noreply@yourdomain.com>",
-          to: privileged.map((u) => u.email),
-          subject,
-          html,
-        });
-        console.log(`✅ Notified ${privileged.length} admin(s) about new user: ${updated.email}`);
-      }
-    } catch (emailError) {
-      // ⚠️ Don't fail the request if email fails — onboarding still succeeded
-      console.error("❌ Admin notification email failed:", emailError);
-    }
+    try {
+  const privileged = await prisma.users.findMany({
+    where: {
+      role: { in: ["admin", "inventoryClerk"] },
+      accessStatus: "granted",
+    },
+    select: { email: true },
+  });
+
+  console.log("📨 privileged reviewers:", privileged);
+
+  if (privileged.length === 0) {
+    console.log("⚠️ No granted admins/inventory clerks found. No email sent.");
+  } else {
+    const { subject, html } = buildNewUserEmail({
+      id: updated.id,
+      name: updated.name,
+      email: updated.email,
+      location: String(updated.location),
+    });
+
+    const result = await resend.emails.send({
+      from: process.env.RESEND_SENDER_EMAIL!,
+      to: privileged.map((u) => u.email),
+      subject,
+      html,
+    });
+
+    console.log("✅ Admin notification email sent:", result);
+  }
+} catch (emailError) {
+  console.error("❌ Admin notification email failed:", emailError);
+}
 
     try {
       await clerkClient.users.updateUserMetadata(clerkId, {
         publicMetadata: { onboardingComplete: true },
       });
-      console.log("✅ User onboarded:", updated.email);
     } catch (clerkError) {
       console.error("❌ Clerk update failed:", clerkError);
     }
-    
 
     return res.json(updated);
   } catch (error) {
