@@ -9,7 +9,7 @@ interface Expense {
   category: string;
   group: string;
   amount: number;
-  date: string;
+  createdAt: string;
   status: string;
   description?: string;
   title?: string;

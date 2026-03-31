@@ -1,0 +1,5 @@
+-- CreateEnum
+CREATE TYPE "ExpenseGroup" AS ENUM ('CLINICAL', 'EQUIPMENT_INFRASTRUCTURE', 'LOGISTICS_OVERHEAD');
+
+-- AlterTable
+ALTER TABLE "Expenses" ADD COLUMN     "group" "ExpenseGroup" NOT NULL DEFAULT 'CLINICAL';

@@ -140,7 +140,7 @@ const AddExpenseDialog = () => {
         amount,
         category,
         group: group as ExpenseGroup,
-        date: toYMD(date) as any,
+        createdAt: toYMD(date) as any,
         expenseId,
       };
 

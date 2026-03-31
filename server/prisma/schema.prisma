@@ -210,11 +210,17 @@ model Expenses { //TODO: might add date...check expense controller for notes
   description String?
   status      ExpenseStatus  @default(PENDING)
   //add group TODO and check report contoller 
-
+  group        ExpenseGroup @default(CLINICAL)
   notes      String? 
   
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt()
+  updatedAt DateTime @updatedAt
+}
+
+enum ExpenseGroup {
+  CLINICAL
+  EQUIPMENT_INFRASTRUCTURE
+  LOGISTICS_OVERHEAD
 }
 
 enum ExpenseStatus {

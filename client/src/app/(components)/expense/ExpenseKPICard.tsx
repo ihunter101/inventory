@@ -23,11 +23,11 @@ const ExpenseKPICards = ({ expenses }: Props) => {
 
   const monthlyGroups: Record<string, number> = {};
   const pendingExpenses = expenses
-    .filter((e) => e.status === "pending")
+    .filter((e) => e.status === "PENDING")
     .reduce((sum, e) => sum + e.amount, 0);
 
   expenses.forEach((e) => {
-    const date = new Date(e.date);
+    const date = new Date(e.createdAt);
     const key = `${date.getFullYear()}-${date.getMonth() + 1}`;
     monthlyGroups[key] = (monthlyGroups[key] ?? 0) + e.amount;
   });

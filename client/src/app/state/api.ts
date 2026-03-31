@@ -296,8 +296,9 @@ export interface Expense {
   category: string;
   group: ExpenseGroup;
   amount: number;
-  date: string;
-  status: string;
+  //date: string;
+  createdAt: string;
+  status: "PENDING" | "APPROVED" | "PAID" | "VOID";
   description?: string; 
   title?: string
   // sourceType?: "PurchaseOrder" | "Manual";

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import  getGroupFromCategory  from "@lab/shared";
+import { ExpenseGroup, ExpenseStatus } from "@prisma/client";
 
 
 //const prisma = new PrismaClient();
@@ -34,7 +35,23 @@ export const getExpenses = async (req: Request, res: Response) => {
 };
 
 export const createExpense = async (req: Request, res: Response) => {
-  const { category, amount, date, description, group, status = "pending" } = req.body;
+  const { category, amount, description, group, status = "PENDING" } = req.body;
+
+    if (!category || typeof category !== "string") {
+    return res.status(400).json({ error: "Category is required" });
+  }
+
+  if (amount === undefined || isNaN(Number(amount))) {
+    return res.status(400).json({ error: "Amount must be a valid number" });
+  }
+
+  if (!group || !Object.values(ExpenseGroup).includes(group)) {
+    return res.status(400).json({ error: "Invalid expense group" });
+  }
+
+  if (status && !Object.values(ExpenseStatus).includes(status)) {
+    return res.status(400).json({ error: "Invalid expense status" });
+  }
 
   try {
     const newExpense = await prisma.expenses.create({
@@ -44,7 +61,7 @@ export const createExpense = async (req: Request, res: Response) => {
         //date: new Date(date),
         description,
         status,
-        //group, //SEE PRIOR TODO
+        group, 
       },
     });
 

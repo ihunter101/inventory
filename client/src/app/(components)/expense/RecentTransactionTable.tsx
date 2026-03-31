@@ -52,7 +52,6 @@ export const RecentTransactionsTable = ({ expenses }: Props) => {
       const q = search.toLowerCase();
       data = data.filter(
         (e) =>
-          e.title?.toLowerCase().includes(q) ||
           e.category?.toLowerCase().includes(q) ||
           e.description?.toLowerCase().includes(q)
       );
@@ -70,13 +69,13 @@ export const RecentTransactionsTable = ({ expenses }: Props) => {
       }
 
       if (sortKey === "date") {
-        const da = new Date(a.date).getTime();
-        const db = new Date(b.date).getTime();
+        const da = new Date(a.createdAt).getTime();
+        const db = new Date(b.createdAt).getTime();
         return sortDir === "asc" ? da - db : db - da;
       }
 
-      const ta = (a.title || "").toLowerCase();
-      const tb = (b.title || "").toLowerCase();
+      const ta = (a.description || a.category || "").toLowerCase();
+      const tb = (b.description || b.category || "").toLowerCase();
       if (ta < tb) return sortDir === "asc" ? -1 : 1;
       if (ta > tb) return sortDir === "asc" ? 1 : -1;
       return 0;
@@ -203,7 +202,7 @@ export const RecentTransactionsTable = ({ expenses }: Props) => {
                 >
                   {/* Title */}
                   <td className="whitespace-nowrap px-6 py-3 text-foreground">
-                    {expense.title || "Untitled expense"}
+                    {expense.description || expense.category || "Untitled expense"}
                   </td>
 
                   {/* Amount */}
@@ -220,7 +219,7 @@ export const RecentTransactionsTable = ({ expenses }: Props) => {
 
                   {/* Date */}
                   <td className="whitespace-nowrap px-6 py-3 text-muted-foreground">
-                    {new Date(expense.date).toLocaleDateString("en-US", {
+                    {new Date(expense.createdAt).toLocaleDateString("en-US", {
                       month: "short",
                       day: "2-digit",
                       year: "numeric",

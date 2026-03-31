@@ -35,13 +35,13 @@ const ExpenseTrendChart = ({ expenses }: Props) => {
     }
 
     const filtered = startDate
-      ? expenses.filter((e) => new Date(e.date) >= startDate)
+      ? expenses.filter((e) => new Date(e.createdAt) >= startDate)
       : expenses;
 
     const totals: Record<string, number> = {};
 
     filtered.forEach((expense) => {
-      const date = new Date(expense.date);
+      const date = new Date(expense.createdAt);
       const monthKey = `${date.toLocaleString("default", {
         month: "short",
       })} ${date.getFullYear()}`;
