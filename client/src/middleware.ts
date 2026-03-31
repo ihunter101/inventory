@@ -5,11 +5,13 @@ const isPublicRoute = createRouteMatcher([
   "/",
   "/sign-in(.*)",
   "/sign-up(.*)",
+  "/pending-access(.*)", 
   "/sso-callback(.*)",
   "/api/uploadthing(.*)",
 ]);
 
 const isOnboardingRoute = createRouteMatcher(["/onboarding(.*)"]);
+const isPendingRoute = createRouteMatcher(["/pending-access(.*)"]);
 
 export default clerkMiddleware(async (auth, req) => {
   const { userId, sessionClaims } = await auth();

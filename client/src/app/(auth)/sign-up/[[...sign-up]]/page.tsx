@@ -19,13 +19,15 @@ export default async function Page({ params }: { params: { "sign-up"?: string[] 
           
           // If Prisma says they are fully onboarded, get them out of the login page!
           if (user?.onboardedAt) {
-            redirect("/products");
-          } else {
-            redirect("/onboarding");
-          }
+          // Onboarded — check access status
+          if (user.accessStatus === "granted") redirect("/products");
+          else redirect("/pending-access"); // onboarded but not yet approved
+        } else {
+          // Signed in via Clerk but never finished onboarding
+          redirect("/onboarding");
         }
       }
-      
+    }
 
   const slug = params["sign-up"]?.[0];
   if (slug) return <SignUp routing="path" path="/sign-up" />;

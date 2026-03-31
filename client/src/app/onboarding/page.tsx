@@ -21,11 +21,14 @@ export default async function OnboardingPage() {
   const data = await res.json();
   const dbUser = data?.user;
 
-  console.log("this is the user details", dbUser);
 
-  if (dbUser?.onboardedAt) {
-    redirect("/dashboard");
-  }
+if (dbUser?.onboardedAt && dbUser?.accessStatus === "pending") redirect("/pending-access");
+
+if ((dbUser?.onboardedAt && dbUser?.accessStatus === "granted") && 
+    dbUser?.role === "admin" || dbUser?.role === "inventoryClerk") 
+      redirect("/dashboard");
+
+
 
   return (
     <OnboardingForm

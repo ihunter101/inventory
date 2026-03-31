@@ -17,7 +17,8 @@ export default async function Page() {
       
       // If Prisma says they are fully onboarded, get them out of the login page!
       if (user?.onboardedAt) {
-        redirect("/products");
+        if (user.accessStatus === "granted") redirect("/products");
+        else redirect("/pending-access");
       } else {
         redirect("/onboarding");
       }

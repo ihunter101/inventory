@@ -8,6 +8,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum AccessStatus {
+  pending
+  granted
+  denied
+}
+
 model Users { //make id @id and not unique 
   name      String?
   id        String    @unique @default(cuid())
@@ -21,6 +27,8 @@ model Users { //make id @id and not unique
   stockLedger StockLedger[]
 
   session Sessions[]
+
+  accessStatus AccessStatus @default(pending) 
 
   stockRequestsCreated  StockRequest[] @relation("StockRequestRequestedBy")
   stockRequestsReviewed StockRequest[] @relation("StockRequestReviewedBy")

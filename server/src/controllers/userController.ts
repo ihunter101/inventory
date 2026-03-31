@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { Role, canModifyUserRole, ROLE_HIERARCHY } from "@lab/shared/userRolesUtils";
+import { verifyApprovalToken } from "../lib/approvalToken";
+
 
 //const prisma = new PrismaClient();
 
@@ -269,6 +271,7 @@ export const getMe = async (req: Request, res: Response) => {
         createdAt: true,
         lastLogin: true,
         onboardedAt: true,
+				accessStatus: true,
       },
     });
 
@@ -296,3 +299,75 @@ export const getMe = async (req: Request, res: Response) => {
   }
 };
 
+
+export const reviewUserAccess = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { token } = req.query;
+  const { action } = req.body as { action?: "grant" | "deny" };
+
+  if (!token || typeof token !== "string") {
+    return res.status(400).json({ error: "Missing approval token" });
+  }
+
+  if (!action || !["grant", "deny"].includes(action)) {
+    return res.status(400).json({ error: "Invalid action" });
+  }
+
+  let payload: { userId: string; action: "grant" | "deny" };
+
+  try {
+    payload = verifyApprovalToken(token);
+  } catch {
+    return res.status(401).json({ error: "Token is invalid or has expired" });
+  }
+
+  if (payload.userId !== id) {
+    return res.status(400).json({ error: "Token mismatch" });
+  }
+
+  if (payload.action !== action) {
+    return res.status(400).json({ error: "Action mismatch" });
+  }
+
+  const clerkId = (req as any).auth?.userId;
+
+  if (!clerkId) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const reviewer = await prisma.users.findUnique({
+    where: { clerkId },
+    select: {
+      role: true,
+      accessStatus: true,
+      name: true,
+      email: true,
+    },
+  });
+
+  if (
+    !reviewer ||
+    !["admin", "inventoryClerk"].includes(reviewer.role) ||
+    reviewer.accessStatus !== "granted"
+  ) {
+    return res.status(403).json({ error: "Insufficient permissions" });
+  }
+
+  const newStatus = action === "grant" ? "granted" : "denied";
+
+  const updated = await prisma.users.update({
+    where: { id },
+    data: { accessStatus: newStatus },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      accessStatus: true,
+    },
+  });
+
+  return res.json({
+    message: `Access ${newStatus} successfully`,
+    user: updated,
+  });
+};

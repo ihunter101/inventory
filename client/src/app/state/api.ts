@@ -535,7 +535,10 @@ export type PurchaseOrderFormPayload =
     createdAt: string;
     lastLogin: string;
     onboardedAt: string;
+    accessStatus: AccessStatus;
   };
+
+  export type AccessStatus = "pending" | "granted" | "denied"
 
   export type DraftProductDTO = {
   id: string;
@@ -850,7 +853,7 @@ export const api = createApi({
     "PurchaseOrders", "SupplierInvoices", "GoodsReceipts", 
     "Suppliers", "Inventory", "DraftProducts", "StockSheet",
     "SalesAnalytics", "TodaySale", "Sales", "Matches", "InvoicePayments", 
-    "PoPaymentSummary", "QuarterlyReport"
+    "PoPaymentSummary", "QuarterlyReport", "PendingAccess"
   ],
   endpoints: (build) => ({
     // Dashboard Metrics
@@ -1032,7 +1035,6 @@ export const api = createApi({
       query: () => "/users/me",
       providesTags: [{ type: "Users", id: "ME" }],
     }),
-
     updateUser: build.mutation<User, { id: string; name?: string; location?: string }>({
       query: ({ id, ...body }) => ({
       url: `/users/${id}`,
@@ -1059,6 +1061,18 @@ export const api = createApi({
       }),
       invalidatesTags: (_results, _err, id) => [{ type: "Users", id: "LIST"}, { type: "Users", id}]
     }),
+reviewUserAccess: build.mutation<{ message: string; user: User }, { id: string; token: string; action: "grant" | "deny" }>({
+  query: ({ id, token, action }) => ({
+    url: `/users/${id}/review?token=${token}`,
+    method: "PATCH",
+    body: { action },
+  }),
+  invalidatesTags: (result, error, arg) => [
+    { type: "Users", id: arg.id },
+    { type: "Users", id: "LIST" },
+    { type: "Users", id: "ME" },
+  ],
+}),
     // Expenses
     getExpenses: build.query<Expense[], { category?: string; from: string; end: string }>({
     query: (params) => {
@@ -1495,6 +1509,7 @@ export const {
   useUpdateUserRoleMutation,
   useDeleteUserMutation,
   useGetMeQuery,
+  useReviewUserAccessMutation,
 
   useAdjustInventoryMutation,
   useSetInventoryMutation,
