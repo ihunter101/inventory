@@ -47,27 +47,16 @@ const DEFAULT_CATEGORIES = [
   "Office Supplies",
 ];
 
-const GROUP_OPTIONS: ExpenseGroup[] = [
-  "Clinical",
-  "Equipment and Infrastructure",
-  "Logistics and Overhead",
+const GROUP_OPTIONS: { label: string; value: ExpenseGroup }[] = [
+  { label: "Clinical", value: "CLINICAL" },
+  { label: "Equipment and Infrastructure", value: "EQUIPMENT_INFRASTRUCTURE" },
+  { label: "Logistics and Overhead", value: "LOGISTICS_OVERHEAD" },
 ];
-
-function generateExpenseId(date: Date) {
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  const yyyy = date.getFullYear();
-  return `exp-${mm}-${dd}-${yyyy}-N`;
-}
 
 function startOfDay(d: Date) {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
   return x;
-}
-
-function toYMD(d: Date) {
-  return d.toISOString().slice(0, 10);
 }
 
 const AddExpenseDialog = () => {
@@ -78,7 +67,6 @@ const AddExpenseDialog = () => {
   const [category, setCategory] = React.useState<string>("");
   const [group, setGroup] = React.useState<ExpenseGroup | "">("");
   const [date, setDate] = React.useState<Date | undefined>(new Date());
-  const [expenseId, setExpenseId] = React.useState<string>("");
   const [categories, setCategories] = React.useState<string[]>(DEFAULT_CATEGORIES);
   const [newCategory, setNewCategory] = React.useState<string>("");
 
@@ -90,18 +78,12 @@ const AddExpenseDialog = () => {
   React.useEffect(() => {
     if (!dialogOpen) return;
 
-    const d = new Date();
-    setDate(d);
-    setExpenseId(generateExpenseId(d));
+    setDate(new Date());
     setAmount(0);
     setCategory("");
     setGroup("");
     setNewCategory("");
   }, [dialogOpen]);
-
-  React.useEffect(() => {
-    if (date) setExpenseId(generateExpenseId(date));
-  }, [date]);
 
   const handleAddCategory = () => {
     const trimmed = newCategory.trim();
@@ -117,14 +99,17 @@ const AddExpenseDialog = () => {
       toast.error("Amount must be greater than 0");
       return;
     }
+
     if (!category) {
       toast.error("Please select a category");
       return;
     }
+
     if (!group) {
       toast.error("Please select a group");
       return;
     }
+
     if (!date) {
       toast.error("Please select a date");
       return;
@@ -136,12 +121,11 @@ const AddExpenseDialog = () => {
     }
 
     try {
-      const payload: Partial<Expense> = {
+      const payload = {
         amount,
         category,
-        group: group as ExpenseGroup,
-        createdAt: toYMD(date) as any,
-        expenseId,
+        group,
+        status: "PENDING" as Expense["status"],
       };
 
       const newExpense = await createExpense(payload).unwrap();
@@ -149,9 +133,10 @@ const AddExpenseDialog = () => {
 
       toast.success("Expense added successfully");
       setDialogOpen(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Create expense error:", err);
-      toast.error("Failed to add expense");
+      console.error("Create expense data:", err?.data);
+      toast.error(err?.data?.error || "Failed to add expense");
     }
   };
 
@@ -177,15 +162,6 @@ const AddExpenseDialog = () => {
             </div>
           </DialogTitle>
         </DialogHeader>
-
-        <div className="space-y-2">
-          <Label className="text-foreground">Expense ID</Label>
-          <Input
-            value={expenseId}
-            disabled
-            className="border-border/60 bg-muted/30 text-muted-foreground"
-          />
-        </div>
 
         <div className="space-y-2">
           <Label className="text-foreground">Amount</Label>
@@ -254,8 +230,8 @@ const AddExpenseDialog = () => {
               position="popper"
             >
               {GROUP_OPTIONS.map((g) => (
-                <SelectItem key={g} value={g}>
-                  {g}
+                <SelectItem key={g.value} value={g.value}>
+                  {g.label}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -19,22 +19,31 @@ type Props = {
 };
 
 const formatCurrency = (value: number) =>
-  `$${value.toLocaleString(undefined, { minimumFractionDigits: 0 })}`;
+  `$${value.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })}`;
 
 const BarChartCategoryAnalysis = ({ expenses }: Props) => {
   const categoryData = useMemo(() => {
     const totals: Record<string, number> = {};
 
-    expenses.forEach((e) => {
-      const category = e.category ?? "Other";
-      totals[category] = (totals[category] ?? 0) + e.amount;
+    expenses.forEach((expense) => {
+      const category =
+        expense.category && expense.category.trim().length > 0
+          ? expense.category
+          : "Other";
+
+      totals[category] = (totals[category] ?? 0) + Number(expense.amount || 0);
     });
 
-    return Object.entries(totals).map(([name, value]) => ({
-      name,
-      value,
-      fill: getCategoryColor(name),
-    }));
+    return Object.entries(totals)
+      .map(([name, value]) => ({
+        name,
+        value,
+        fill: getCategoryColor(name),
+      }))
+      .sort((a, b) => b.value - a.value);
   }, [expenses]);
 
   return (
@@ -67,7 +76,7 @@ const BarChartCategoryAnalysis = ({ expenses }: Props) => {
           />
 
           <YAxis
-            tickFormatter={(value) => `$${(value / 1000).toFixed(0)}K`}
+            tickFormatter={(value) => `$${(Number(value) / 1000).toFixed(0)}K`}
             tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
             stroke="hsl(var(--muted-foreground))"
             tickLine={false}

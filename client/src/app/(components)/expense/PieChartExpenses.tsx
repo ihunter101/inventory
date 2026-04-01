@@ -1,43 +1,64 @@
+"use client";
+
 import React, { useMemo } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { DollarSign, AlertCircle } from "lucide-react";
+import { Expense } from "@/app/state/api";
 
-const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
+const COLORS = [
+  "#3b82f6",
+  "#10b981",
+  "#f59e0b",
+  "#ef4444",
+  "#8b5cf6",
+  "#ec4899",
+];
 
-interface Expense {
-  expenseId: string;
-  category: string;
-  group: string;
-  amount: number;
-  createdAt: string;
-  status: string;
-  description?: string;
-  title?: string;
-}
-
-interface ExpenseGroupDonutCardProps {
+type Props = {
   expenses: Expense[];
-}
+};
 
-const ExpenseGroupDonutCard: React.FC<ExpenseGroupDonutCardProps> = ({
-  expenses,
-}) => {
+const formatCurrency = (value: number) =>
+  `$${value.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+const formatGroupLabel = (group: string) => {
+  switch (group) {
+    case "CLINICAL":
+      return "Clinical";
+    case "EQUIPMENT_INFRASTRUCTURE":
+      return "Equipment & Infrastructure";
+    case "LOGISTICS_OVERHEAD":
+      return "Logistics & Overhead";
+    default:
+      return "Other";
+  }
+};
+
+const ExpenseGroupDonutCard = ({ expenses }: Props) => {
   const groupData = useMemo(() => {
     const groups = expenses.reduce((acc, expense) => {
-      const group = expense.group || "Other";
-      acc[group] = (acc[group] || 0) + expense.amount;
+      const group = expense.group || "OTHER";
+      acc[group] = (acc[group] || 0) + Number(expense.amount || 0);
       return acc;
     }, {} as Record<string, number>);
 
-    return Object.entries(groups).map(([name, value]) => ({ name, value }));
+    return Object.entries(groups)
+      .map(([name, value]) => ({
+        name,
+        label: formatGroupLabel(name),
+        value,
+      }))
+      .sort((a, b) => b.value - a.value);
   }, [expenses]);
 
   const total = groupData.reduce((sum, item) => sum + item.value, 0);
-  const topGroup = [...groupData].sort((a, b) => b.value - a.value)[0];
+  const topGroup = groupData[0];
 
   return (
     <div className="flex h-full flex-col rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
-      {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="rounded-xl border border-primary/15 bg-primary/10 p-2.5">
@@ -48,12 +69,13 @@ const ExpenseGroupDonutCard: React.FC<ExpenseGroupDonutCardProps> = ({
             <h3 className="text-lg font-bold text-foreground">
               Expense by Group
             </h3>
-            <p className="mt-0.5 text-xs text-muted-foreground">This Month</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Distribution of current results
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Chart */}
       <div className="mb-6 flex flex-1 items-center justify-center">
         <div className="relative w-full max-w-[280px]">
           <ResponsiveContainer width="100%" height={240}>
@@ -67,7 +89,10 @@ const ExpenseGroupDonutCard: React.FC<ExpenseGroupDonutCardProps> = ({
                   padding: "12px",
                   color: "hsl(var(--popover-foreground))",
                 }}
-                formatter={(value: number | undefined) => [`$${(value ?? 0).toLocaleString()}`,"Amount"]}
+                formatter={(value: number | undefined) => [
+                  formatCurrency(value ?? 0),
+                  "Amount",
+                ]}
               />
 
               <Pie
@@ -81,7 +106,7 @@ const ExpenseGroupDonutCard: React.FC<ExpenseGroupDonutCardProps> = ({
               >
                 {groupData.map((entry, index) => (
                   <Cell
-                    key={`cell-${index}`}
+                    key={`cell-${entry.name}-${index}`}
                     fill={COLORS[index % COLORS.length]}
                   />
                 ))}
@@ -89,32 +114,27 @@ const ExpenseGroupDonutCard: React.FC<ExpenseGroupDonutCardProps> = ({
             </PieChart>
           </ResponsiveContainer>
 
-          {/* Center Total */}
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <div className="text-center">
               <p className="text-xs font-medium text-muted-foreground">
                 Total Expense
               </p>
               <p className="mt-1 text-2xl font-bold text-foreground">
-                $
-                {total.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+                {formatCurrency(total)}
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Legend with Stats */}
       <div className="space-y-3 border-t border-border/60 pt-4">
         {groupData.map((item, idx) => {
-          const percentage = total > 0 ? ((item.value / total) * 100).toFixed(0) : "0";
+          const percentage =
+            total > 0 ? ((item.value / total) * 100).toFixed(0) : "0";
 
           return (
             <div
-              key={idx}
+              key={item.name}
               className="flex items-center justify-between rounded-lg p-2.5 transition-colors hover:bg-muted/30"
             >
               <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -123,7 +143,7 @@ const ExpenseGroupDonutCard: React.FC<ExpenseGroupDonutCardProps> = ({
                   style={{ backgroundColor: COLORS[idx % COLORS.length] }}
                 />
                 <span className="truncate text-sm font-semibold text-foreground">
-                  {item.name}
+                  {item.label}
                 </span>
               </div>
 
@@ -132,7 +152,7 @@ const ExpenseGroupDonutCard: React.FC<ExpenseGroupDonutCardProps> = ({
                   {percentage}%
                 </span>
                 <span className="min-w-[90px] text-right text-sm font-bold text-foreground">
-                  ${item.value.toLocaleString()}
+                  {formatCurrency(item.value)}
                 </span>
               </div>
             </div>
@@ -140,14 +160,13 @@ const ExpenseGroupDonutCard: React.FC<ExpenseGroupDonutCardProps> = ({
         })}
       </div>
 
-      {/* Footer Insight */}
       {topGroup && total > 0 && (
         <div className="mt-4 rounded-xl border border-primary/15 bg-primary/10 p-3">
           <div className="flex items-start gap-2">
             <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-foreground">
-                <span className="font-bold">{topGroup.name}</span> accounts for{" "}
+                <span className="font-bold">{topGroup.label}</span> accounts for{" "}
                 {((topGroup.value / total) * 100).toFixed(0)}% of total expenses
               </p>
             </div>

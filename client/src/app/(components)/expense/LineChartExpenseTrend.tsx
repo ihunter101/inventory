@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   AreaChart,
   Area,
@@ -9,7 +10,6 @@ import {
   CartesianGrid,
   ResponsiveContainer,
 } from "recharts";
-import { useMemo, useState } from "react";
 import { Expense } from "@/app/state/api";
 
 type Props = {
@@ -17,60 +17,38 @@ type Props = {
 };
 
 const formatCurrency = (amount: number) =>
-  `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+  `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const ExpenseTrendChart = ({ expenses }: Props) => {
-  const [selectedPeriod, setSelectedPeriod] = useState("all");
-
   const monthlyData = useMemo(() => {
-    const now = new Date();
-    let startDate: Date | null = null;
-
-    if (selectedPeriod === "3m") {
-      startDate = new Date();
-      startDate.setMonth(now.getMonth() - 3);
-    } else if (selectedPeriod === "6m") {
-      startDate = new Date();
-      startDate.setMonth(now.getMonth() - 6);
-    }
-
-    const filtered = startDate
-      ? expenses.filter((e) => new Date(e.createdAt) >= startDate)
-      : expenses;
-
     const totals: Record<string, number> = {};
 
-    filtered.forEach((expense) => {
+    expenses.forEach((expense) => {
       const date = new Date(expense.createdAt);
+
+      if (isNaN(date.getTime())) return;
+
       const monthKey = `${date.toLocaleString("default", {
         month: "short",
       })} ${date.getFullYear()}`;
 
-      totals[monthKey] = (totals[monthKey] ?? 0) + expense.amount;
+      totals[monthKey] = (totals[monthKey] ?? 0) + Number(expense.amount || 0);
     });
 
     return Object.entries(totals)
-      .map(([month, amount]) => ({ month, amount }))
-      .sort(
-        (a, b) =>
-          new Date(`1 ${a.month}`).getTime() - new Date(`1 ${b.month}`).getTime()
-      );
-  }, [expenses, selectedPeriod]);
+      .map(([month, amount]) => ({
+        month,
+        amount,
+        sortDate: new Date(`1 ${month}`).getTime(),
+      }))
+      .sort((a, b) => a.sortDate - b.sortDate)
+      .map(({ month, amount }) => ({ month, amount }));
+  }, [expenses]);
 
   return (
     <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm lg:col-span-2">
       <div className="mb-6 flex items-center justify-between gap-4">
         <h3 className="text-lg font-semibold text-foreground">Expense Trend</h3>
-
-        <select
-          value={selectedPeriod}
-          onChange={(e) => setSelectedPeriod(e.target.value)}
-          className="rounded-md border border-border/60 bg-background px-3 py-1 text-sm text-foreground outline-none ring-0 transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-        >
-          <option value="all">All Time</option>
-          <option value="6m">Last 6 Months</option>
-          <option value="3m">Last 3 Months</option>
-        </select>
       </div>
 
       <ResponsiveContainer width="100%" height={300}>
@@ -97,7 +75,7 @@ const ExpenseTrendChart = ({ expenses }: Props) => {
           />
 
           <YAxis
-            tickFormatter={(value) => `$${(value / 1000).toFixed(0)}K`}
+            tickFormatter={(value) => `$${(Number(value) / 1000).toFixed(0)}K`}
             tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
             stroke="hsl(var(--muted-foreground))"
             tickLine={false}
@@ -105,7 +83,10 @@ const ExpenseTrendChart = ({ expenses }: Props) => {
           />
 
           <Tooltip
-            formatter={(value: number | undefined) => [ formatCurrency(value ?? 0),"Amount", ]}
+            formatter={(value: number | undefined) => [
+              formatCurrency(value ?? 0),
+              "Amount",
+            ]}
             contentStyle={{
               backgroundColor: "hsl(var(--popover))",
               border: "1px solid hsl(var(--border))",

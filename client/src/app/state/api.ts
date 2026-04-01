@@ -304,7 +304,10 @@ export interface Expense {
   // sourceType?: "PurchaseOrder" | "Manual";
   // sourceId?: string;
 };
-
+export type UpdateExpenseStatusRequest = {
+  expenseId: string;
+  status: "PENDING" | "APPROVED" | "PAID" | "VOID";
+};
 
 
 export interface Supplier {
@@ -1082,7 +1085,15 @@ reviewUserAccess: build.mutation<{ message: string; user: User }, { id: string; 
         params: params ?? undefined, // explicitly ensures correct type
         };
     },
-  providesTags: ["Expenses"],
+  providesTags: ["Expenses", "DashboardMetrics"],
+  }),
+  updateExpenseStatus: build.mutation<Expense, { expenseId: string; status: Expense["status"] }>({
+    query: ({ expenseId, status }) => ({
+      url: `/expenses/${expenseId}/status`,
+      method: "PATCH",
+      body: { status },
+    }),
+    invalidatesTags: ["Expenses", "DashboardMetrics"],
   }),
   // Suppliers (basic)
   getSuppliers: build.query<Supplier[], void>({
@@ -1520,6 +1531,7 @@ export const {
 
   useGetExpensesQuery,
   useCreateExpenseMutation,
+  useUpdateExpenseStatusMutation,
 
   useGetSuppliersQuery,
 

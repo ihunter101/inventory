@@ -91,7 +91,7 @@ export const onboarding = async (req: Request, res: Response) => {
       },
     });
 
-    console.log("✅ User onboarded:", updated.email);
+    //console.log("✅ User onboarded:", updated.email);
 
     try {
   const privileged = await prisma.users.findMany({
@@ -102,7 +102,7 @@ export const onboarding = async (req: Request, res: Response) => {
     select: { email: true },
   });
 
-  console.log("📨 privileged reviewers:", privileged);
+  //console.log("📨 privileged reviewers:", privileged);
 
   if (privileged.length === 0) {
     console.log("⚠️ No granted admins/inventory clerks found. No email sent.");
@@ -113,15 +113,19 @@ export const onboarding = async (req: Request, res: Response) => {
       email: updated.email,
       location: String(updated.location),
     });
+    // console.log("RESEND_API_KEY prefix:", process.env.RESEND_API_KEY?.slice(0, 8));
+    // console.log("EMAIL_FROM:", process.env.PROD_RESEND_SENDER_EMAIL_ONBOARDING);
 
+    const sender = process.env.PROD_RESEND_SENDER_EMAIL_ONBOARDING!
+    const header =`Grant Access <${sender}>`
     const result = await resend.emails.send({
-      from: process.env.RESEND_SENDER_EMAIL!,
+      from: header,
       to: privileged.map((u) => u.email),
       subject,
       html,
     });
 
-    console.log("✅ Admin notification email sent:", result);
+    //console.log("✅ Admin notification email sent:", result);
   }
 } catch (emailError) {
   console.error("❌ Admin notification email failed:", emailError);

@@ -15,33 +15,43 @@ type Props = {
 };
 
 const formatCurrency = (amount: number) =>
-  `$${amount.toLocaleString(undefined, { minimumFractionDigits: 0 })}`;
+  `$${amount.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })}`;
 
 const ExpenseKPICards = ({ expenses }: Props) => {
-  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
   const totalTransactions = expenses.length;
 
-  const monthlyGroups: Record<string, number> = {};
   const pendingExpenses = expenses
     .filter((e) => e.status === "PENDING")
-    .reduce((sum, e) => sum + e.amount, 0);
+    .reduce((sum, e) => sum + Number(e.amount || 0), 0);
 
-  expenses.forEach((e) => {
-    const date = new Date(e.createdAt);
-    const key = `${date.getFullYear()}-${date.getMonth() + 1}`;
-    monthlyGroups[key] = (monthlyGroups[key] ?? 0) + e.amount;
+  const monthlyGroups: Record<string, number> = {};
+
+  expenses.forEach((expense) => {
+    const date = new Date(expense.createdAt);
+
+    if (isNaN(date.getTime())) return;
+
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    monthlyGroups[key] = (monthlyGroups[key] ?? 0) + Number(expense.amount || 0);
   });
 
-  const months = Object.values(monthlyGroups).length || 1;
-  const avgMonthlyExpense =
-    Object.values(monthlyGroups).reduce((sum, val) => sum + val, 0) / months;
-
   const monthKeys = Object.keys(monthlyGroups).sort();
-  const lastMonth = monthKeys[monthKeys.length - 1];
-  const prevMonth = monthKeys[monthKeys.length - 2];
+  const monthTotals = monthKeys.map((key) => monthlyGroups[key]);
 
-  const lastMonthTotal = monthlyGroups[lastMonth] || 0;
-  const prevMonthTotal = monthlyGroups[prevMonth] || 0;
+  const avgMonthlyExpense =
+    monthTotals.length > 0
+      ? monthTotals.reduce((sum, value) => sum + value, 0) / monthTotals.length
+      : 0;
+
+  const lastMonthKey = monthKeys[monthKeys.length - 1];
+  const prevMonthKey = monthKeys[monthKeys.length - 2];
+
+  const lastMonthTotal = lastMonthKey ? monthlyGroups[lastMonthKey] ?? 0 : 0;
+  const prevMonthTotal = prevMonthKey ? monthlyGroups[prevMonthKey] ?? 0 : 0;
 
   const growthRate =
     prevMonthTotal > 0
@@ -50,7 +60,6 @@ const ExpenseKPICards = ({ expenses }: Props) => {
 
   return (
     <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-      {/* Total Expenses */}
       <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
         <div className="flex items-center">
           <div className="rounded-xl border border-primary/15 bg-primary/10 p-3">
@@ -88,7 +97,6 @@ const ExpenseKPICards = ({ expenses }: Props) => {
         </div>
       </div>
 
-      {/* Avg Monthly Expense */}
       <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
         <div className="flex items-center">
           <div className="rounded-xl border border-emerald-200/40 bg-emerald-500/10 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/30">
@@ -106,7 +114,6 @@ const ExpenseKPICards = ({ expenses }: Props) => {
         </div>
       </div>
 
-      {/* Pending Approval */}
       <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
         <div className="flex items-center">
           <div className="rounded-xl border border-amber-200/40 bg-amber-500/10 p-3 dark:border-amber-900/40 dark:bg-amber-950/30">
@@ -124,7 +131,6 @@ const ExpenseKPICards = ({ expenses }: Props) => {
         </div>
       </div>
 
-      {/* Total Transactions */}
       <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
         <div className="flex items-center">
           <div className="rounded-xl border border-violet-200/40 bg-violet-500/10 p-3 dark:border-violet-900/40 dark:bg-violet-950/30">
