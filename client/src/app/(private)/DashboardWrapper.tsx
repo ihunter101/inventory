@@ -1,23 +1,20 @@
 "use client"
 
 import * as React from "react"
-import { usePathname } from "next/navigation"
-import { AppSidebar } from "@/app/(components)/Navbar/Sidebar"
 import Navbar from "@/app/(components)/Navbar"
+import { AppSidebar } from "@/app/(components)/Navbar/Sidebar"
 
-interface DashboardWrapperProps {
+type Props = {
   children: React.ReactNode
   defaultSidebarOpen?: boolean
 }
 
-const DESKTOP_BREAKPOINT = 1024
+const MOBILE_BREAKPOINT = 768
 
 export default function DashboardWrapper({
   children,
   defaultSidebarOpen = true,
-}: DashboardWrapperProps) {
-  const pathname = usePathname()
-
+}: Props) {
   const [isMobile, setIsMobile] = React.useState(false)
   const [sidebarOpen, setSidebarOpen] = React.useState(defaultSidebarOpen)
   const [mounted, setMounted] = React.useState(false)
@@ -25,41 +22,32 @@ export default function DashboardWrapper({
   React.useEffect(() => {
     setMounted(true)
 
-    const media = window.matchMedia(`(max-width: ${DESKTOP_BREAKPOINT - 1}px)`)
+    const media = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
 
-    const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
-      const mobile = e.matches
+    const apply = (mobile: boolean) => {
       setIsMobile(mobile)
 
       if (mobile) {
         setSidebarOpen(false)
       } else {
-        const stored =
-          localStorage.getItem("sidebar_state") ??
-          String(defaultSidebarOpen)
-        setSidebarOpen(stored === "true")
+        const saved = localStorage.getItem("sidebar_state")
+        setSidebarOpen(saved ? saved === "true" : defaultSidebarOpen)
       }
     }
 
-    handleChange(media)
+    apply(media.matches)
 
-    const listener = (e: MediaQueryListEvent) => handleChange(e)
-    media.addEventListener("change", listener)
+    const handler = (e: MediaQueryListEvent) => apply(e.matches)
+    media.addEventListener("change", handler)
 
-    return () => media.removeEventListener("change", listener)
+    return () => media.removeEventListener("change", handler)
   }, [defaultSidebarOpen])
 
   React.useEffect(() => {
     if (!mounted || isMobile) return
-    document.cookie = `sidebar_state=${sidebarOpen}; path=/; max-age=${60 * 60 * 24 * 30}`
     localStorage.setItem("sidebar_state", String(sidebarOpen))
-  }, [sidebarOpen, mounted, isMobile])
-
-  React.useEffect(() => {
-    if (isMobile) {
-      setSidebarOpen(false)
-    }
-  }, [pathname, isMobile])
+    document.cookie = `sidebar_state=${sidebarOpen}; path=/; max-age=${60 * 60 * 24 * 30}`
+  }, [sidebarOpen, isMobile, mounted])
 
   const toggleSidebar = React.useCallback(() => {
     setSidebarOpen((prev) => !prev)
@@ -69,28 +57,36 @@ export default function DashboardWrapper({
     if (isMobile) setSidebarOpen(false)
   }, [isMobile])
 
+  const desktopOffset = sidebarOpen ? "md:pl-[260px]" : "md:pl-[72px]"
+
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="flex min-h-screen">
-        <AppSidebar
-          open={sidebarOpen}
-          isMobile={isMobile}
-          onCloseMobile={closeMobileSidebar}
-        />
+      <AppSidebar
+        open={sidebarOpen}
+        isMobile={isMobile}
+        onCloseMobile={closeMobileSidebar}
+      />
 
-        <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="flex h-16 items-center px-4 md:px-6">
-              <Navbar
-                sidebarOpen={sidebarOpen}
-                isMobile={isMobile}
-                onToggleSidebar={toggleSidebar}
-              />
-            </div>
-          </header>
+      <div
+        className={[
+          "min-h-screen w-full transition-[padding] duration-300 ease-out",
+          "pl-0",
+          desktopOffset,
+        ].join(" ")}
+      >
+        <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="flex h-16 min-w-0 items-center px-3 sm:px-4 md:px-6">
+            <Navbar
+              sidebarOpen={sidebarOpen}
+              isMobile={isMobile}
+              onToggleSidebar={toggleSidebar}
+            />
+          </div>
+        </header>
 
-          <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
-        </div>
+        <main className="min-w-0 overflow-x-hidden p-3 sm:p-4 md:p-6 lg:p-8">
+          {children}
+        </main>
       </div>
     </div>
   )

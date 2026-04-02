@@ -250,15 +250,15 @@ export function AppSidebar({ open, isMobile, onCloseMobile }: Props) {
         />
       )}
 
-        <aside
-    className={[
-      "sidebar-shine relative z-50 flex h-screen shrink-0 flex-col overflow-hidden border-r bg-background transition-all duration-300",
-      isMobile
-        ? `fixed left-0 top-0 w-72 ${open ? "translate-x-0" : "-translate-x-full"}`
-        : collapsed
-        ? "relative w-20"
-        : "relative w-72",
-    ].join(" ")}
+  <aside
+  className={[
+    "sidebar-shine fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden border-r bg-background transition-[width,transform] duration-300 ease-out",
+    isMobile
+      ? `w-[85vw] max-w-[320px] ${open ? "translate-x-0" : "-translate-x-full"}`
+      : open
+      ? "w-[260px] translate-x-0"
+      : "w-[72px] translate-x-0",
+  ].join(" ")}
 >
         <div className="flex h-16 items-center border-b px-3">
           <Link
