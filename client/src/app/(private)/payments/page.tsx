@@ -4,7 +4,6 @@ import { useMemo, useState, useRef } from "react";
 import { useGetPaymentHistoryQuery } from "@/app/state/api";
 import { currency } from "../../../lib/currency";
 import {
-  CalendarIcon,
   ChevronDown,
   ChevronRight,
   CreditCard,
@@ -15,6 +14,8 @@ import {
   Receipt,
   Search,
   TrendingUp,
+  CalendarIcon,
+  X,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -35,7 +36,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-// ── Constants ─────────────────────────────────────────────────────────────────
 const PAGE_SIZE = 10;
 
 const METHOD_STYLE: Record<string, string> = {
@@ -55,7 +55,6 @@ const STATUS_STYLE: Record<string, string> = {
     "border-amber-200/50 bg-amber-500/10 text-amber-700 dark:border-amber-900/40 dark:text-amber-400",
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function fmt(dateStr?: string | null) {
   if (!dateStr) return "—";
   return new Date(dateStr).toLocaleDateString("en-US", {
@@ -77,6 +76,7 @@ function exportCSV(rows: any[]) {
     "Amount",
     "Status",
   ];
+
   const lines = rows.map((p) =>
     [
       p.id,
@@ -92,6 +92,7 @@ function exportCSV(rows: any[]) {
       .map((v) => `"${String(v).replace(/"/g, '""')}"`)
       .join(",")
   );
+
   const csv = [headers.join(","), ...lines].join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
@@ -103,7 +104,6 @@ function exportCSV(rows: any[]) {
 }
 
 async function exportPDF(rows: any[]) {
-  // Install: npm install jspdf jspdf-autotable
   const { default: jsPDF } = await import("jspdf");
   const { default: autoTable } = await import("jspdf-autotable");
 
@@ -113,7 +113,7 @@ async function exportPDF(rows: any[]) {
   doc.setFontSize(9);
   doc.setTextColor(120);
   doc.text(
-    `Exported ${new Date().toLocaleDateString("en-US", { dateStyle: "long" })}  ·  ${rows.length} records`,
+    `Exported ${new Date().toLocaleDateString("en-US", { dateStyle: "long" })} · ${rows.length} records`,
     14,
     21
   );
@@ -140,7 +140,6 @@ async function exportPDF(rows: any[]) {
   doc.save(`payments-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
 function KpiCard({
   label,
   value,
@@ -177,7 +176,7 @@ function DetailField({ label, value }: { label: string; value?: string | null })
       <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
       </span>
-      <span className="text-sm text-foreground">{value}</span>
+      <span className="text-sm text-foreground break-words">{value}</span>
     </div>
   );
 }
@@ -195,7 +194,6 @@ function PaymentRow({ p }: { p: any }) {
         )}
         onClick={() => setOpen((v) => !v)}
       >
-        {/* Chevron */}
         <td className="w-8 py-3.5 pl-4 text-muted-foreground">
           {open ? (
             <ChevronDown size={15} className="text-foreground/70" />
@@ -207,7 +205,6 @@ function PaymentRow({ p }: { p: any }) {
           )}
         </td>
 
-        {/* Method */}
         <td className="py-3.5 pr-4">
           <div className="flex items-center gap-2.5">
             <div
@@ -225,29 +222,24 @@ function PaymentRow({ p }: { p: any }) {
           </div>
         </td>
 
-        {/* Date */}
         <td className="whitespace-nowrap py-3.5 pr-6 text-sm text-muted-foreground">
           {fmt(p.paidAt)}
         </td>
 
-        {/* Supplier */}
         <td className="max-w-[180px] py-3.5 pr-6">
           <span className="block truncate text-sm text-foreground">
             {p.supplierName ?? "—"}
           </span>
         </td>
 
-        {/* Invoice */}
         <td className="py-3.5 pr-6 font-mono text-sm text-muted-foreground">
           {p.invoiceNumber ? `#${p.invoiceNumber}` : "—"}
         </td>
 
-        {/* PO */}
         <td className="py-3.5 pr-6 font-mono text-sm text-muted-foreground">
           {p.poNumber ? `#${p.poNumber}` : "—"}
         </td>
 
-        {/* Status */}
         <td className="py-3.5 pr-6">
           <Badge
             variant="outline"
@@ -260,7 +252,6 @@ function PaymentRow({ p }: { p: any }) {
           </Badge>
         </td>
 
-        {/* Amount */}
         <td className="whitespace-nowrap py-3.5 pr-5 text-right text-sm font-bold text-emerald-600 dark:text-emerald-400">
           {currency(Number(p.amount ?? 0))}
         </td>
@@ -297,15 +288,71 @@ function PaymentRow({ p }: { p: any }) {
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+function DateField({
+  label,
+  value,
+  onChange,
+  inputRef,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  inputRef: React.RefObject<HTMLInputElement>;
+}) {
+  const openNativePicker = () => {
+    const input = inputRef.current;
+    if (!input) return;
+
+    const pickerInput = input as HTMLInputElement & {
+      showPicker?: () => void;
+    };
+
+    if (typeof pickerInput.showPicker === "function") {
+      pickerInput.showPicker();
+      return;
+    }
+
+    input.focus();
+    input.click();
+  };
+
+  return (
+    <div className="min-w-0">
+      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </label>
+
+      <div className="relative">
+        <button
+          type="button"
+          onClick={openNativePicker}
+          className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
+          aria-label={`Open ${label} calendar`}
+        >
+          <CalendarIcon size={15} />
+        </button>
+
+        <Input
+          ref={inputRef}
+          type="date"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-11 w-full cursor-pointer pl-10 pr-10 text-sm [color-scheme:light_dark]"
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function PaymentPage() {
   const [query, setQuery] = useState("");
   const [method, setMethod] = useState<string>("all");
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
   const [page, setPage] = useState(1);
-  const fromRef = useRef<HTMLInputElement | null>(null);
-  const toRef = useRef<HTMLInputElement | null>(null);
+
+  const fromRef = useRef<HTMLInputElement>(null);
+  const toRef = useRef<HTMLInputElement>(null);
 
   const params = {
     q: query.trim() || undefined,
@@ -323,7 +370,6 @@ export default function PaymentPage() {
     return { total, count, average };
   }, [payments]);
 
-  // Client-side pagination
   const totalPages = Math.max(1, Math.ceil(payments.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const paginated = payments.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
@@ -333,7 +379,6 @@ export default function PaymentPage() {
     setPage(1);
   };
 
-  // Pagination page numbers with ellipsis
   const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1)
     .filter((n) => n === 1 || n === totalPages || Math.abs(n - safePage) <= 1)
     .reduce<(number | "…")[]>((acc, n, i, arr) => {
@@ -343,12 +388,11 @@ export default function PaymentPage() {
     }, []);
 
   return (
-    <div className="min-h-screen bg-background px-4 py-6 sm:px-6 md:p-10">
-      <div className="mx-auto max-w-6xl space-y-7">
-        {/* ── Header ── */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+    <div className="min-h-screen bg-background px-3 py-4 sm:px-5 sm:py-6 lg:px-8 lg:py-8">
+      <div className="mx-auto w-full max-w-7xl space-y-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
               Payments History
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -361,7 +405,7 @@ export default function PaymentPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-2 text-sm"
+                className="w-full gap-2 md:w-auto"
                 disabled={isLoading || payments.length === 0}
               >
                 <Download size={14} />
@@ -382,58 +426,83 @@ export default function PaymentPage() {
           </DropdownMenu>
         </div>
 
-        {/* ── Filters ── */}
         <div className="rounded-xl border border-border/60 bg-card p-4 shadow-sm">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-            <div className="relative">
-              <Search
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              />
-              <Input
-                className="h-10 pl-9 text-sm focus-visible:ring-primary"
-                placeholder="Invoice # or supplier…"
-                value={query}
-                onChange={(e) => handleFilterChange(() => setQuery(e.target.value))}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-12">
+            <div className="sm:col-span-2 xl:col-span-4">
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Search
+              </label>
+              <div className="relative">
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                />
+                <Input
+                  className="h-11 w-full pl-9 text-sm"
+                  placeholder="Invoice # or supplier…"
+                  value={query}
+                  onChange={(e) => handleFilterChange(() => setQuery(e.target.value))}
+                />
+              </div>
+            </div>
+
+            <div className="xl:col-span-3">
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Payment Method
+              </label>
+              <Select value={method} onValueChange={(v) => handleFilterChange(() => setMethod(v))}>
+                <SelectTrigger className="h-11 w-full text-sm">
+                  <SelectValue placeholder="Payment method" />
+                </SelectTrigger>
+                <SelectContent className="border-border/60 bg-popover">
+                  <SelectItem value="all">All Methods</SelectItem>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="transfer">Transfer</SelectItem>
+                  <SelectItem value="cheque">Cheque</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="xl:col-span-2">
+              <DateField
+                label="From"
+                value={from}
+                inputRef={fromRef}
+                onChange={(value) => handleFilterChange(() => setFrom(value))}
               />
             </div>
 
-            <Select value={method} onValueChange={(v) => handleFilterChange(() => setMethod(v))}>
-              <SelectTrigger className="h-10 text-sm focus:ring-primary">
-                <SelectValue placeholder="Payment method" />
-              </SelectTrigger>
-              <SelectContent className="border-border/60 bg-popover">
-                <SelectItem value="all">All Methods</SelectItem>
-                <SelectItem value="cash">Cash</SelectItem>
-                <SelectItem value="card">Card</SelectItem>
-                <SelectItem value="transfer">Transfer</SelectItem>
-                <SelectItem value="cheque">Cheque</SelectItem>
-              </SelectContent>
-            </Select>
-
-            
-              <div className="relative">
-                <Input
-                  type="date"
-                  className="h-10 text-sm focus-visible:ring-primary"
-                  value={from}
-                  onChange={(e) => handleFilterChange(() => setFrom(e.target.value))}
-                />
-              </div>
-
-            <div className="relative">
-              <Input
-                type="date"
-                className="h-10 text-sm focus-visible:ring-primary"
+            <div className="xl:col-span-2">
+              <DateField
+                label="To"
                 value={to}
-                onChange={(e) => handleFilterChange(() => setFrom(e.target.value))}
+                inputRef={toRef}
+                onChange={(value) => handleFilterChange(() => setTo(value))}
               />
+            </div>
+
+            <div className="xl:col-span-1 flex items-end">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full"
+                onClick={() =>
+                  handleFilterChange(() => {
+                    setQuery("");
+                    setMethod("all");
+                    setFrom("");
+                    setTo("");
+                  })
+                }
+              >
+                Clear
+              </Button>
             </div>
           </div>
         </div>
 
-        {/* ── KPIs ── */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <KpiCard
             label="Total Paid"
             value={currency(kpis.total)}
@@ -453,9 +522,8 @@ export default function PaymentPage() {
           />
         </div>
 
-        {/* ── Table ── */}
         <div className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm">
-          <div className="flex flex-col gap-2 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Payment Ledger
             </p>
@@ -490,87 +558,83 @@ export default function PaymentPage() {
 
           {!isLoading && !isError && payments.length > 0 && (
             <>
-              {/* Mobile cards */}
               <div className="space-y-3 p-4 md:hidden">
-                {paginated.map((p) => {
-                  const methodKey = (p.method ?? "").toLowerCase();
-                  return (
-                    <div
-                      key={p.id}
-                      className="rounded-xl border border-border/60 bg-background p-4"
-                    >
-                      <div className="mb-3 flex items-start justify-between gap-3">
-                        <div>
-                          <div className="text-sm font-semibold capitalize text-foreground">
-                            {p.method ?? "Payment"}
-                          </div>
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            {fmt(p.paidAt)}
-                          </div>
+                {paginated.map((p) => (
+                  <div
+                    key={p.id}
+                    className="rounded-xl border border-border/60 bg-background p-4"
+                  >
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold capitalize text-foreground">
+                          {p.method ?? "Payment"}
                         </div>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "rounded-full px-2 py-0.5 text-[11px] font-medium",
-                            STATUS_STYLE[p.status ?? "POSTED"] ?? STATUS_STYLE.POSTED
-                          )}
-                        >
-                          {p.status ?? "POSTED"}
-                        </Badge>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                            Supplier
-                          </div>
-                          <div className="truncate text-foreground">
-                            {p.supplierName ?? p.supplierName ?? "—"}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                            Invoice
-                          </div>
-                          <div className="font-mono text-foreground">
-                            {p.invoiceNumber ? `#${p.invoiceNumber}` : "—"}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                            PO
-                          </div>
-                          <div className="text-foreground">{p.poNumber ?? "—"}</div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                            Amount
-                          </div>
-                          <div className="font-bold text-emerald-600 dark:text-emerald-400">
-                            {currency(Number(p.amount ?? 0))}
-                          </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {fmt(p.paidAt)}
                         </div>
                       </div>
-
-                      {(p.reference || p.id) && (
-                        <div className="mt-3 border-t border-border/60 pt-3 text-xs text-muted-foreground">
-                          {p.reference && (
-                            <div className="flex items-center gap-1">
-                              <Hash size={10} />
-                              {p.reference}
-                            </div>
-                          )}
-                          {!p.reference && <div>ID: {p.id}</div>}
-                        </div>
-                      )}
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "rounded-full px-2 py-0.5 text-[11px] font-medium",
+                          STATUS_STYLE[p.status ?? "POSTED"] ?? STATUS_STYLE.POSTED
+                        )}
+                      >
+                        {p.status ?? "POSTED"}
+                      </Badge>
                     </div>
-                  );
-                })}
+
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="min-w-0">
+                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                          Supplier
+                        </div>
+                        <div className="truncate text-foreground">
+                          {p.supplierName ?? "—"}
+                        </div>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                          Invoice
+                        </div>
+                        <div className="truncate font-mono text-foreground">
+                          {p.invoiceNumber ? `#${p.invoiceNumber}` : "—"}
+                        </div>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                          PO
+                        </div>
+                        <div className="truncate text-foreground">{p.poNumber ?? "—"}</div>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                          Amount
+                        </div>
+                        <div className="font-bold text-emerald-600 dark:text-emerald-400">
+                          {currency(Number(p.amount ?? 0))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {(p.reference || p.id) && (
+                      <div className="mt-3 border-t border-border/60 pt-3 text-xs text-muted-foreground">
+                        {p.reference ? (
+                          <div className="flex items-center gap-1 break-all">
+                            <Hash size={10} />
+                            {p.reference}
+                          </div>
+                        ) : (
+                          <div className="break-all">ID: {p.id}</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
 
-              {/* Desktop table */}
               <div className="hidden overflow-x-auto md:block">
-                <table className="w-full text-left">
+                <table className="min-w-[900px] w-full text-left">
                   <thead>
                     <tr className="border-b border-border/60 bg-muted/30 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       <th className="w-8 py-3 pl-4" />
@@ -593,15 +657,15 @@ export default function PaymentPage() {
             </>
           )}
 
-          {/* ── Pagination ── */}
           {!isLoading && !isError && totalPages > 1 && (
             <>
               <Separator />
-              <div className="flex flex-col gap-3 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
                 <p className="text-xs text-muted-foreground">
                   Showing {(safePage - 1) * PAGE_SIZE + 1}–
                   {Math.min(safePage * PAGE_SIZE, payments.length)} of {payments.length}
                 </p>
+
                 <div className="flex flex-wrap items-center gap-1">
                   <Button
                     variant="outline"
