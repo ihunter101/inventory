@@ -131,3 +131,65 @@ body,
     @apply bg-background text-foreground;
   }
 }
+.sidebar-shine::before {
+  content: "";
+  position: absolute;
+  top: -20%;
+  left: -140%;
+  width: 70%;
+  height: 140%;
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    transparent 35%,
+    rgba(255, 255, 255, 0.03) 45%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.03) 55%,
+    transparent 65%,
+    transparent 100%
+  );
+  transform: skewX(-20deg);
+  animation: sidebarShineSweep 8s ease-in-out infinite;
+}
+
+.dark .sidebar-shine::before {
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    transparent 35%,
+    rgba(255, 255, 255, 0.02) 45%,
+    rgba(255, 255, 255, 0.07) 50%,
+    rgba(255, 255, 255, 0.02) 55%,
+    transparent 65%,
+    transparent 100%
+  );
+}
+
+.sidebar-shine > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes sidebarShineSweep {
+  0% {
+    left: -140%;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  22% {
+    left: 140%;
+    opacity: 0;
+  }
+  100% {
+    left: 140%;
+    opacity: 0;
+  }
+}.sidebar-shine {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.04),
+    inset -1px 0 0 rgba(255,255,255,0.03);
+}

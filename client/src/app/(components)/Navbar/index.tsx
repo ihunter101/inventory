@@ -1,11 +1,21 @@
 "use client"
 
-import React from "react"
-import { usePathname, useRouter } from "next/navigation"
-import { Bell, Search, Settings, User, Moon, Sun, ChevronDown, ClipboardList } from "lucide-react"
+import * as React from "react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import {
+  Search,
+  Settings,
+  Moon,
+  Sun,
+  ChevronDown,
+  ClipboardList,
+  PanelLeftClose,
+  PanelLeftOpen,
+  LogOut,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { useSidebar } from "@/components/ui/sidebar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,129 +25,136 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import Link from "next/link"
-import { useClerk } from "@clerk/nextjs"
+import { useClerk, useUser } from "@clerk/nextjs"
 import { useAppSelector } from "@/app/redux"
 import { selectStockSheetCount } from "@/app/state/stockSheetSlice"
-import { useUser } from "@clerk/nextjs"
 import { useGetMeQuery } from "@/app/state/api"
 
-// Hamburger Menu Icon Component
-function HamburgerIcon({ isOpen }: { isOpen: boolean }) {
-  return (
-    <div className="flex h-5 w-5 flex-col items-center justify-center gap-1">
-      <span 
-        className={`h-0.5 w-5 bg-current transition-all duration-150 ${
-          isOpen ? 'translate-y-1.5 rotate-45' : ''
-        }`}
-      />
-      <span 
-        className={`h-0.5 w-5 bg-current transition-all duration-150 ${
-          isOpen ? 'opacity-0' : ''
-        }`}
-      />
-      <span 
-        className={`h-0.5 w-5 bg-current transition-all duration-150 ${
-          isOpen ? '-translate-y-1.5 -rotate-45' : ''
-        }`}
-      />
-    </div> 
-  )
+type NavbarProps = {
+  sidebarOpen: boolean
+  isMobile: boolean
+  onToggleSidebar: () => void
 }
 
 function StockSheetNavbarButton() {
-  const count = useAppSelector(selectStockSheetCount);
+  const count = useAppSelector(selectStockSheetCount)
 
   return (
     <Link
       href="/stock-sheet"
-      className="relative inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-300 hover:bg-gradient-to-r hover:from-emerald-50 hover:to-green-50 hover:shadow-sm group"
+      className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-border/60 bg-background px-3 py-2 text-sm font-medium transition hover:bg-accent hover:text-accent-foreground"
     >
       <div className="relative">
-        <ClipboardList className="h-5 w-5 text-emerald-600 group-hover:text-emerald-700 transition-colors" />
+        <ClipboardList className="h-5 w-5 text-emerald-600" />
         {count > 0 && (
-          <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-r from-emerald-500 to-green-600 text-[10px] font-bold text-white shadow-lg shadow-emerald-500/30 animate-pulse">
+          <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-600 px-1 text-[10px] font-bold text-white">
             {count}
           </span>
         )}
       </div>
-      <span className="text-gray-700 group-hover:text-emerald-700 transition-colors">
-        Stock Sheet
-      </span>
+
+      <span className="hidden lg:inline">Stock Sheet</span>
     </Link>
-  );
+  )
 }
 
-// Generate page title from pathname
 function getPageTitle(pathname: string) {
   const segments = pathname.split("/").filter(Boolean)
   if (segments.length === 0) return "Dashboard"
-  const lastSegment = segments[segments.length - 1]
-  return lastSegment.charAt(0).toUpperCase() + lastSegment.slice(1)
+
+  const last = segments[segments.length - 1]
+  return last
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
 }
 
-export default function Navbar() {
-  const router = useRouter()
-  const { user } = useUser();
+function getInitials(name?: string | null) {
+  if (!name) return "U"
+  const parts = name.trim().split(" ")
+  const first = parts[0]?.[0] ?? ""
+  const second = parts[1]?.[0] ?? ""
+  return `${first}${second}`.toUpperCase() || "U"
+}
+
+function formatRole(role?: string | null) {
+  if (!role) return "User"
+
+  return role
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_-]/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+export default function Navbar({
+  sidebarOpen,
+  isMobile,
+  onToggleSidebar,
+}: NavbarProps) {
+  const pathname = usePathname()
+  const pageTitle = getPageTitle(pathname)
+
   const { signOut } = useClerk()
+  const { user } = useUser()
+  const { data } = useGetMeQuery()
 
-  const { data } = useGetMeQuery();
+  const fullName = user?.fullName || data?.user?.name || "User"
+  const email =
+    user?.primaryEmailAddress?.emailAddress || data?.user?.email || "No email"
+  const roleLabel = formatRole(data?.user?.role)
+  const imageUrl =
+    user?.imageUrl || data?.user?.imageUrl || "/placeholder-avatar.jpg"
 
-  const userRole = data?.user.role
+  const [theme, setTheme] = React.useState<"light" | "dark">("light")
+
+  React.useEffect(() => {
+    const isDark = document.documentElement.classList.contains("dark")
+    setTheme(isDark ? "dark" : "light")
+  }, [])
+
+  const toggleTheme = () => {
+    const next = theme === "light" ? "dark" : "light"
+    setTheme(next)
+    document.documentElement.classList.toggle("dark", next === "dark")
+  }
 
   const handleLogout = async () => {
     await signOut({ redirectUrl: "/sign-in" })
   }
-  
-  const pathname = usePathname()
-  const pageTitle = getPageTitle(pathname)
-  const [theme, setTheme] = React.useState<"light" | "dark">("light")
-  const { toggleSidebar, state } = useSidebar()
-
-  const toggleTheme = () => {
-    const newTheme = theme === "light" ? "dark" : "light"
-    setTheme(newTheme)
-    document.documentElement.classList.toggle("dark")
-  }
-
-  const isOpen = state === "expanded"
 
   return (
-    <div className="flex flex-1 items-center justify-between gap-4">
-      {/* Left Side - Hamburger + Title */}
-      <div className="flex items-center gap-3">
-        {/* Custom Hamburger Menu */}
-        <Button 
-          variant="ghost" 
+    <div className="flex w-full items-center justify-between gap-3">
+      <div className="flex min-w-0 items-center gap-3">
+        <Button
+          variant="ghost"
           size="icon"
-          onClick={toggleSidebar}
-          className="h-9 w-9 transition-colors"
+          onClick={onToggleSidebar}
+          className="h-9 w-9 shrink-0"
+          aria-label="Toggle sidebar"
         >
-          <HamburgerIcon isOpen={isOpen} />
-          <span className="sr-only">Toggle Sidebar</span>
+          {sidebarOpen ? (
+            <PanelLeftClose className="h-5 w-5" />
+          ) : (
+            <PanelLeftOpen className="h-5 w-5" />
+          )}
         </Button>
 
-        {/* Page Title */}
-        <h1 className="text-lg font-semibold text-foreground">{pageTitle}</h1>
+        <h1 className="truncate text-lg font-semibold">{pageTitle}</h1>
       </div>
 
-      {/* Right Side Actions */}
-      <div className="flex items-center gap-2">
-        {/* Search - Hidden on mobile */}
-        <div className="hidden md:flex">
+      <div className="flex min-w-0 shrink-0 items-center gap-2">
+        <div className="hidden 2xl:block">
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
               placeholder="Search..."
-              className="w-[200px] pl-8 lg:w-[300px]"
+              className="w-[220px] pl-8"
             />
           </div>
         </div>
 
-        {/* Theme Toggle */}
-        <Button variant="ghost" size="icon" onClick={toggleTheme}>
+        <Button variant="ghost" size="icon" onClick={toggleTheme} className="shrink-0">
           {theme === "light" ? (
             <Moon className="h-5 w-5" />
           ) : (
@@ -145,93 +162,66 @@ export default function Navbar() {
           )}
         </Button>
 
-        {/* Stock Sheet Button - Fixed */}
         <StockSheetNavbarButton />
 
-        {/* Notifications
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-5 w-5" />
-              <Badge className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full p-0 text-[10px]">
-                3
-              </Badge>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <div className="max-h-80 overflow-y-auto">
-              <DropdownMenuItem className="flex flex-col items-start py-3">
-                <div className="font-medium">Low stock alert</div>
-                <div className="text-xs text-muted-foreground">
-                  5 products are running low on stock
-                </div>
-                <div className="text-xs text-muted-foreground">2 hours ago</div>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="flex flex-col items-start py-3">
-                <div className="font-medium">New purchase order</div>
-                <div className="text-xs text-muted-foreground">
-                  PO-2025-001 has been approved
-                </div>
-                <div className="text-xs text-muted-foreground">5 hours ago</div>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="flex flex-col items-start py-3">
-                <div className="font-medium">Invoice received</div>
-                <div className="text-xs text-muted-foreground">
-                  New invoice from Fisher Scientific
-                </div>
-                <div className="text-xs text-muted-foreground">1 day ago</div>
-              </DropdownMenuItem>
-            </div>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="w-full justify-center text-center">
-              View all notifications
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu> */}
-
-        {/* User Menu */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="gap-2 pl-2 pr-2">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src="/placeholder-avatar.jpg" alt="User" />
-                <AvatarFallback className="bg-primary text-primary-foreground">
-                  {user?.imageUrl || "/placeholder-avatar.jpg"}
-                </AvatarFallback>
+            <button
+              className="inline-flex min-w-0 shrink-0 items-center gap-3 rounded-xl border border-border/60 bg-background px-2 sm:px-3 py-1.5 transition hover:bg-accent hover:text-accent-foreground"
+            >
+              <Avatar className="h-8 w-8 shrink-0">
+                <AvatarImage src={imageUrl} alt={fullName} />
+                <AvatarFallback>{getInitials(fullName)}</AvatarFallback>
               </Avatar>
-              <div className="hidden flex-col items-start text-left lg:flex">
-                <span className="text-sm font-medium">{user?.fullName}</span>
-                <span className="text-xs text-muted-foreground">{userRole}</span>
+
+              <div className="hidden min-w-0 text-left leading-tight sm:block">
+                <p className="max-w-[120px] truncate text-sm font-semibold xl:max-w-[160px]">
+                  {fullName}
+                </p>
+                <p className="max-w-[120px] truncate text-xs text-muted-foreground xl:max-w-[160px]">
+                  {roleLabel}
+                </p>
               </div>
-              <ChevronDown className="hidden h-4 w-4 opacity-50 lg:block" />
-            </Button>
+
+              <ChevronDown className="h-4 w-4 shrink-0 opacity-60" />
+            </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>
-              <div className="flex flex-col">
-                <span className="font-medium">{user?.fullName}</span>
-                <span className="text-xs text-muted-foreground">{user?.primaryEmailAddress?.emailAddress}</span>
+
+          <DropdownMenuContent align="end" className="w-64 rounded-xl">
+            <DropdownMenuLabel className="p-3">
+              <div className="flex items-center gap-3">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={imageUrl} alt={fullName} />
+                  <AvatarFallback>{getInitials(fullName)}</AvatarFallback>
+                </Avatar>
+
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{fullName}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {email}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {roleLabel}
+                  </p>
+                </div>
               </div>
             </DropdownMenuLabel>
+
             <DropdownMenuSeparator />
-            {/* <DropdownMenuItem>
-              <User className="mr-2 h-4 w-4" />
-              Profile
-            </DropdownMenuItem> */}
+
             <DropdownMenuItem asChild>
               <Link href="/settings" className="flex items-center">
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Settings</span>
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem 
-              className="text-destructive focus:text-destructive"
+
+            <DropdownMenuItem
               onSelect={handleLogout}
+              className="text-destructive focus:text-destructive"
             >
-              Log out
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

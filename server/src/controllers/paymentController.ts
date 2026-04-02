@@ -114,53 +114,90 @@ export const getInvoicePaymentSummary = async (req: Request, res: Response) => {
     return res.status(500).json({ message: "Failed to fetch the invoice summary.", debug: e?.message})
   }
 }
-
 export const getPaymentsHistory = async (req: Request, res: Response) => {
-  const { invoiceId, poId, q, from, to, method } = req.query;
+  try {
+    const { invoiceId, poId, q, from, to, method } = req.query;
 
-  const where: any = {}
-  if (invoiceId) where.invoiceId = invoiceId;
-  if (method) where.method = method
+    const where: any = {};
 
-  if (from || to ) {
-    //initialize the object as an empty filter
-    where.paidAt = {};
+    if (invoiceId) where.invoiceId = invoiceId;
+    if (method) where.method = method;
 
-    if (from) where.paidAt.gte = new Date(from as string);
-    if (to) where.paidAt.lte = new Date(to as string)
+    if (from || to) {
+      where.paidAt = {};
+
+      if (from) {
+        const [y, m, d] = String(from).split("-").map(Number);
+        const fromDate = new Date(y, m - 1, d, 0, 0, 0, 0);
+        where.paidAt.gte = fromDate;
+      }
+
+      if (to) {
+        const [y, m, d] = String(to).split("-").map(Number);
+        const nextDay = new Date(y, m - 1, d + 1, 0, 0, 0, 0);
+        where.paidAt.lt = nextDay;
+      }
+    }
+
+    if (poId || q) {
+      where.invoice = {};
+
+      if (poId) {
+        where.invoice.poId = poId;
+      }
+
+      if (q) {
+        where.invoice.OR = [
+          {
+            invoiceNumber: {
+              contains: q as string,
+              mode: "insensitive",
+            },
+          },
+          {
+            supplier: {
+              is: {
+                name: {
+                  contains: q as string,
+                  mode: "insensitive",
+                },
+              },
+            },
+          },
+        ];
+      }
+    }
+
+    const rows = await prisma.invoicePayment.findMany({
+      where,
+      include: {
+        invoice: {
+          include: {
+            supplier: true,
+            po: true,
+          },
+        },
+      },
+      orderBy: { paidAt: "desc" },
+    });
+
+    res.json(
+      rows.map((p) => ({
+        id: p.id,
+        invoiceId: p.invoiceId,
+        invoiceNumber: p.invoice?.invoiceNumber ?? null,
+        amount: p.amount.toString(),
+        paidAt: p.paidAt.toISOString(),
+        method: p.method ?? null,
+        reference: p.reference ?? null,
+        status: p.status ?? null,
+        supplierName: p.invoice?.supplier?.name ?? null,
+        poId: p.invoice?.poId ?? null,
+        poNumber: p.invoice?.po?.poNumber ?? null,
+      }))
+    );
+  } catch (error) {
+    console.error("Error retrieving payment history:", error);
+    res.status(500).json({ message: "Error retrieving payment history" });
   }
-
-  if (poId || q) {
-    //if we have a purchase order id  or a query then we initialize an empty filter object 
-    where.invoice = {}
-    if (poId) where.invoice.poId = poId
-    if (q) where.invoice.OR = [
-      { invoiceNumber: { contains: q as string, mode: "insensitive" } },
-      { supplier: { is : { name: { contains: q as string, mode: "insentiive "} } } },
-    ]
-  }
-
-  const rows = await prisma.invoicePayment.findMany({
-    where, 
-    include: {
-      invoice: {
-        include: { supplier: true, po: true },
-      }, 
-    },
-    orderBy: { paidAt: "desc" },
-  });
-
-  res.json(rows.map((p) => ({
-    id: p.id,
-    invoiceId: p.invoiceId,
-    invoiceNumber: p.invoice?.invoiceNumber ?? null,
-    amount: p.amount,
-    paidAt: p.paidAt.toISOString(),
-    method: p.method ?? null,
-    reference: p.reference ?? null,
-    supplierName: p.invoice?.supplier?.name ?? null,
-    //notes: p.notes ?? null,
-    poId: p.invoice?.poId ?? null,
-    poNumber: p.invoice?.po?.poNumber ?? null
-  })))
-}
+};

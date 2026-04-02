@@ -1,79 +1,97 @@
-// client/app/(private)/DashboardWrapper.tsx
 "use client"
-import React from "react"
+
+import * as React from "react"
 import { usePathname } from "next/navigation"
-import { SidebarProvider, SidebarInset, SidebarTrigger, useSidebar } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/app/(components)/Navbar/Sidebar/index"
+import { AppSidebar } from "@/app/(components)/Navbar/Sidebar"
 import Navbar from "@/app/(components)/Navbar"
 
 interface DashboardWrapperProps {
   children: React.ReactNode
+  defaultSidebarOpen?: boolean
 }
 
-function SidebarContent({ children }: { children: React.ReactNode }) {
+const DESKTOP_BREAKPOINT = 1024
+
+export default function DashboardWrapper({
+  children,
+  defaultSidebarOpen = true,
+}: DashboardWrapperProps) {
   const pathname = usePathname()
-  const { setOpenMobile, isMobile, state, open, setOpen } = useSidebar()
-  
-  // Force sidebar open on mount for desktop
+
+  const [isMobile, setIsMobile] = React.useState(false)
+  const [sidebarOpen, setSidebarOpen] = React.useState(defaultSidebarOpen)
+  const [mounted, setMounted] = React.useState(false)
+
   React.useEffect(() => {
-    if (!isMobile && !open) {
-      console.log("🔧 Force opening sidebar on desktop")
-      setOpen(true)
+    setMounted(true)
+
+    const media = window.matchMedia(`(max-width: ${DESKTOP_BREAKPOINT - 1}px)`)
+
+    const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
+      const mobile = e.matches
+      setIsMobile(mobile)
+
+      if (mobile) {
+        setSidebarOpen(false)
+      } else {
+        const stored =
+          localStorage.getItem("sidebar_state") ??
+          String(defaultSidebarOpen)
+        setSidebarOpen(stored === "true")
+      }
     }
-  }, [isMobile, open, setOpen])
-  
-  // Debug logging
+
+    handleChange(media)
+
+    const listener = (e: MediaQueryListEvent) => handleChange(e)
+    media.addEventListener("change", listener)
+
+    return () => media.removeEventListener("change", listener)
+  }, [defaultSidebarOpen])
+
   React.useEffect(() => {
-    console.log("🔍 Sidebar state:", { 
-      isMobile, 
-      state, 
-      open,
-      pathname 
-    })
-  }, [isMobile, state, open, pathname])
-  
-  // Close mobile sidebar on navigation
+    if (!mounted || isMobile) return
+    document.cookie = `sidebar_state=${sidebarOpen}; path=/; max-age=${60 * 60 * 24 * 30}`
+    localStorage.setItem("sidebar_state", String(sidebarOpen))
+  }, [sidebarOpen, mounted, isMobile])
+
   React.useEffect(() => {
     if (isMobile) {
-      setOpenMobile(false)
+      setSidebarOpen(false)
     }
-  }, [pathname, isMobile, setOpenMobile])
-  
-  return (
-    <>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4">
-          <SidebarTrigger className="-ml-1" />
-          <div className="flex-1">
-            <Navbar />
-          </div>
-        </header>
-        <main className="flex flex-1 flex-col p-4 md:p-6 lg:p-8">
-          {children}
-        </main>
-      </SidebarInset>
-    </>
-  )
-}
+  }, [pathname, isMobile])
 
-export default function DashboardWrapper({ children }: DashboardWrapperProps) {
-  // Use controlled state to override cookie behavior
-  const [open, setOpen] = React.useState(true)
-  
-  const handleOpenChange = React.useCallback((newOpen: boolean) => {
-    console.log("📝 Sidebar open changed to:", newOpen)
-    setOpen(newOpen)
-    
-    // Manually set cookie since we're controlling state
-    document.cookie = `sidebar_state=${newOpen}; path=/; max-age=${60 * 60 * 24 * 7}`
+  const toggleSidebar = React.useCallback(() => {
+    setSidebarOpen((prev) => !prev)
   }, [])
-  
+
+  const closeMobileSidebar = React.useCallback(() => {
+    if (isMobile) setSidebarOpen(false)
+  }, [isMobile])
+
   return (
-    <SidebarProvider open={open} onOpenChange={handleOpenChange}>
-      <SidebarContent>
-        {children}
-      </SidebarContent>
-    </SidebarProvider>
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="flex min-h-screen">
+        <AppSidebar
+          open={sidebarOpen}
+          isMobile={isMobile}
+          onCloseMobile={closeMobileSidebar}
+        />
+
+        <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+          <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="flex h-16 items-center px-4 md:px-6">
+              <Navbar
+                sidebarOpen={sidebarOpen}
+                isMobile={isMobile}
+                onToggleSidebar={toggleSidebar}
+              />
+            </div>
+          </header>
+
+          <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
+        </div>
+      </div>
+    </div>
   )
 }

@@ -2,6 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 
+const BRANCHES = [
+  "Tapion",
+  "Manoel Street",
+  "Blue Coral Mall",
+  "Sunny Acres",
+  "Em-Care Clinic",
+  "Rodney Bay",
+  "Member-Care Clinic",
+  "Vieux Fort",
+  "Soufriere",
+];
+
 // ── ECG Strip ─────────────────────────────────────────────────────────────────
 function ECGStrip() {
   const canvasRef = useRef(null);
@@ -23,7 +35,10 @@ function ECGStrip() {
       if (p < 0.08) return -Math.sin((p / 0.08) * Math.PI) * 0.18;
       if (p < 0.14) return 0;
       if (p < 0.17) return ((p - 0.14) / 0.03) * 0.22;
-      if (p < 0.21) { const x = (p - 0.17) / 0.04; return 0.22 - Math.sin(x * Math.PI) * 1.0; }
+      if (p < 0.21) {
+        const x = (p - 0.17) / 0.04;
+        return 0.22 - Math.sin(x * Math.PI) * 1.0;
+      }
       if (p < 0.25) return ((p - 0.21) / 0.04) * 0.28 - 0.28;
       if (p < 0.30) return -0.28 + ((p - 0.25) / 0.05) * 0.28;
       if (p < 0.48) return -Math.sin(((p - 0.30) / 0.18) * Math.PI) * 0.28;
@@ -35,16 +50,20 @@ function ECGStrip() {
     const cycleWidth = 200;
 
     const draw = () => {
-      const W = canvas.width, H = canvas.height;
-      const midY = H / 2, amp = H * 0.38;
+      const W = canvas.width,
+        H = canvas.height;
+      const midY = H / 2,
+        amp = H * 0.38;
       ctx.clearRect(0, 0, W, H);
 
       ctx.beginPath();
       let started = false;
       for (let x = 0; x <= W; x++) {
         const y = midY + ecgY(((x + offset) % cycleWidth) / cycleWidth) * amp;
-        if (!started) { ctx.moveTo(x, y); started = true; }
-        else ctx.lineTo(x, y);
+        if (!started) {
+          ctx.moveTo(x, y);
+          started = true;
+        } else ctx.lineTo(x, y);
       }
       ctx.strokeStyle = "#16a34a";
       ctx.lineWidth = 2;
@@ -77,11 +96,20 @@ function ECGStrip() {
 
   return (
     <div style={{ position: "relative", height: 56, overflow: "hidden" }}>
-      <div style={{
-        position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none",
-        background: "linear-gradient(90deg, white 0%, transparent 6%, transparent 94%, white 100%)",
-      }} />
-      <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: "block" }} />
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 2,
+          pointerEvents: "none",
+          background:
+            "linear-gradient(90deg, white 0%, transparent 6%, transparent 94%, white 100%)",
+        }}
+      />
+      <canvas
+        ref={canvasRef}
+        style={{ width: "100%", height: "100%", display: "block" }}
+      />
     </div>
   );
 }
@@ -93,66 +121,128 @@ function Counter({ target, suffix = "" }) {
   const started = useRef(false);
 
   useEffect(() => {
-    const obs = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting && !started.current) {
-        started.current = true;
-        const t0 = performance.now();
-        const tick = (now) => {
-          const prog = Math.min((now - t0) / 1800, 1);
-          const ease = 1 - Math.pow(1 - prog, 3);
-          setV(Math.floor(ease * target));
-          if (prog < 1) requestAnimationFrame(tick);
-          else setV(target);
-        };
-        requestAnimationFrame(tick);
-      }
-    }, { threshold: 0.5 });
+    const obs = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting && !started.current) {
+          started.current = true;
+          const t0 = performance.now();
+          const tick = (now) => {
+            const prog = Math.min((now - t0) / 1800, 1);
+            const ease = 1 - Math.pow(1 - prog, 3);
+            setV(Math.floor(ease * target));
+            if (prog < 1) requestAnimationFrame(tick);
+            else setV(target);
+          };
+          requestAnimationFrame(tick);
+        }
+      },
+      { threshold: 0.5 }
+    );
     if (ref.current) obs.observe(ref.current);
     return () => obs.disconnect();
   }, [target]);
 
-  return <span ref={ref}>{v}{suffix}</span>;
+  return (
+    <span ref={ref}>
+      {v}
+      {suffix}
+    </span>
+  );
 }
 
 // ── Floating Order Card ───────────────────────────────────────────────────────
 function OrderCard() {
   return (
-    <div style={{
-      background: "white",
-      borderRadius: 16,
-      padding: "14px 18px",
-      boxShadow: "0 8px 32px rgba(0,0,0,0.13)",
-      border: "1px solid #f0fdf4",
-      minWidth: 240,
-      animation: "bobble 4s ease-in-out 0s infinite",
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-        <div style={{
-          width: 38, height: 38, borderRadius: 10,
-          background: "#dcfce7",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 18, flexShrink: 0,
-        }}>🧫</div>
+    <div
+      style={{
+        background: "white",
+        borderRadius: 16,
+        padding: "14px 18px",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.13)",
+        border: "1px solid #f0fdf4",
+        minWidth: 220,
+        maxWidth: 260,
+        width: "100%",
+        animation: "bobble 4s ease-in-out 0s infinite",
+      }}
+    >
+      <div
+        style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}
+      >
+        <div
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 10,
+            background: "#dcfce7",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 18,
+            flexShrink: 0,
+          }}
+        >
+          🧫
+        </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 700, color: "#111827" }}>
+          <div
+            style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: 13,
+              fontWeight: 700,
+              color: "#111827",
+            }}
+          >
             Culture Swab Kit ×50
           </div>
-          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#9ca3af" }}>
+          <div
+            style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: 11,
+              color: "#9ca3af",
+            }}
+          >
             Requested by Dr. James
           </div>
         </div>
-        <span style={{
-          padding: "3px 10px", borderRadius: 100,
-          fontSize: 10, fontWeight: 700,
-          background: "#dcfce7", color: "#166534",
-          fontFamily: "'DM Sans', sans-serif",
-          whiteSpace: "nowrap", flexShrink: 0,
-        }}>✓ Fulfilled</span>
+        <span
+          style={{
+            padding: "3px 10px",
+            borderRadius: 100,
+            fontSize: 10,
+            fontWeight: 700,
+            background: "#dcfce7",
+            color: "#166534",
+            fontFamily: "'DM Sans', sans-serif",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+          }}
+        >
+          ✓ Fulfilled
+        </span>
       </div>
       <div style={{ height: 1, background: "#f3f4f6", marginBottom: 10 }} />
-      <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#9ca3af" }}>Tapion Branch</span>
-        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "#16a34a" }}>Today, 9:14 am</span>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+        <span
+          style={{
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: 11,
+            color: "#9ca3af",
+          }}
+        >
+          Tapion Branch
+        </span>
+        <span
+          style={{
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: 11,
+            fontWeight: 600,
+            color: "#16a34a",
+            textAlign: "right",
+          }}
+        >
+          Today, 9:14 am
+        </span>
       </div>
     </div>
   );
@@ -168,29 +258,73 @@ function StockCard() {
   ];
 
   return (
-    <div style={{
-      background: "white",
-      borderRadius: 16,
-      padding: "16px 18px",
-      boxShadow: "0 8px 30px rgba(0,0,0,0.10)",
-      border: "1px solid #f3f4f6",
-      minWidth: 196,
-      animation: "bobble 4s ease-in-out 1.4s infinite",
-    }}>
-      <div style={{
-        fontFamily: "'DM Sans', sans-serif",
-        fontSize: 10, fontWeight: 700,
-        color: "#9ca3af", letterSpacing: "0.1em",
-        textTransform: "uppercase", marginBottom: 12,
-      }}>Stock Levels</div>
+    <div
+      style={{
+        background: "white",
+        borderRadius: 16,
+        padding: "16px 18px",
+        boxShadow: "0 8px 30px rgba(0,0,0,0.10)",
+        border: "1px solid #f3f4f6",
+        minWidth: 180,
+        maxWidth: 220,
+        width: "100%",
+        animation: "bobble 4s ease-in-out 1.4s infinite",
+      }}
+    >
+      <div
+        style={{
+          fontFamily: "'DM Sans', sans-serif",
+          fontSize: 10,
+          fontWeight: 700,
+          color: "#9ca3af",
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          marginBottom: 12,
+        }}
+      >
+        Stock Levels
+      </div>
       {bars.map(({ label, pct, color }) => (
         <div key={label} style={{ marginBottom: 9 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "#374151" }}>{label}</span>
-            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#9ca3af" }}>{pct}%</span>
+          <div
+            style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}
+          >
+            <span
+              style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: 11,
+                fontWeight: 600,
+                color: "#374151",
+              }}
+            >
+              {label}
+            </span>
+            <span
+              style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: 11,
+                color: "#9ca3af",
+              }}
+            >
+              {pct}%
+            </span>
           </div>
-          <div style={{ height: 5, borderRadius: 100, background: "#f3f4f6", overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 100 }} />
+          <div
+            style={{
+              height: 5,
+              borderRadius: 100,
+              background: "#f3f4f6",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                height: "100%",
+                width: `${pct}%`,
+                background: color,
+                borderRadius: 100,
+              }}
+            />
           </div>
         </div>
       ))}
@@ -201,16 +335,40 @@ function StockCard() {
 // ── Fulfillment Badge ─────────────────────────────────────────────────────────
 function FulfillmentBadge() {
   return (
-    <div style={{
-      background: "#16a34a",
-      borderRadius: 16,
-      padding: "16px 22px",
-      boxShadow: "0 8px 24px rgba(22,163,74,0.35)",
-      display: "flex", flexDirection: "column", alignItems: "center",
-      animation: "bobble 4s ease-in-out 0.7s infinite",
-    }}>
-      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 30, fontWeight: 800, color: "white", lineHeight: 1 }}>24h</div>
-      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "rgba(255,255,255,0.85)", marginTop: 4, textAlign: "center" }}>Avg. Fulfillment</div>
+    <div
+      style={{
+        background: "#16a34a",
+        borderRadius: 16,
+        padding: "16px 22px",
+        boxShadow: "0 8px 24px rgba(22,163,74,0.35)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        animation: "bobble 4s ease-in-out 0.7s infinite",
+      }}
+    >
+      <div
+        style={{
+          fontFamily: "'DM Sans', sans-serif",
+          fontSize: 30,
+          fontWeight: 800,
+          color: "white",
+          lineHeight: 1,
+        }}
+      >
+        24h
+      </div>
+      <div
+        style={{
+          fontFamily: "'DM Sans', sans-serif",
+          fontSize: 11,
+          color: "rgba(255,255,255,0.85)",
+          marginTop: 4,
+          textAlign: "center",
+        }}
+      >
+        Avg. Fulfillment
+      </div>
     </div>
   );
 }
@@ -218,70 +376,238 @@ function FulfillmentBadge() {
 // ── Nav ───────────────────────────────────────────────────────────────────────
 function Nav() {
   const [scrolled, setScrolled] = useState(false);
+  const [branchOpen, setBranchOpen] = useState(false);
+
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 30);
     window.addEventListener("scroll", fn);
     return () => window.removeEventListener("scroll", fn);
   }, []);
 
+  useEffect(() => {
+    const close = () => setBranchOpen(false);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, []);
+
   return (
-    <nav style={{
-      position: "sticky", top: 0, zIndex: 100,
-      background: "rgba(255,255,255,0.97)",
-      backdropFilter: "blur(12px)",
-      borderBottom: scrolled ? "1px solid #e5e7eb" : "1px solid #f3f4f6",
-      padding: "0 48px", height: 68,
-      display: "flex", alignItems: "center", justifyContent: "space-between",
-      transition: "border-color 0.3s",
-    }}>
+    <nav
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 100,
+        background: "rgba(255,255,255,0.97)",
+        backdropFilter: "blur(12px)",
+        borderBottom: scrolled ? "1px solid #e5e7eb" : "1px solid #f3f4f6",
+        padding: "14px clamp(16px, 4vw, 48px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 16,
+        flexWrap: "wrap",
+        transition: "border-color 0.3s",
+      }}
+    >
       {/* Logo */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <img src="/logo.png" alt="LSC" style={{ width: 38, height: 38, objectFit: "contain" }} />
+      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+        <img
+          src="/logo.png"
+          alt="LSC"
+          style={{ width: 38, height: 38, objectFit: "contain", flexShrink: 0 }}
+        />
         <div>
-          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700, color: "#111827", lineHeight: 1.1 }}>LSC Inventory</div>
-          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#16a34a", fontWeight: 600 }}>Supply Portal</div>
+          <div
+            style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: 14,
+              fontWeight: 700,
+              color: "#111827",
+              lineHeight: 1.1,
+            }}
+          >
+            LSC Inventory
+          </div>
+          <div
+            style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: 11,
+              color: "#16a34a",
+              fontWeight: 600,
+            }}
+          >
+            Supply Portal
+          </div>
         </div>
       </div>
 
       {/* Links */}
-      <div style={{ display: "flex", gap: 28, alignItems: "center" }}>
-        {["Catalogue", "My Orders", "Branches", "Support"].map((label) => (
-          <a key={label} href="#" style={{
-            fontFamily: "'DM Sans', sans-serif", fontSize: 14,
-            color: "#4b5563", textDecoration: "none", fontWeight: 500,
-            transition: "color 0.2s",
+      <div
+        style={{
+          display: "flex",
+          gap: 18,
+          alignItems: "center",
+          flexWrap: "wrap",
+          position: "relative",
+        }}
+      >
+        <a
+          href="#"
+          style={{
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: 14,
+            color: "#4b5563",
+            textDecoration: "none",
+            fontWeight: 500,
           }}
-            onMouseEnter={e => e.target.style.color = "#16a34a"}
-            onMouseLeave={e => e.target.style.color = "#4b5563"}
-          >{label}</a>
-        ))}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "#16a34a")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "#4b5563")}
+        >
+          My Orders
+        </a>
+
+        <div
+          style={{ position: "relative" }}
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setBranchOpen((prev) => !prev)}
+            style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: 14,
+              color: "#4b5563",
+              fontWeight: 500,
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            Branches
+            <span style={{ fontSize: 10 }}>{branchOpen ? "▲" : "▼"}</span>
+          </button>
+
+          {branchOpen && (
+            <div
+              style={{
+                position: "absolute",
+                top: "calc(100% + 10px)",
+                left: 0,
+                minWidth: 220,
+                maxWidth: 260,
+                background: "white",
+                border: "1px solid #e5e7eb",
+                borderRadius: 12,
+                boxShadow: "0 10px 30px rgba(0,0,0,0.10)",
+                padding: 8,
+                zIndex: 200,
+              }}
+            >
+              {BRANCHES.map((branch) => (
+                <div
+                  key={branch}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 8,
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: 14,
+                    color: "#374151",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "#f9fafb")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "transparent")
+                  }
+                >
+                  {branch}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <a
+          href="https://www.slulabservices.com/the-lab/contact-us/"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: 14,
+            color: "#4b5563",
+            textDecoration: "none",
+            fontWeight: 500,
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "#16a34a")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "#4b5563")}
+        >
+          Contact
+        </a>
       </div>
 
       {/* Buttons */}
-      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-        <a href="/sign-up" style={{
-          display: "inline-flex", alignItems: "center",
-          padding: "9px 18px", borderRadius: 10,
-          background: "white", color: "#374151",
-          border: "1.5px solid #e5e7eb",
-          fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 500,
-          textDecoration: "none", transition: "all 0.2s",
-        }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = "#16a34a"; e.currentTarget.style.color = "#16a34a"; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.color = "#374151"; }}
-        >Sign Up</a>
-        <a href="/sign-in" style={{
-          display: "inline-flex", alignItems: "center",
-          padding: "9px 18px", borderRadius: 10,
-          background: "#16a34a", color: "white",
-          border: "none",
-          fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 600,
-          textDecoration: "none", transition: "all 0.2s",
-          boxShadow: "0 4px 14px rgba(22,163,74,0.3)",
-        }}
-          onMouseEnter={e => { e.currentTarget.style.background = "#15803d"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-          onMouseLeave={e => { e.currentTarget.style.background = "#16a34a"; e.currentTarget.style.transform = "translateY(0)"; }}
-        >Request Stock</a>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <a
+          href="/sign-up"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "9px 18px",
+            borderRadius: 10,
+            background: "white",
+            color: "#374151",
+            border: "1.5px solid #e5e7eb",
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: 14,
+            fontWeight: 500,
+            textDecoration: "none",
+            transition: "all 0.2s",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = "#16a34a";
+            e.currentTarget.style.color = "#16a34a";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = "#e5e7eb";
+            e.currentTarget.style.color = "#374151";
+          }}
+        >
+          Sign Up
+        </a>
+        <a
+          href="/sign-in"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "9px 18px",
+            borderRadius: 10,
+            background: "#16a34a",
+            color: "white",
+            border: "none",
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: 14,
+            fontWeight: 600,
+            textDecoration: "none",
+            transition: "all 0.2s",
+            boxShadow: "0 4px 14px rgba(22,163,74,0.3)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "#15803d";
+            e.currentTarget.style.transform = "translateY(-1px)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "#16a34a";
+            e.currentTarget.style.transform = "translateY(0)";
+          }}
+        >
+          Request Stock
+        </a>
       </div>
     </nav>
   );
@@ -295,26 +621,66 @@ function StepCard({ step, icon, title, desc, iconBg }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: "white", borderRadius: 20, padding: "32px 28px",
+        background: "white",
+        borderRadius: 20,
+        padding: "32px 28px",
         border: "1.5px solid #f3f4f6",
-        boxShadow: hovered ? "0 12px 32px rgba(0,0,0,0.10)" : "0 2px 12px rgba(0,0,0,0.05)",
+        boxShadow: hovered
+          ? "0 12px 32px rgba(0,0,0,0.10)"
+          : "0 2px 12px rgba(0,0,0,0.05)",
         transform: hovered ? "translateY(-4px)" : "translateY(0)",
         transition: "all 0.25s ease",
-      }}>
-      <div style={{
-        width: 52, height: 52, borderRadius: 14, background: iconBg,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 24, marginBottom: 20,
-      }}>{icon}</div>
-      <div style={{
-        fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 700,
-        color: "#16a34a", letterSpacing: "0.1em", marginBottom: 8,
-      }}>STEP {step}</div>
-      <div style={{
-        fontFamily: "'DM Sans', sans-serif", fontSize: 17, fontWeight: 700,
-        color: "#111827", marginBottom: 10, lineHeight: 1.3,
-      }}>{title}</div>
-      <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#6b7280", lineHeight: 1.7 }}>{desc}</p>
+      }}
+    >
+      <div
+        style={{
+          width: 52,
+          height: 52,
+          borderRadius: 14,
+          background: iconBg,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 24,
+          marginBottom: 20,
+        }}
+      >
+        {icon}
+      </div>
+      <div
+        style={{
+          fontFamily: "'DM Sans', sans-serif",
+          fontSize: 11,
+          fontWeight: 700,
+          color: "#16a34a",
+          letterSpacing: "0.1em",
+          marginBottom: 8,
+        }}
+      >
+        STEP {step}
+      </div>
+      <div
+        style={{
+          fontFamily: "'DM Sans', sans-serif",
+          fontSize: 17,
+          fontWeight: 700,
+          color: "#111827",
+          marginBottom: 10,
+          lineHeight: 1.3,
+        }}
+      >
+        {title}
+      </div>
+      <p
+        style={{
+          fontFamily: "'DM Sans', sans-serif",
+          fontSize: 14,
+          color: "#6b7280",
+          lineHeight: 1.7,
+        }}
+      >
+        {desc}
+      </p>
     </div>
   );
 }
@@ -323,7 +689,10 @@ function StepCard({ step, icon, title, desc, iconBg }) {
 export default function LSCHero() {
   return (
     <>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+      <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap"
+        rel="stylesheet"
+      />
 
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -345,59 +714,122 @@ export default function LSCHero() {
           0%, 100% { box-shadow: 0 0 0 0 rgba(22,163,74,0.5); }
           50%       { box-shadow: 0 0 0 7px rgba(22,163,74,0); }
         }
+
+        @media (max-width: 900px) {
+          .hero-visual-stack {
+            margin-top: 8px;
+          }
+          .floating-mobile-hide {
+            display: none !important;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .hero-main-photo {
+            bottom: 0 !important;
+          }
+          .hero-mobile-center {
+            text-align: center;
+          }
+          .hero-mobile-center p {
+            margin-left: auto !important;
+            margin-right: auto !important;
+          }
+          .hero-mobile-center .hero-cta-row,
+          .hero-mobile-center .hero-stats-row {
+            justify-content: center !important;
+          }
+        }
       `}</style>
 
       <Nav />
 
       {/* ── HERO ── */}
-      <section style={{
-        background: "linear-gradient(150deg, #f0fdf4 0%, #ffffff 45%, #f0f9ff 100%)",
-        padding: "72px 48px 60px",
-        maxWidth: 1320, margin: "0 auto",
-        display: "grid", gridTemplateColumns: "1fr 1fr",
-        gap: 60, alignItems: "center",
-        position: "relative", overflow: "hidden",
-        minHeight: "calc(100vh - 68px)",
-      }}>
-
+      <section
+        style={{
+          background: "linear-gradient(150deg, #f0fdf4 0%, #ffffff 45%, #f0f9ff 100%)",
+          padding: "clamp(40px, 6vw, 72px) clamp(16px, 4vw, 48px) 60px",
+          maxWidth: 1320,
+          margin: "0 auto",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+          gap: "clamp(28px, 4vw, 60px)",
+          alignItems: "center",
+          position: "relative",
+          overflow: "hidden",
+          minHeight: "calc(100vh - 68px)",
+        }}
+      >
         {/* Background blobs */}
-        <div style={{
-          position: "absolute", top: -100, right: -60, width: 480, height: 480,
-          borderRadius: "50%", pointerEvents: "none",
-          background: "radial-gradient(circle, rgba(22,163,74,0.07) 0%, transparent 70%)",
-        }} />
-        <div style={{
-          position: "absolute", bottom: 40, left: "30%", width: 320, height: 320,
-          borderRadius: "50%", pointerEvents: "none",
-          background: "radial-gradient(circle, rgba(14,165,233,0.05) 0%, transparent 70%)",
-        }} />
+        <div
+          style={{
+            position: "absolute",
+            top: -100,
+            right: -60,
+            width: 480,
+            height: 480,
+            borderRadius: "50%",
+            pointerEvents: "none",
+            background: "radial-gradient(circle, rgba(22,163,74,0.07) 0%, transparent 70%)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            bottom: 40,
+            left: "30%",
+            width: 320,
+            height: 320,
+            borderRadius: "50%",
+            pointerEvents: "none",
+            background: "radial-gradient(circle, rgba(14,165,233,0.05) 0%, transparent 70%)",
+          }}
+        />
 
         {/* ── LEFT COPY ── */}
-        <div style={{ position: "relative", zIndex: 2 }}>
-
+        <div className="hero-mobile-center" style={{ position: "relative", zIndex: 2 }}>
           {/* Eyebrow chips */}
-          <div style={{
-            display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24,
-            animation: "fadeUp 0.65s ease 0.05s both",
-          }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
+              marginBottom: 24,
+              animation: "fadeUp 0.65s ease 0.05s both",
+            }}
+          >
             {[
               { label: "9 Branches Island-wide", dot: true },
               { label: "✔ Fully Accredited" },
               { label: "Est. 1993" },
             ].map(({ label, dot }) => (
-              <span key={label} style={{
-                display: "inline-flex", alignItems: "center", gap: 6,
-                padding: "5px 12px", borderRadius: 100,
-                background: "#f0fdf4", border: "1px solid #bbf7d0",
-                fontFamily: "'DM Sans', sans-serif", fontSize: 12,
-                fontWeight: 600, color: "#166534",
-              }}>
+              <span
+                key={label}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "5px 12px",
+                  borderRadius: 100,
+                  background: "#f0fdf4",
+                  border: "1px solid #bbf7d0",
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#166534",
+                }}
+              >
                 {dot && (
-                  <span style={{
-                    width: 6, height: 6, borderRadius: "50%",
-                    background: "#16a34a", display: "inline-block",
-                    animation: "pulseDot 2s infinite",
-                  }} />
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: "#16a34a",
+                      display: "inline-block",
+                      animation: "pulseDot 2s infinite",
+                    }}
+                  />
                 )}
                 {label}
               </span>
@@ -406,31 +838,55 @@ export default function LSCHero() {
 
           {/* Headline */}
           <div style={{ animation: "fadeUp 0.65s ease 0.18s both" }}>
-            <h1 style={{
-              fontFamily: "'Instrument Serif', serif",
-              fontSize: "clamp(38px, 4.2vw, 60px)",
-              fontWeight: 400, lineHeight: 1.1, color: "#111827",
-            }}>Order diagnostic</h1>
-            <h1 style={{
-              fontFamily: "'Instrument Serif', serif",
-              fontSize: "clamp(38px, 4.2vw, 60px)",
-              fontWeight: 400, lineHeight: 1.1,
-              color: "#16a34a", fontStyle: "italic",
-            }}>supplies online —</h1>
-            <h1 style={{
-              fontFamily: "'Instrument Serif', serif",
-              fontSize: "clamp(38px, 4.2vw, 60px)",
-              fontWeight: 400, lineHeight: 1.1, color: "#111827",
-            }}>delivered island-wide.</h1>
+            <h1
+              style={{
+                fontFamily: "'Instrument Serif', serif",
+                fontSize: "clamp(38px, 4.2vw, 60px)",
+                fontWeight: 400,
+                lineHeight: 1.1,
+                color: "#111827",
+              }}
+            >
+              Order diagnostic
+            </h1>
+            <h1
+              style={{
+                fontFamily: "'Instrument Serif', serif",
+                fontSize: "clamp(38px, 4.2vw, 60px)",
+                fontWeight: 400,
+                lineHeight: 1.1,
+                color: "#16a34a",
+                fontStyle: "italic",
+              }}
+            >
+              supplies online —
+            </h1>
+            <h1
+              style={{
+                fontFamily: "'Instrument Serif', serif",
+                fontSize: "clamp(38px, 4.2vw, 60px)",
+                fontWeight: 400,
+                lineHeight: 1.1,
+                color: "#111827",
+              }}
+            >
+              delivered island-wide.
+            </h1>
           </div>
 
           {/* Body copy */}
-          <p style={{
-            fontFamily: "'DM Sans', sans-serif", fontSize: 16,
-            color: "#6b7280", lineHeight: 1.75,
-            marginTop: 22, marginBottom: 34, maxWidth: 460,
-            animation: "fadeUp 0.65s ease 0.30s both",
-          }}>
+          <p
+            style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: 16,
+              color: "#6b7280",
+              lineHeight: 1.75,
+              marginTop: 22,
+              marginBottom: 34,
+              maxWidth: 460,
+              animation: "fadeUp 0.65s ease 0.30s both",
+            }}
+          >
             The LSC portal lets verified medical professionals across Saint Lucia
             request culture swabs, reagents, tubes and more. We stock them, we
             distribute them — across{" "}
@@ -440,121 +896,288 @@ export default function LSCHero() {
           </p>
 
           {/* CTAs */}
-          <div style={{
-            display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 44,
-            animation: "fadeUp 0.65s ease 0.42s both",
-          }}>
-            <a href="/sign-in" style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              padding: "14px 26px", borderRadius: 10,
-              background: "#16a34a", color: "white", border: "none",
-              fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 600,
-              textDecoration: "none", transition: "all 0.2s",
-              boxShadow: "0 4px 16px rgba(22,163,74,0.3)",
+          <div
+            className="hero-cta-row"
+            style={{
+              display: "flex",
+              gap: 14,
+              flexWrap: "wrap",
+              marginBottom: 44,
+              animation: "fadeUp 0.65s ease 0.42s both",
             }}
-              onMouseEnter={e => { e.currentTarget.style.background = "#15803d"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 28px rgba(22,163,74,0.38)"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "#16a34a"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(22,163,74,0.3)"; }}
+          >
+            <a
+              href="/sign-in"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "14px 26px",
+                borderRadius: 10,
+                background: "#16a34a",
+                color: "white",
+                border: "none",
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: 15,
+                fontWeight: 600,
+                textDecoration: "none",
+                transition: "all 0.2s",
+                boxShadow: "0 4px 16px rgba(22,163,74,0.3)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#15803d";
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 8px 28px rgba(22,163,74,0.38)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "#16a34a";
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 4px 16px rgba(22,163,74,0.3)";
+              }}
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M2 8h12M2 4h8M2 12h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <path
+                  d="M2 8h12M2 4h8M2 12h6"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
               </svg>
               Browse &amp; Order Stock
             </a>
-            <a href="/sign-up" style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              padding: "14px 26px", borderRadius: 10,
-              background: "white", color: "#374151",
-              border: "1.5px solid #e5e7eb",
-              fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 500,
-              textDecoration: "none", transition: "all 0.2s",
-            }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = "#16a34a"; e.currentTarget.style.color = "#16a34a"; e.currentTarget.style.transform = "translateY(-2px)"; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.color = "#374151"; e.currentTarget.style.transform = "translateY(0)"; }}
+
+            <a
+              href="/sign-up"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "14px 26px",
+                borderRadius: 10,
+                background: "white",
+                color: "#374151",
+                border: "1.5px solid #e5e7eb",
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: 15,
+                fontWeight: 500,
+                textDecoration: "none",
+                transition: "all 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "#16a34a";
+                e.currentTarget.style.color = "#16a34a";
+                e.currentTarget.style.transform = "translateY(-2px)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "#e5e7eb";
+                e.currentTarget.style.color = "#374151";
+                e.currentTarget.style.transform = "translateY(0)";
+              }}
             >
               Create Free Account
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <path
+                  d="M2 7h10M8 3l4 4-4 4"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
             </a>
           </div>
 
           {/* Stats row */}
-          <div style={{
-            display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center",
-            animation: "fadeUp 0.65s ease 0.54s both",
-          }}>
+          <div
+            className="hero-stats-row"
+            style={{
+              display: "flex",
+              gap: 12,
+              flexWrap: "wrap",
+              alignItems: "center",
+              animation: "fadeUp 0.65s ease 0.54s both",
+            }}
+          >
             {[
               { n: 9, s: "", lbl: "Branches" },
               { n: 30, s: "+", lbl: "Years Active" },
               { n: 100, s: "%", lbl: "Accredited" },
             ].map(({ n, s, lbl }) => (
-              <div key={lbl} style={{
-                display: "flex", flexDirection: "column", alignItems: "center",
-                padding: "16px 22px", borderRadius: 14,
-                background: "white", border: "1.5px solid #e5e7eb",
-                boxShadow: "0 2px 10px rgba(0,0,0,0.05)", minWidth: 88,
-              }}>
-                <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 26, fontWeight: 800, color: "#16a34a", lineHeight: 1 }}>
+              <div
+                key={lbl}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  padding: "16px 22px",
+                  borderRadius: 14,
+                  background: "white",
+                  border: "1.5px solid #e5e7eb",
+                  boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
+                  minWidth: 88,
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: 26,
+                    fontWeight: 800,
+                    color: "#16a34a",
+                    lineHeight: 1,
+                  }}
+                >
                   <Counter target={n} suffix={s} />
                 </span>
-                <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#9ca3af", marginTop: 4, fontWeight: 500 }}>{lbl}</span>
+                <span
+                  style={{
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: 11,
+                    color: "#9ca3af",
+                    marginTop: 4,
+                    fontWeight: 500,
+                  }}
+                >
+                  {lbl}
+                </span>
               </div>
             ))}
-            <div style={{
-              padding: "16px 20px", borderRadius: 14,
-              background: "white", border: "1.5px solid #e5e7eb",
-              boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
-            }}>
-              <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 13, fontStyle: "italic", color: "#9ca3af" }}>
+            <div
+              style={{
+                padding: "16px 20px",
+                borderRadius: 14,
+                background: "white",
+                border: "1.5px solid #e5e7eb",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: "'Instrument Serif', serif",
+                  fontSize: 13,
+                  fontStyle: "italic",
+                  color: "#9ca3af",
+                }}
+              >
                 "Saving lives &amp; caring for people"
               </div>
-              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#d1d5db", marginTop: 2 }}>— LSC, est. 1993</div>
+              <div
+                style={{
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: 11,
+                  color: "#d1d5db",
+                  marginTop: 2,
+                }}
+              >
+                — LSC, est. 1993
+              </div>
             </div>
           </div>
         </div>
 
         {/* ── RIGHT VISUAL ── */}
-        <div style={{
-          position: "relative", height: 560,
-          animation: "fadeIn 0.9s ease 0.2s both",
-        }}>
+        <div
+          className="hero-visual-stack"
+          style={{
+            position: "relative",
+            minHeight: 380,
+            height: "clamp(380px, 58vw, 560px)",
+            animation: "fadeIn 0.9s ease 0.2s both",
+          }}
+        >
           {/* Main photo */}
-          <div style={{
-            position: "absolute", top: 0, left: "6%", right: 0, bottom: 50,
-            borderRadius: 24, overflow: "hidden",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.13)",
-          }}>
+          <div
+            className="hero-main-photo"
+            style={{
+              position: "absolute",
+              top: 0,
+              left: "clamp(0px, 3vw, 32px)",
+              right: 0,
+              bottom: 50,
+              borderRadius: 24,
+              overflow: "hidden",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.13)",
+            }}
+          >
             <img
               src="med lab supplies.jpg"
               alt="Medical laboratory supplies"
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
-            <div style={{
-              position: "absolute", bottom: 0, left: 0, right: 0, height: "45%",
-              background: "linear-gradient(to top, rgba(3,30,12,0.65), transparent)",
-            }} />
+            <div
+              style={{
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: "45%",
+                background: "linear-gradient(to top, rgba(3,30,12,0.65), transparent)",
+              }}
+            />
             <div style={{ position: "absolute", bottom: 20, left: 22 }}>
-              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>
-                i Stock Catalogue
+              <div
+                style={{
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "rgba(255,255,255,0.7)",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  marginBottom: 4,
+                }}
+              >
+                Stock Catalogue
               </div>
-              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 600, color: "white" }}>
+              <div
+                style={{
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: 15,
+                  fontWeight: 600,
+                  color: "white",
+                }}
+              >
                 200+ diagnostic product lines
               </div>
             </div>
           </div>
 
           {/* Floating card: fulfilled order */}
-          <div style={{ position: "absolute", bottom: 24, left: -10, zIndex: 10 }}>
+          <div
+            className="floating-mobile-hide"
+            style={{
+              position: "absolute",
+              bottom: 24,
+              left: 0,
+              zIndex: 10,
+              maxWidth: "min(90%, 260px)",
+            }}
+          >
             <OrderCard />
           </div>
 
           {/* Floating card: stock levels */}
-          <div style={{ position: "absolute", top: 16, right: -18, zIndex: 10 }}>
+          <div
+            className="floating-mobile-hide"
+            style={{
+              position: "absolute",
+              top: 16,
+              right: 0,
+              zIndex: 10,
+              maxWidth: "min(82%, 220px)",
+            }}
+          >
             <StockCard />
           </div>
 
           {/* Floating badge: fulfillment speed */}
-          <div style={{ position: "absolute", top: "41%", right: -22, zIndex: 10 }}>
+          <div
+            className="floating-mobile-hide"
+            style={{
+              position: "absolute",
+              top: "42%",
+              right: 0,
+              zIndex: 10,
+            }}
+          >
             <FulfillmentBadge />
           </div>
         </div>
@@ -563,48 +1186,119 @@ export default function LSCHero() {
       {/* ── ECG BAR ── */}
       <div style={{ background: "white", borderTop: "1px solid #f3f4f6", paddingTop: 8 }}>
         <ECGStrip />
-        <div style={{
-          textAlign: "center", paddingBottom: 10,
-          fontFamily: "'DM Sans', sans-serif", fontSize: 11,
-          color: "#d1d5db", letterSpacing: "0.08em",
-        }}>
-          Laboratory Services &amp; Consultations Ltd · Saving lives &amp; caring for people · Est. 1993
+        <div
+          style={{
+            textAlign: "center",
+            paddingBottom: 10,
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: 11,
+            color: "#d1d5db",
+            letterSpacing: "0.08em",
+            paddingLeft: 12,
+            paddingRight: 12,
+          }}
+        >
+          Laboratory Services &amp; Consultations Ltd · Saving lives &amp; caring for
+          people · Est. 1993
         </div>
       </div>
 
       {/* ── HOW IT WORKS ── */}
-      <section style={{ background: "#f9fafb", padding: "80px 48px", borderTop: "1px solid #f3f4f6" }}>
+      <section
+        style={{
+          background: "#f9fafb",
+          padding: "80px clamp(16px, 4vw, 48px)",
+          borderTop: "1px solid #f3f4f6",
+        }}
+      >
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 52 }}>
-            <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 38, fontWeight: 400, color: "#111827", marginBottom: 12 }}>
+            <h2
+              style={{
+                fontFamily: "'Instrument Serif', serif",
+                fontSize: 38,
+                fontWeight: 400,
+                color: "#111827",
+                marginBottom: 12,
+              }}
+            >
               How it works
             </h2>
-            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 16, color: "#6b7280", maxWidth: 440, margin: "0 auto" }}>
+            <p
+              style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: 16,
+                color: "#6b7280",
+                maxWidth: 440,
+                margin: "0 auto",
+              }}
+            >
               From request to your branch door — fully online.
             </p>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24, marginBottom: 44 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gap: 24,
+              marginBottom: 44,
+            }}
+          >
             {[
-              { step: "01", icon: "👤", title: "Sign up as a Medical Professional", desc: "Create your verified account in minutes. Get instant access to the full LSC diagnostic supply catalogue.", iconBg: "#eff6ff" },
-              { step: "02", icon: "📋", title: "Browse & Request Your Stock", desc: "Search culture swabs, reagents, tubes and more. Add to your request and submit — we already carry the stock.", iconBg: "#f0fdf4" },
-              { step: "03", icon: "🚚", title: "We Fulfill to Your Branch", desc: "Your order is routed to the nearest of our 9 branches and ready within 24 hours. Track every step online.", iconBg: "#fefce8" },
+              {
+                step: "01",
+                icon: "👤",
+                title: "Sign up as a Medical Professional",
+                desc: "Create your verified account in minutes. Get instant access to the full LSC diagnostic supply catalogue.",
+                iconBg: "#eff6ff",
+              },
+              {
+                step: "02",
+                icon: "📋",
+                title: "Browse & Request Your Stock",
+                desc: "Search culture swabs, reagents, tubes and more. Add to your request and submit — we already carry the stock.",
+                iconBg: "#f0fdf4",
+              },
+              {
+                step: "03",
+                icon: "🚚",
+                title: "We Fulfill to Your Branch",
+                desc: "Your order is routed to the nearest of our 9 branches and ready within 24 hours. Track every step online.",
+                iconBg: "#fefce8",
+              },
             ].map((s) => (
               <StepCard key={s.step} {...s} />
             ))}
           </div>
 
           <div style={{ textAlign: "center" }}>
-            <a href="#" style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              padding: "14px 28px", borderRadius: 10,
-              background: "#16a34a", color: "white", border: "none",
-              fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 600,
-              textDecoration: "none", transition: "all 0.2s",
-              boxShadow: "0 4px 16px rgba(22,163,74,0.3)",
-            }}
-              onMouseEnter={e => { e.currentTarget.style.background = "#15803d"; e.currentTarget.style.transform = "translateY(-2px)"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "#16a34a"; e.currentTarget.style.transform = "translateY(0)"; }}
+            <a
+              href="#"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "14px 28px",
+                borderRadius: 10,
+                background: "#16a34a",
+                color: "white",
+                border: "none",
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: 15,
+                fontWeight: 600,
+                textDecoration: "none",
+                transition: "all 0.2s",
+                boxShadow: "0 4px 16px rgba(22,163,74,0.3)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#15803d";
+                e.currentTarget.style.transform = "translateY(-2px)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "#16a34a";
+                e.currentTarget.style.transform = "translateY(0)";
+              }}
             >
               Get Started — It's Free
             </a>

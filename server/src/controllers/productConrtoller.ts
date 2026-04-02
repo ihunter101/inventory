@@ -23,7 +23,7 @@ export const getProducts = async (req: Request, res: Response): Promise<void> =>
       ...(search && {
         name: { contains: search, mode: "insensitive" as const },
       }),
-      ...(department && department !== "all" && { department }),
+      ...(department && department !== "all" && { Department: department }),
     };
 
     // 3) pagination

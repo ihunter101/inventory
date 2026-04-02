@@ -95,18 +95,23 @@ export default function InventoryPage() {
     setStocktakeItem(null);
   };
 
-  const handleSaveStocktake = async (args: {
-    productId: string;
-    quantity: number;
-    countedAt: string;
-  }) => {
+ const handleSaveStocktake = async (args: {
+  productId: string;
+  quantity: number;
+  countedAt: string;
+}) => {
+  try {
     await setInventory({
       productId: args.productId,
       stockQuantity: args.quantity,
       lastCounted: args.countedAt,
-    });
+    }).unwrap();
+
     handleCloseStocktake();
-  };
+  } catch (e) {
+    console.error("Set inventory failed:", e);
+  }
+};
 
   const busy = isLoading || adjusting || setting;
 

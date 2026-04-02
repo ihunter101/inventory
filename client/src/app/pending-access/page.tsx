@@ -86,9 +86,9 @@ export default function PendingAccessPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex gap-3">
-            <Button asChild>
+            {/* <Button asChild>
               <Link href="/sign-in">Go to sign in</Link>
-            </Button>
+            </Button> */}
             <Button asChild variant="outline">
               <Link href="/">Back to home</Link>
             </Button>
@@ -238,7 +238,7 @@ export default function PendingAccessPage() {
                   <div className="space-y-3">
                     <div className="rounded-2xl border p-4">
                       <div className="mb-1 text-sm font-medium text-slate-900">
-                        1. Review
+                        <span className="text-lg font-bold">1. Review</span>
                       </div>
                       <p className="text-sm leading-6 text-slate-600">
                         Your request is checked by an authorized member of the
@@ -248,17 +248,18 @@ export default function PendingAccessPage() {
 
                     <div className="rounded-2xl border p-4">
                       <div className="mb-1 text-sm font-medium text-slate-900">
-                        2. Confirmation
+                        <span className="font-bold text-lg">2. Confirmation</span>
                       </div>
                       <p className="text-sm leading-6 text-slate-600">
                         You will receive an email update confirming the final
                         decision.
+                        <span className="font-semibold">Please check your trash, span or junk mail.</span>
                       </p>
                     </div>
 
                     <div className="rounded-2xl border p-4">
                       <div className="mb-1 text-sm font-medium text-slate-900">
-                        3. Access
+                         <span className="font-bold text-lg">3. Access</span>
                       </div>
                       <p className="text-sm leading-6 text-slate-600">
                         {isGranted

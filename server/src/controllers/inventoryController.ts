@@ -50,112 +50,122 @@ export async function getInventory(req: Request, res: Response){
   }
 }
 
-export async function adjustInventory(req:Request, res: Response) {
-    try {
-        const { inventoryId, delta: rawDelta, reason } = req.body;
-        const delta = Number(rawDelta)
+export async function adjustInventory(req: Request, res: Response) {
+  try {
+    const { productId, delta: rawDelta, reason } = req.body;
+    const delta = Number(rawDelta);
 
-        if(!inventoryId || !Number.isFinite(delta)) {
-            return res.status(400).json({ message: "productId and Delta are required"})
-        }
-
-        const existing = await prisma.inventory.findUnique({
-            where: { id: inventoryId },
-            //include: { product: true }
-        })
-
-        if (!existing) {
-      // there is **no inventory** row for this productId
-        return res.status(404)
-        .json({ message: `Inventory row not found for id ${inventoryId}` });
-        }
-
-        const productId = existing.productId
-
-        const updatedInventory = await prisma.$transaction( async (tx)=> {
-
-            const updatedStock = await tx.inventory.update({
-                where: { id: inventoryId },
-                data: { stockQuantity: { increment: delta }}
-            })
-
-            await tx.products.update({
-                where: {productId},
-                data: { stockQuantity: {increment: delta}} //stock :{ inventory.StockQuantty}
-            })
-
-            const userId: string | undefined = (req as any).user?.id || (req as any).user?.userId || undefined;
-
-            await tx.stockLedger.create({
-                data: {
-                    productId,
-                    userId,
-                    sourceType: "ADJUSTMENT",
-                    SourceId: productId,
-                    qtyChange: delta,
-                    memo: reason ?? null
-                }
-            })
-            return updatedStock
-        })
-        console.log("Inventory and product item has been...")
-        // TODO: write to stockLedger({productId, delta, reason, userId, ts})
-        return res.json(updatedInventory)
-    } catch (error) {
-        return res.status(500).json({ message: "Inventory row not found for productId"})
+    if (!productId || !Number.isFinite(delta)) {
+      return res.status(400).json({ message: "productId and delta are required" });
     }
+
+    const existing = await prisma.inventory.findFirst({
+      where: { productId },
+    });
+
+    if (!existing) {
+      return res.status(404).json({
+        message: `Inventory row not found for productId ${productId}`,
+      });
+    }
+
+    const updatedInventory = await prisma.$transaction(async (tx) => {
+      const updatedStock = await tx.inventory.update({
+        where: { id: existing.id },
+        data: { stockQuantity: { increment: delta } },
+      });
+
+      await tx.products.update({
+        where: { productId },
+        data: { stockQuantity: { increment: delta } },
+      });
+
+      const userId: string | undefined =
+        (req as any).user?.id || (req as any).user?.userId || undefined;
+
+      await tx.stockLedger.create({
+        data: {
+          productId,
+          userId,
+          sourceType: "ADJUSTMENT",
+          SourceId: productId,
+          qtyChange: delta,
+          memo: reason ?? null,
+        },
+      });
+
+      return updatedStock;
+    });
+
+    return res.json(updatedInventory);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Failed to adjust inventory" });
+  }
 }
 
 
-export async function setInventory(req:Request, res:Response) {
-    try {
-        const { inventoryId,  stockQuantity, lastCounted } = req.body;
+export async function setInventory(req: Request, res: Response) {
+  try {
+    const { productId, stockQuantity, lastCounted } = req.body;
 
-        if (!inventoryId || !Number.isInteger(stockQuantity)) {
-            return res.status(400).json({ error: "Product Id and Stock Quantity is required"})
-        }
-
-        const current = await prisma.inventory.findUnique({where: { id: inventoryId }});
-        if (!current) return res.status(404).json({ error: "Inventory row not found for productId"})
-        
-          //calculate the difference for te leddger 
-        const delta = stockQuantity - current.stockQuantity;
-        const productId = current.productId
-
-        const finalStockCount = await prisma.$transaction( async (tx) => {
-            await tx.inventory.update({
-                where: {id: inventoryId},
-                data: { stockQuantity, lastCountedAt: lastCounted ? new Date(lastCounted) : null}
-            })
-
-            const allInvenotry = await tx.inventory.findMany({
-              where: { productId }
-            })
-            // update Products
-            await tx.products.update({
-                where: {productId},
-                data: {stockQuantity},
-            })
-            //Update the StockLEdger
-            const userId = (req as any).user?.id || (req as any).user?.userId || undefined
-            if (!userId)
-                return res.status(401).json({ error: "Not Authorized"})
-            
-            await tx.stockLedger.create({
-                data: {
-                    productId,
-                    userId,
-                    SourceId: productId,
-                    sourceType: "STOCKTAKE",
-                    qtyChange: delta,
-                }
-            })
-            //return finalStockCount
-        })
-        return res.json(finalStockCount)
-    } catch (error) {
-        return res.status(500).json({ message: "Inventory row not found for productId"})
+    if (!productId || !Number.isInteger(stockQuantity)) {
+      return res.status(400).json({
+        error: "productId and stockQuantity are required",
+      });
     }
+
+    const current = await prisma.inventory.findFirst({
+      where: { productId },
+    });
+
+    if (!current) {
+      return res.status(404).json({
+        error: "Inventory row not found for productId",
+      });
+    }
+
+    const delta = stockQuantity - current.stockQuantity;
+
+    const finalStockCount = await prisma.$transaction(async (tx) => {
+      const updatedInventory = await tx.inventory.update({
+        where: { id: current.id },
+        data: {
+          stockQuantity,
+          lastCountedAt: lastCounted ? new Date(lastCounted) : null,
+        },
+      });
+
+      await tx.products.update({
+        where: { productId },
+        data: { stockQuantity },
+      });
+
+      const userId =
+        (req as any).user?.id || (req as any).user?.userId || undefined;
+
+      if (!userId) {
+        throw new Error("Not authorized");
+      }
+
+      await tx.stockLedger.create({
+        data: {
+          productId,
+          userId,
+          SourceId: productId,
+          sourceType: "STOCKTAKE",
+          qtyChange: delta,
+        },
+      });
+
+      return updatedInventory;
+    });
+
+    return res.json(finalStockCount);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Failed to set inventory" });
+  }
 }
 
 

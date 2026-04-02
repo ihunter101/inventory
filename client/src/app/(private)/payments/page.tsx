@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { useGetPaymentHistoryQuery } from "@/app/state/api";
 import { currency } from "../../../lib/currency";
 import {
@@ -200,7 +200,10 @@ function PaymentRow({ p }: { p: any }) {
           {open ? (
             <ChevronDown size={15} className="text-foreground/70" />
           ) : (
-            <ChevronRight size={15} className="transition-colors group-hover:text-foreground/70" />
+            <ChevronRight
+              size={15}
+              className="transition-colors group-hover:text-foreground/70"
+            />
           )}
         </td>
 
@@ -210,7 +213,8 @@ function PaymentRow({ p }: { p: any }) {
             <div
               className={cn(
                 "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border",
-                METHOD_STYLE[methodKey] ?? "border-border/60 bg-muted/30 text-muted-foreground"
+                METHOD_STYLE[methodKey] ??
+                  "border-border/60 bg-muted/30 text-muted-foreground"
               )}
             >
               <CreditCard size={13} />
@@ -229,13 +233,18 @@ function PaymentRow({ p }: { p: any }) {
         {/* Supplier */}
         <td className="max-w-[180px] py-3.5 pr-6">
           <span className="block truncate text-sm text-foreground">
-            {p.supplierName ?? p.supplier ?? "—"}
+            {p.supplierName ?? "—"}
           </span>
         </td>
 
         {/* Invoice */}
         <td className="py-3.5 pr-6 font-mono text-sm text-muted-foreground">
           {p.invoiceNumber ? `#${p.invoiceNumber}` : "—"}
+        </td>
+
+        {/* PO */}
+        <td className="py-3.5 pr-6 font-mono text-sm text-muted-foreground">
+          {p.poNumber ? `#${p.poNumber}` : "—"}
         </td>
 
         {/* Status */}
@@ -257,7 +266,6 @@ function PaymentRow({ p }: { p: any }) {
         </td>
       </tr>
 
-      {/* Expanded detail panel */}
       {open && (
         <tr className="border-b border-border/60 bg-muted/10">
           <td colSpan={8} className="px-4 pb-5 pt-3 sm:px-6">
@@ -269,12 +277,13 @@ function PaymentRow({ p }: { p: any }) {
                 <DetailField label="Payment ID" value={p.id} />
                 <DetailField label="Invoice #" value={p.invoiceNumber} />
                 <DetailField label="PO Number" value={p.poNumber} />
-                <DetailField label="Supplier" value={p.supplierName ?? p.supplier} />
+                <DetailField label="Supplier" value={p.supplierName} />
                 <DetailField label="Method" value={p.method} />
                 <DetailField label="Reference" value={p.reference} />
                 <DetailField label="Date Paid" value={fmt(p.paidAt)} />
                 <DetailField label="Status" value={p.status ?? "POSTED"} />
               </div>
+
               {p.notes && (
                 <div className="mt-4 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                   {p.notes}
@@ -295,6 +304,8 @@ export default function PaymentPage() {
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
   const [page, setPage] = useState(1);
+  const fromRef = useRef<HTMLInputElement | null>(null);
+  const toRef = useRef<HTMLInputElement | null>(null);
 
   const params = {
     q: query.trim() || undefined,
@@ -400,29 +411,22 @@ export default function PaymentPage() {
               </SelectContent>
             </Select>
 
-            <div className="relative">
-              <CalendarIcon
-                size={14}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              />
-              <Input
-                type="date"
-                className="h-10 pl-9 text-sm focus-visible:ring-primary"
-                value={from}
-                onChange={(e) => handleFilterChange(() => setFrom(e.target.value))}
-              />
-            </div>
+            
+              <div className="relative">
+                <Input
+                  type="date"
+                  className="h-10 text-sm focus-visible:ring-primary"
+                  value={from}
+                  onChange={(e) => handleFilterChange(() => setFrom(e.target.value))}
+                />
+              </div>
 
             <div className="relative">
-              <CalendarIcon
-                size={14}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              />
               <Input
                 type="date"
-                className="h-10 pl-9 text-sm focus-visible:ring-primary"
+                className="h-10 text-sm focus-visible:ring-primary"
                 value={to}
-                onChange={(e) => handleFilterChange(() => setTo(e.target.value))}
+                onChange={(e) => handleFilterChange(() => setFrom(e.target.value))}
               />
             </div>
           </div>

@@ -284,11 +284,10 @@ export type ProcurementOverviewResponse = {
   };
 };
 export type ExpenseGroup = 
-  |"Clinical" 
-  | "Equipment and Infrastructure"
-  | "Logistics and Overhead"
-  | "Other"
 
+    "CLINICAL" |
+  "EQUIPMENT_INFRASTRUCTURE"  |
+  "LOGISTICS_OVERHEAD";
 
   
 export interface Expense {
@@ -540,6 +539,7 @@ export type PurchaseOrderFormPayload =
     lastLogin: string;
     onboardedAt: string;
     accessStatus: AccessStatus;
+    imageUrl: string
   };
 
   export type AccessStatus = "pending" | "granted" | "denied"
@@ -834,7 +834,7 @@ export type PaymentHistory = {
   poNumber?: string | null;
   invoiceNumber?: string | null;
   supplierName?: string | null;
-}
+};
 
 // ----------------------
 // API Setup
@@ -1469,12 +1469,15 @@ getAllPoPaymentsSummary: build.query<AllPoPaymentSummary, void>({
   query: () => "/purchase-orders/payments-summary", 
   providesTags: () => [{ type: "PoPaymentSummary", id: "LIST" }],
 }),
-getPaymentHistory: build.query<PaymentHistory[], {invoiceId?: string; poId?: string; q?: string; from?: string; to?:string; }>({
+getPaymentHistory: build.query<PaymentHistory[], { invoiceId?: string; poId?: string; q?: string; from?: string; to?: string; method?: string;} | void >({
   query: (params) => ({
     url: "/payments",
-    params: params ?? undefined 
+    params: params ?? undefined,
   }),
-  providesTags: [ { type: "InvoicePayments", id: "LIST" }, { type: "SupplierInvoices", id:"LIST" } ],
+  providesTags: [
+    { type: "InvoicePayments", id: "LIST" },
+    { type: "SupplierInvoices", id: "LIST" },
+  ],
 }),
 getQuarterlyReport: build.query<QuarterlyReportResponse, void>({
   query: () => ({

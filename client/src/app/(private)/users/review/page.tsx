@@ -32,7 +32,7 @@ export default function ReviewUserAccessPage() {
       try {
         const res = await reviewUserAccess({ id, token, action }).unwrap();
         setStatus("success");
-        setMessage(res.message || `Access ${action}ed successfully.`);
+        setMessage(res.message || `Access ${action}ed successfully, Please go to the user's page to update their role.`);
       } catch (err: any) {
         setStatus("error");
         setMessage(err?.data?.error || "Failed to process access review.");

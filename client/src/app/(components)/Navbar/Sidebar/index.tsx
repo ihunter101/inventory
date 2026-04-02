@@ -1,9 +1,9 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { usePathname } from "next/navigation";
+import * as React from "react"
+import Image from "next/image"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import {
   Home,
   LayoutDashboard,
@@ -17,236 +17,354 @@ import {
   ClipboardList,
   Sparkles,
   Building2,
-} from "lucide-react";
-
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarSeparator,
-} from "@/components/ui/sidebar";
-
-import { Skeleton } from "@/components/ui/skeleton";
-import { PERMS, type Perm } from "@lab/shared";
-import { useAuth } from "@/app/hooks/useAuth";
-import SidebarUserFooter from "./SideBaruserFooter";
+  X,
+  HandCoins,
+} from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { PERMS, type Perm } from "@lab/shared"
+import { useAuth } from "@/app/hooks/useAuth"
+import SidebarUserFooter from "./SideBaruserFooter"
 
 type NavItem = {
-  title: string;
-  href: string;
-  icon: React.ElementType;
-  permission: Perm;
-};
+  title: string
+  href: string
+  icon: React.ElementType
+  permission: Perm
+}
+
+type Props = {
+  open: boolean
+  isMobile: boolean
+  onCloseMobile: () => void
+}
 
 const navigation = {
   home: [
     { title: "Home", href: "/", icon: Home, permission: PERMS.ACCESS_HOME },
-    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, permission: PERMS.VIEW_DASHBOARD },
+    {
+      title: "Dashboard",
+      href: "/dashboard",
+      icon: LayoutDashboard,
+      permission: PERMS.VIEW_DASHBOARD,
+    },
   ] satisfies NavItem[],
 
   operations: [
-    { title: "Inventory", href: "/inventory", icon: Package, permission: PERMS.READ_INVENTORY },
-    { title: "Products", href: "/products", icon: ShoppingCart, permission: PERMS.READ_PRODUCTS },
-    { title: "Stock Requests", href: "/stock-requests", icon: ClipboardList, permission: PERMS.READ_STOCK_SHEET },
-    { title: "Pending Products", href: "/pending-promotions", icon: Sparkles, permission: PERMS.READ_PRODUCT_DRAFT },
+    {
+      title: "Inventory",
+      href: "/inventory",
+      icon: Package,
+      permission: PERMS.READ_INVENTORY,
+    },
+    {
+      title: "Products",
+      href: "/products",
+      icon: ShoppingCart,
+      permission: PERMS.READ_PRODUCTS,
+    },
+    {
+      title: "Stock Requests",
+      href: "/stock-requests",
+      icon: ClipboardList,
+      permission: PERMS.READ_STOCK_SHEET,
+    },
+    {
+      title: "Pending Products",
+      href: "/pending-promotions",
+      icon: Sparkles,
+      permission: PERMS.READ_PRODUCT_DRAFT,
+    },
   ] satisfies NavItem[],
 
   finance: [
-    { title: "Purchases", href: "/purchases", icon: FileText, permission: PERMS.READ_PURCHASE_ORDERS },
-    { title: "Expenses", href: "/expenses", icon: DollarSign, permission: PERMS.READ_EXPENSES },
-    { title: "Sales", href: "/sales", icon: TrendingUp, permission: PERMS.READ_SALES },
-    { title: "Reports", href: "/reports", icon: ClipboardList, permission: PERMS.READ_PURCHASE_ORDERS }, //TODO MAKE unique perm for this 
+    {
+      title: "Purchases",
+      href: "/purchases",
+      icon: FileText,
+      permission: PERMS.READ_PURCHASE_ORDERS,
+    }, 
+    {
+      title: "Payments",
+      href:"/payments",
+      icon: HandCoins,
+      permission: PERMS.READ_PURCHASE_ORDERS,
+    },
+    {
+      title: "Expenses",
+      href: "/expenses",
+      icon: DollarSign,
+      permission: PERMS.READ_EXPENSES,
+    },
+    {
+      title: "Sales",
+      href: "/sales",
+      icon: TrendingUp,
+      permission: PERMS.READ_SALES,
+    },
+    {
+      title: "Reports",
+      href: "/reports",
+      icon: ClipboardList,
+      permission: PERMS.READ_PURCHASE_ORDERS,
+    },
   ] satisfies NavItem[],
 
   settings: [
-    { title: "Suppliers", href: "/suppliers", icon: Building2, permission: PERMS.READ_SUPPLIERS },
-    { title: "Users", href: "/users", icon: Users, permission: PERMS.READ_USERS },
-    { title: "Settings", href: "/settings", icon: Settings, permission: PERMS.VIEW_SETTINGS },
+    // {
+    //   title: "Suppliers",
+    //   href: "/suppliers",
+    //   icon: Building2,
+    //   permission: PERMS.READ_SUPPLIERS,
+    // },
+    {
+      title: "Users",
+      href: "/users",
+      icon: Users,
+      permission: PERMS.READ_USERS,
+    },
+    {
+      title: "Settings",
+      href: "/settings",
+      icon: Settings,
+      permission: PERMS.VIEW_SETTINGS,
+    },
   ] satisfies NavItem[],
-};
+}
 
-function LoadingSection({ label, rows = 3 }: { label: string; rows?: number }) {
+function LoadingSection({
+  label,
+  collapsed,
+  rows = 3,
+}: {
+  label: string
+  collapsed: boolean
+  rows?: number
+}) {
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel>{label}</SidebarGroupLabel>
-      <SidebarGroupContent>
-        <SidebarMenu>
-          {Array.from({ length: rows }).map((_, i) => (
-            <SidebarMenuItem key={`${label}-${i}`}>
-              <div className="flex items-center gap-2 px-2 py-1.5">
-                <Skeleton className="h-4 w-4 rounded" />
-                <Skeleton className="h-4 flex-1" />
-              </div>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
-  );
+    <section className="space-y-2">
+      {!collapsed && (
+        <p className="px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {label}
+        </p>
+      )}
+
+      <div className="space-y-1">
+        {Array.from({ length: rows }).map((_, i) => (
+          <div
+            key={`${label}-${i}`}
+            className={`flex items-center rounded-xl px-3 py-2 ${
+              collapsed ? "justify-center" : "gap-3"
+            }`}
+          >
+            <Skeleton className="h-5 w-5 rounded-md" />
+            {!collapsed && <Skeleton className="h-4 flex-1" />}
+          </div>
+        ))}
+      </div>
+    </section>
+  )
 }
 
 function NavSection({
   label,
   items,
+  collapsed,
   isActive,
+  onNavigate,
 }: {
-  label: string;
-  items: NavItem[];
-  isActive: (href: string) => boolean;
+  label: string
+  items: NavItem[]
+  collapsed: boolean
+  isActive: (href: string) => boolean
+  onNavigate: () => void
 }) {
+  if (!items.length) return null
+
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel>{label}</SidebarGroupLabel>
-      <SidebarGroupContent>
-        <SidebarMenu>
-          {items.map((item) => (
-            <SidebarMenuItem key={item.href}>
-              <SidebarMenuButton asChild isActive={isActive(item.href)} tooltip={item.title}>
-                <Link href={item.href}>
-                  <item.icon />
-                  <span>{item.title}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
-  );
+    <section className="space-y-2">
+      {!collapsed && (
+        <p className="px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {label}
+        </p>
+      )}
+
+      <div className="space-y-1">
+        {items.map((item) => {
+          const active = isActive(item.href)
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={onNavigate}
+              title={collapsed ? item.title : undefined}
+              className={`group flex items-center rounded-xl px-3 py-2 text-sm transition-all ${
+                collapsed ? "justify-center" : "gap-3"
+              } ${
+                active
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              }`}
+            >
+              <item.icon className="h-5 w-5 shrink-0" />
+              {!collapsed && <span className="truncate">{item.title}</span>}
+            </Link>
+          )
+        })}
+      </div>
+    </section>
+  )
 }
 
-export function AppSidebar() {
-  const pathname = usePathname();
+export function AppSidebar({ open, isMobile, onCloseMobile }: Props) {
+  const pathname = usePathname()
+  const { user, isLoading, can } = useAuth()
 
-  // ✅ IMPORTANT: we need `can()` here so we can filter sections BEFORE rendering
-  const { user, role, isLoading, can } = useAuth();
+  const collapsed = !isMobile && !open
 
   const isActive = React.useCallback(
     (href: string) => {
-      if (href === "/dashboard") return pathname === href || pathname === "/";
-      return pathname === href || pathname.startsWith(`${href}/`);
+      if (href === "/dashboard") return pathname === href || pathname === "/"
+      return pathname === href || pathname.startsWith(`${href}/`)
     },
     [pathname]
-  );
+  )
 
-  // ✅ Filter each section upfront so empty groups NEVER render.
   const visible = React.useMemo(() => {
-    const filter = (items: NavItem[]) => items.filter((i) => can(i.permission));
+    const filter = (items: NavItem[]) => items.filter((item) => can(item.permission))
     return {
       home: filter(navigation.home),
       operations: filter(navigation.operations),
       finance: filter(navigation.finance),
       settings: filter(navigation.settings),
-    };
-  }, [can]);
-
-  const hasHome = visible.home.length > 0;
-  const hasOps = visible.operations.length > 0;
-  const hasFinance = visible.finance.length > 0;
-  const hasSettings = visible.settings.length > 0;
+    }
+  }, [can])
 
   return (
-    <Sidebar collapsible="icon">
-      {/* Header (exact styling version) */}
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <Link href="/dashboard" className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border bg-white shadow-sm group-data-[collapsible=icon]:hidden">
-                  <Image
-                    src="/logo.png"
-                    alt="LSCL Logo"
-                    width={48}
-                    height={48}
-                    priority
-                    className="h-11 w-11 object-contain"
-                  />
-                </div>
+    <>
+      {isMobile && open && (
+        <button
+          aria-label="Close sidebar overlay"
+          onClick={onCloseMobile}
+          className="fixed inset-0 z-40 bg-black/50"
+        />
+      )}
 
-                <div className="hidden h-10 w-10 items-center justify-center overflow-hidden rounded-xl border bg-white shadow-sm group-data-[collapsible=icon]:flex">
-                  <Image
-                    src="/logo.png"
-                    alt="LSCL Logo"
-                    width={32}
-                    height={32}
-                    className="h-8 w-8 object-contain"
-                  />
-                </div>
+        <aside
+    className={[
+      "sidebar-shine relative z-50 flex h-screen shrink-0 flex-col overflow-hidden border-r bg-background transition-all duration-300",
+      isMobile
+        ? `fixed left-0 top-0 w-72 ${open ? "translate-x-0" : "-translate-x-full"}`
+        : collapsed
+        ? "relative w-20"
+        : "relative w-72",
+    ].join(" ")}
+>
+        <div className="flex h-16 items-center border-b px-3">
+          <Link
+            href="/dashboard"
+            className={`flex w-full items-center ${collapsed ? "justify-center" : "gap-3"}`}
+          >
+            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border bg-white shadow-sm">
+              <Image
+                src="/logo.png"
+                alt="LSCL Logo"
+                width={44}
+                height={44}
+                priority
+                className="h-10 w-10 object-contain"
+              />
+            </div>
 
-                <div className="flex flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
-                  <span className="font-semibold">LCS Stock</span>
-                  <span className="text-xs text-muted-foreground">Inventory System</span>
-                </div>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
-
-      <SidebarContent>
-        {isLoading ? (
-          <>
-            <LoadingSection label="Home" rows={2} />
-            <SidebarSeparator />
-            <LoadingSection label="Operations" rows={4} />
-            <SidebarSeparator />
-            <LoadingSection label="Finance" rows={3} />
-            <SidebarSeparator />
-            <LoadingSection label="People & Settings" rows={3} />
-          </>
-        ) : (
-          <>
-            {hasHome && <NavSection label="Home" items={visible.home} isActive={isActive} />}
-
-            {hasHome && hasOps && <SidebarSeparator />}
-
-            {hasOps && <NavSection label="Operations" items={visible.operations} isActive={isActive} />}
-
-            {hasOps && hasFinance && <SidebarSeparator />}
-
-            {hasFinance && <NavSection label="Finance" items={visible.finance} isActive={isActive} />}
-
-            {/* Dev notice sticks near bottom, but doesn't create empty Finance space
-            <SidebarGroup className="mt-auto">
-              <div className="rounded-lg border bg-amber-50 p-3 dark:bg-amber-950/20 group-data-[collapsible=icon]:hidden">
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-900 dark:text-amber-200">
-                  • In development
-                </span>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Some features are still being built. You&apos;ll see them light up here soon.
+            {!collapsed && (
+              <div className="min-w-0">
+                <p className="truncate font-semibold">LCS Stock</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  Inventory System
                 </p>
               </div>
-            </SidebarGroup> */}
-
-            {hasSettings && <SidebarSeparator />}
-
-            {hasSettings && (
-              <NavSection label="People & Settings" items={visible.settings} isActive={isActive} />
             )}
-          </>
-        )}
-      </SidebarContent>
+          </Link>
 
-      <SidebarSeparator />
+          {isMobile && (
+            <button
+              onClick={onCloseMobile}
+              className="ml-2 inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-accent"
+              aria-label="Close sidebar"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
+        </div>
 
-      <SidebarFooter>
-        {/* ✅ Remove meta prop if your component doesn't support it */}
-        <SidebarUserFooter
-          user={{
-            name: user?.name || "User",
-            email: (user as any)?.email || "user@example.com",
-            imageUrl: (user as any)?.imageUrl || "/placeholder-avatar.jpg",
-          }}
-        />
-      </SidebarFooter>
-    </Sidebar>
-  );
+        <div className="flex-1 overflow-y-auto px-3 py-4">
+          <div className="space-y-5">
+            {isLoading ? (
+              <>
+                <LoadingSection label="Home" collapsed={collapsed} rows={2} />
+                <div className="border-t" />
+                <LoadingSection label="Operations" collapsed={collapsed} rows={4} />
+                <div className="border-t" />
+                <LoadingSection label="Finance" collapsed={collapsed} rows={4} />
+                <div className="border-t" />
+                <LoadingSection label="People & Settings" collapsed={collapsed} rows={3} />
+              </>
+            ) : (
+              <>
+                <NavSection
+                  label="Home"
+                  items={visible.home}
+                  collapsed={collapsed}
+                  isActive={isActive}
+                  onNavigate={onCloseMobile}
+                />
+
+                {!!visible.home.length && !!visible.operations.length && <div className="border-t" />}
+
+                <NavSection
+                  label="Operations"
+                  items={visible.operations}
+                  collapsed={collapsed}
+                  isActive={isActive}
+                  onNavigate={onCloseMobile}
+                />
+
+                {!!visible.operations.length && !!visible.finance.length && <div className="border-t" />}
+
+                <NavSection
+                  label="Finance"
+                  items={visible.finance}
+                  collapsed={collapsed}
+                  isActive={isActive}
+                  onNavigate={onCloseMobile}
+                />
+
+                {!!visible.settings.length && <div className="border-t" />}
+
+                <NavSection
+                  label="People & Settings"
+                  items={visible.settings}
+                  collapsed={collapsed}
+                  isActive={isActive}
+                  onNavigate={onCloseMobile}
+                />
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="border-t p-3">
+          <SidebarUserFooter
+            collapsed={collapsed}
+            user={{
+              name: user?.name || "User",
+              email: (user as any)?.email || "user@example.com",
+              imageUrl: (user as any)?.imageUrl || "/placeholder-avatar.jpg",
+              role: (user as any)?.role,
+            }}
+          />
+        </div>
+      </aside>
+    </>
+  )
 }
