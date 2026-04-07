@@ -160,19 +160,43 @@ function MatchCard({
     [paymentsArray, invoice.id]
   );
 
+
   const rows = useMemo(() => {
     if (!po) return [];
     return buildMatchRows(po, invoice, grn);
   }, [po, invoice, grn]);
 
-  const isGrnPosted = grn?.status === "POSTED";
-  const allLinesMatch = rows.length > 0 && rows.every((r) => r.lineOk);
-  const payableTotal = rows.reduce((acc, r) => acc + (r.payableAmount || 0), 0);
-  const invoiceTotal = Number(invoice.amount ?? 0);
-  const balanceRemaining =
-    invoice.balanceRemaining != null
-      ? Number(invoice.balanceRemaining)
-      : invoiceTotal;
+const isGrnPosted = grn?.status === "POSTED";
+const allLinesMatch = rows.length > 0 && rows.every((r) => r.lineOk);
+
+const payableSubtotal = useMemo(() => {
+  return rows.reduce((acc: number, r: any) => {
+    return acc + Number(r.payableAmount ?? 0);
+  }, 0);
+}, [rows]);
+
+const invoiceSubtotal = useMemo(() => {
+  return (invoice.lines ?? []).reduce((acc: number, line: any) => {
+    return acc + Number(line.quantity ?? 0) * Number(line.unitPrice ?? 0);
+  }, 0);
+}, [invoice.lines]);
+
+const invoiceTotal = Number(invoice.amount ?? 0);
+const invoiceTax = Math.max(invoiceTotal - invoiceSubtotal, 0);
+
+const payableTax = useMemo(() => {
+  if (invoiceSubtotal <= 0 || payableSubtotal <= 0 || invoiceTax <= 0) return 0;
+  return (payableSubtotal / invoiceSubtotal) * invoiceTax;
+}, [invoiceSubtotal, payableSubtotal, invoiceTax]);
+
+const finalPayableTotal = useMemo(() => {
+  return payableSubtotal + payableTax;
+}, [payableSubtotal, payableTax]);
+
+const balanceRemaining =
+  invoice.balanceRemaining != null
+    ? Number(invoice.balanceRemaining)
+    : invoiceTotal;
 
   const isPaid = invoice.status === "PAID";
   const isPartiallyPaid = invoice.status === "PARTIALLY_PAID";
@@ -206,15 +230,24 @@ function MatchCard({
     }, 0);
   }, [rowsWithState, checkedLines, isPaid]);
 
-  const selectedPayAmount = useMemo(() => {
-    return rowsWithState.reduce((sum, row: any) => {
-      const isSelected = !!checkedLines[row.key];
-      const isAlreadyPaid = !!row._paid || isPaid;
-      if (!isSelected || isAlreadyPaid) return sum;
+const selectedPaySubtotal = useMemo(() => {
+  return rowsWithState.reduce((sum: number, row: any) => {
+    const isSelected = !!checkedLines[row.key];
+    const isAlreadyPaid = !!row._paid || isPaid;
+    if (!isSelected || isAlreadyPaid) return sum;
 
-      return sum + Number(row.payableAmount ?? 0);
-    }, 0);
-  }, [rowsWithState, checkedLines, isPaid]);
+    return sum + Number(row.payableAmount ?? 0);
+  }, 0);
+}, [rowsWithState, checkedLines, isPaid]);
+
+const selectedPayTax = useMemo(() => {
+  if (payableSubtotal <= 0 || payableTax <= 0 || selectedPaySubtotal <= 0) return 0;
+  return (selectedPaySubtotal / payableSubtotal) * payableTax;
+}, [selectedPaySubtotal, payableSubtotal, payableTax]);
+
+const selectedPayAmount = useMemo(() => {
+  return selectedPaySubtotal + selectedPayTax;
+}, [selectedPaySubtotal, selectedPayTax]);
 
   const handleApproveMatch = async () => {
     if (!po || !grn) return;
@@ -247,7 +280,7 @@ function MatchCard({
 
   return (
     <div
-      className={`overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm ${accentBorder}`}
+      className={`block rounded-xl border border-border/60 bg-card shadow-sm ${accentBorder}`}
     >
       {/* ── Header row ── */}
       <button
@@ -299,8 +332,8 @@ function MatchCard({
           },
           {
             icon: <CircleDollarSignIcon size={13} />,
-            label: "Payable Total",
-            value: currency(payableTotal),
+            label: "Payable Subtotal",
+            value: currency(payableSubtotal),
           },
           {
             icon:
@@ -370,7 +403,7 @@ function MatchCard({
           )}
 
           {/* ── Mobile line cards ── */}
-          <div className="space-y-3 lg:hidden">
+          <div className="space-y-3 hidden">
             {rowsWithState.map((row: any) => {
               const linePaid = row._paid === true;
               const lineUnpaid = row._paid === false;
@@ -477,7 +510,7 @@ function MatchCard({
 
           {/* ── Desktop lines table ── */}
           <div className="hidden overflow-x-auto rounded-xl border border-border/60 lg:block">
-            <table className="min-w-full text-sm">
+            <table className="w-full min-w-[900px] text-sm">
               <thead>
                 <tr className="border-b border-border/60 bg-muted/30">
                   <th className="w-8 py-2.5 pl-4 pr-3" />
@@ -570,13 +603,35 @@ function MatchCard({
 
               {rows.length > 0 && (
                 <tfoot>
+                  <tr className="border-t border-border/60 bg-muted/10">
+                    <td colSpan={5} />
+                    <td className="py-3 pr-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                      Payable Subtotal
+                    </td>
+                    <td className="py-3 pr-4 text-sm font-bold text-foreground">
+                      {currency(payableSubtotal)}
+                    </td>
+                    <td />
+                  </tr>
+
+                  <tr className="border-t border-border/60 bg-muted/10">
+                    <td colSpan={5} />
+                    <td className="py-3 pr-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                      Tax
+                    </td>
+                    <td className="py-3 pr-4 text-sm font-semibold text-foreground">
+                      {currency(payableTax)}
+                    </td>
+                    <td />
+                  </tr>
+
                   <tr className="border-t border-border/60 bg-muted/20">
                     <td colSpan={5} />
                     <td className="py-3 pr-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                      Total
+                      Final Payable Total
                     </td>
                     <td className="py-3 pr-4 text-sm font-bold text-foreground">
-                      {currency(payableTotal)}
+                      {currency(finalPayableTotal)}
                     </td>
                     <td />
                   </tr>
@@ -628,16 +683,16 @@ function MatchCard({
                   invoice={invoice}
                   payment={selectedPayAmount}
                   disabled={selectedCount === 0 || isPaid}
-                  triggerLabel={
-                    selectedCount === 0
-                      ? "Select lines to pay"
-                      : `Pay Selected (${selectedCount}) — ${currency(selectedPayAmount)}`
-                  }
+                 triggerLabel={
+                  selectedCount === 0
+                    ? "Select lines to pay"
+                    : `Pay Selected (${selectedCount}) — ${currency(selectedPayAmount)}`
+                }
                   onSuccess={() => setCheckedLines({})} // ✅ clear checks after payment
                 >
                   <button className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-600 active:bg-amber-700 sm:w-auto">
                     <Banknote size={15} />
-                    Pay Remaining {currency(balanceRemaining)}
+                      Pay Selected ({selectedCount}) — {currency(selectedPayAmount)}
                   </button>
                 </PayInvoiceDialog>
               ) : isReadyToPay ? (

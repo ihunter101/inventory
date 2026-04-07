@@ -57,15 +57,15 @@ export default function PendingAccessPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
-        <Card className="w-full max-w-md rounded-2xl shadow-lg">
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <Card className="w-full max-w-md rounded-2xl border-border bg-card text-card-foreground shadow-lg">
           <CardContent className="flex flex-col items-center justify-center gap-4 py-10">
-            <Loader2 className="h-8 w-8 animate-spin text-slate-700" />
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             <div className="text-center">
-              <p className="text-sm font-medium text-slate-900">
+              <p className="text-sm font-medium text-foreground">
                 Loading your access status
               </p>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-muted-foreground">
                 Please wait a moment...
               </p>
             </div>
@@ -77,8 +77,8 @@ export default function PendingAccessPage() {
 
   if (isError || !user) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
-        <Card className="w-full max-w-md rounded-2xl shadow-lg">
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <Card className="w-full max-w-md rounded-2xl border-border bg-card text-card-foreground shadow-lg">
           <CardHeader>
             <CardTitle>Unable to load page</CardTitle>
             <CardDescription>
@@ -86,9 +86,6 @@ export default function PendingAccessPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex gap-3">
-            {/* <Button asChild>
-              <Link href="/sign-in">Go to sign in</Link>
-            </Button> */}
             <Button asChild variant="outline">
               <Link href="/">Back to home</Link>
             </Button>
@@ -101,26 +98,26 @@ export default function PendingAccessPage() {
   const title = isGranted
     ? `Access approved for ${name}`
     : isDenied
-    ? `Access update for ${name}`
-    : "Access request submitted";
+      ? `Access update for ${name}`
+      : "Access request submitted";
 
   const description = isGranted
     ? "Your onboarding has been reviewed and access has been granted."
     : isDenied
-    ? "Your onboarding has been reviewed. Access was not approved at this time."
-    : "Your onboarding details were submitted successfully and are now awaiting review.";
+      ? "Your onboarding has been reviewed. Access was not approved at this time."
+      : "Your onboarding details were submitted successfully and are now awaiting review.";
 
   const badgeText = isGranted
     ? "Approved"
     : isDenied
-    ? "Not approved"
-    : "Pending review";
+      ? "Not approved"
+      : "Pending review";
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto flex min-h-screen max-w-6xl items-center justify-center px-4 py-10">
-        <div className="grid w-full max-w-5xl overflow-hidden rounded-3xl border bg-white shadow-2xl lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="relative overflow-hidden bg-slate-950 p-8 text-white sm:p-10">
+        <div className="grid w-full max-w-5xl overflow-hidden rounded-3xl border border-border bg-card shadow-2xl lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="relative overflow-hidden bg-slate-950 p-8 text-white sm:p-10 dark:bg-slate-900">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.22),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.18),transparent_35%)]" />
 
             <div className="relative z-10 flex h-full flex-col justify-between">
@@ -138,16 +135,16 @@ export default function PendingAccessPage() {
                     {isGranted
                       ? "Account access confirmed"
                       : isDenied
-                      ? "Account review completed"
-                      : "Your request is under review"}
+                        ? "Account review completed"
+                        : "Your request is under review"}
                   </h1>
 
-                  <p className="max-w-lg text-sm leading-6 text-slate-300 sm:text-base">
+                  <p className="max-w-lg text-sm leading-6 text-slate-300 sm:text-base dark:text-slate-300">
                     {isGranted
                       ? "Your account has been approved and is ready for use."
                       : isDenied
-                      ? "Your request was reviewed, but access was not granted at this time."
-                      : "An authorized team member will review your onboarding request. This page checks for updates automatically."}
+                        ? "Your request was reviewed, but access was not granted at this time."
+                        : "An authorized team member will review your onboarding request. This page checks for updates automatically."}
                   </p>
                 </div>
               </div>
@@ -162,8 +159,8 @@ export default function PendingAccessPage() {
                     {isGranted
                       ? "Completed successfully"
                       : isDenied
-                      ? "Completed"
-                      : "Waiting for authorized review"}
+                        ? "Completed"
+                        : "Waiting for authorized review"}
                   </p>
                 </div>
 
@@ -180,38 +177,38 @@ export default function PendingAccessPage() {
             </div>
           </div>
 
-          <div className="p-6 sm:p-8 lg:p-10">
-            <Card className="border-0 shadow-none">
+          <div className="bg-card p-6 sm:p-8 lg:p-10">
+            <Card className="border-0 bg-transparent shadow-none">
               <CardHeader className="px-0 pt-0">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
                   {isGranted ? (
-                    <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+                    <CheckCircle2 className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
                   ) : isDenied ? (
-                    <XCircle className="h-6 w-6 text-rose-600" />
+                    <XCircle className="h-6 w-6 text-rose-600 dark:text-rose-400" />
                   ) : (
-                    <Clock3 className="h-6 w-6 text-slate-700" />
+                    <Clock3 className="h-6 w-6 text-muted-foreground" />
                   )}
                 </div>
 
-                <CardTitle className="text-2xl font-semibold tracking-tight">
+                <CardTitle className="text-2xl font-semibold tracking-tight text-foreground">
                   {title}
                 </CardTitle>
-                <CardDescription className="pt-1 text-sm leading-6 text-slate-600">
+                <CardDescription className="pt-1 text-sm leading-6 text-muted-foreground">
                   {description}
                 </CardDescription>
               </CardHeader>
 
               <CardContent className="space-y-6 px-0">
-                <div className="rounded-2xl border bg-slate-50 p-4 sm:p-5">
-                  <div className="mb-2 text-sm font-medium text-slate-900">
+                <div className="rounded-2xl border border-border bg-muted/40 p-4 sm:p-5">
+                  <div className="mb-2 text-sm font-medium text-foreground">
                     Confirmation notice
                   </div>
-                  <p className="text-sm leading-6 text-slate-600">
+                  <p className="text-sm leading-6 text-muted-foreground">
                     {isPending ? (
                       <>
                         Once your request has been reviewed, a confirmation will
                         also be sent to{" "}
-                        <span className="font-medium text-slate-900">
+                        <span className="font-medium text-foreground">
                           {email || "your email address"}
                         </span>
                         .
@@ -219,7 +216,7 @@ export default function PendingAccessPage() {
                     ) : (
                       <>
                         A confirmation will also be sent to{" "}
-                        <span className="font-medium text-slate-900">
+                        <span className="font-medium text-foreground">
                           {email || "your email address"}
                         </span>
                         .
@@ -228,45 +225,47 @@ export default function PendingAccessPage() {
                   </p>
                 </div>
 
-                <Separator />
+                <Separator className="bg-border" />
 
                 <div className="space-y-4">
-                  <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                     What happens next
                   </h2>
 
                   <div className="space-y-3">
-                    <div className="rounded-2xl border p-4">
-                      <div className="mb-1 text-sm font-medium text-slate-900">
+                    <div className="rounded-2xl border border-border bg-background/60 p-4">
+                      <div className="mb-1 text-sm font-medium text-foreground">
                         <span className="text-lg font-bold">1. Review</span>
                       </div>
-                      <p className="text-sm leading-6 text-slate-600">
+                      <p className="text-sm leading-6 text-muted-foreground">
                         Your request is checked by an authorized member of the
                         team.
                       </p>
                     </div>
 
-                    <div className="rounded-2xl border p-4">
-                      <div className="mb-1 text-sm font-medium text-slate-900">
-                        <span className="font-bold text-lg">2. Confirmation</span>
+                    <div className="rounded-2xl border border-border bg-background/60 p-4">
+                      <div className="mb-1 text-sm font-medium text-foreground">
+                        <span className="text-lg font-bold">2. Confirmation</span>
                       </div>
-                      <p className="text-sm leading-6 text-slate-600">
+                      <p className="text-sm leading-6 text-muted-foreground">
                         You will receive an email update confirming the final
-                        decision.
-                        <span className="font-semibold">Please check your trash, span or junk mail.</span>
+                        decision.{" "}
+                        <span className="font-semibold text-foreground">
+                          Please check your trash, spam, or junk mail.
+                        </span>
                       </p>
                     </div>
 
-                    <div className="rounded-2xl border p-4">
-                      <div className="mb-1 text-sm font-medium text-slate-900">
-                         <span className="font-bold text-lg">3. Access</span>
+                    <div className="rounded-2xl border border-border bg-background/60 p-4">
+                      <div className="mb-1 text-sm font-medium text-foreground">
+                        <span className="text-lg font-bold">3. Access</span>
                       </div>
-                      <p className="text-sm leading-6 text-slate-600">
+                      <p className="text-sm leading-6 text-muted-foreground">
                         {isGranted
                           ? "You are being redirected now."
                           : isDenied
-                          ? "If needed, you can contact an administrator for further assistance."
-                          : "This page will update automatically once your access status changes."}
+                            ? "If needed, you can contact an administrator for further assistance."
+                            : "This page will update automatically once your access status changes."}
                       </p>
                     </div>
                   </div>

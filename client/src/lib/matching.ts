@@ -21,6 +21,9 @@ export type MatchRow = {
   notes: string;
 };
 
+const round2 = (value: number): number =>
+  Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+
 export default function buildMatchRows(
   po: any, 
   invoice: any, 
@@ -37,9 +40,21 @@ export default function buildMatchRows(
    */
   const getPOItem = (id: string) => poItems.find((p: any) => p.id === id);
 
+  // Figure out invoice subtotal from line items
+  // invoice.amount is being treated as the grand total (subtotal + tax)
+  const invoiceSubtotal = round2(
+    invLines.reduce((sum: number, line: any): number => {
+      const qty = Number(line.quantity ?? 0);
+      const unitPrice = Number(line.unitPrice ?? 0);
+      return sum + qty * unitPrice;
+    }, 0)
+  );
+
+  const invoiceGrandTotal = round2(Number(invoice?.amount ?? 0));
+  const invoiceTax = round2(Math.max(invoiceGrandTotal - invoiceSubtotal, 0));
 
   // We iterate through INVOICE lines because that is what we are paying
-  return invLines.map((invLine: any, index: number) => {
+  const baseRows: MatchRow[] = invLines.map((invLine: any, index: number): MatchRow => {
     const poItemId = invLine.poItemId;
     const poItem = poItemId ? getPOItem(poItemId) : null;
     
@@ -61,7 +76,7 @@ export default function buildMatchRows(
 
     // LOGIC: Payable is the lesser of Invoiced or Received
     const payableQty = Math.min(invQty, grQty);
-    const payableAmount = payableQty * invUnitPrice;
+    const lineSubtotal = round2(payableQty * invUnitPrice);
 
     const notes: string[] = [];
     let status: MatchRow["status"] = "MATCHED";
@@ -73,7 +88,7 @@ export default function buildMatchRows(
       status = "SHORT";
       notes.push(`Short delivery: Invoiced ${invQty} but received ${grQty}`);
     } else if (invQty > poQty) {
-      status = "OVER_BILLED"
+      status = "OVER_BILLED";
       // Use this carefully, sometimes over-delivery is allowed
       notes.push(`Warning: Invoiced qty > Original PO qty`);
     }
@@ -91,10 +106,42 @@ export default function buildMatchRows(
       grQty,
       invUnitPrice,
       payableQty,
-      payableAmount,
+      payableAmount: lineSubtotal, // temporary subtotal; tax will be added below
       status,
       lineOk,
       notes: notes.join(" • "),
+    };
+  });
+
+  // Prorate invoice tax across payable lines
+  const payableSubtotal = round2(
+    baseRows.reduce((sum: number, row: MatchRow): number => {
+      return sum + Number(row.payableAmount ?? 0);
+    }, 0)
+  );
+
+  if (invoiceTax <= 0 || payableSubtotal <= 0) {
+    return baseRows;
+  }
+
+  let allocatedTax = 0;
+
+  return baseRows.map((row: MatchRow, index: number): MatchRow => {
+    const lineSubtotal = Number(row.payableAmount ?? 0);
+
+    let lineTaxShare = 0;
+
+    if (index === baseRows.length - 1) {
+      // Put any rounding remainder on the last row
+      lineTaxShare = round2(invoiceTax - allocatedTax);
+    } else {
+      lineTaxShare = round2((lineSubtotal / payableSubtotal) * invoiceTax);
+      allocatedTax = round2(allocatedTax + lineTaxShare);
+    }
+
+    return {
+      ...row,
+      payableAmount: round2(lineSubtotal + lineTaxShare),
     };
   });
 }

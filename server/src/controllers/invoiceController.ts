@@ -185,10 +185,21 @@ export const createInvoice = async (req: Request, res: Response) => {
           },
         });
 
-        const invoicePoId = await tx.supplierInvoice.findUnique({ 
-          where:  poId,
-          select: { id: true }
-        })
+        const existingInvoice = await tx.supplierInvoice.findUnique({
+        where: {
+          invoiceNumber_supplierId: {
+            invoiceNumber: String(invoiceNumber).trim(),
+            supplierId: String(supplierId).trim(),
+          },
+        },
+        select: { id: true },
+      });
+
+      if (existingInvoice) {
+        const err: any = new Error("Invoice already exists for this supplier.");
+        err.status = 409;
+        throw err;
+      }
 
         if (!po) {
           const err: any = new Error("Purchase order not found.");
