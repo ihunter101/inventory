@@ -260,7 +260,7 @@ const Products = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Stock:</span>
                   <span className="text-sm font-medium text-foreground">
-                    {product.stockQuantity} {product.unit || "units"}
+                    {product.unit || "units"}
                   </span>
                 </div>
 

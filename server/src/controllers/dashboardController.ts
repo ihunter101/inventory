@@ -36,6 +36,9 @@ function buildDayList(start: Date, end: Date) {
 async function computeRevenueAndProfit(range: DateRange) {
   const end = new Date();
   const endDay = startOfDayUTC(end);
+  
+const endOfToday = new Date(endDay);
+endOfToday.setUTCHours(23, 59, 59, 999);  // ✅
 
   const daysBack =
     range === "7d" ? 7 : range === "30d" ? 30 : range === "90d" ? 90 : 365;
@@ -47,38 +50,42 @@ async function computeRevenueAndProfit(range: DateRange) {
   const prevEnd = addDaysUTC(start, -1);
   const prevStart = addDaysUTC(prevEnd, -daysBack + 1);
 
+  const prevEndOfDay = new Date(prevEnd);
+prevEndOfDay.setUTCHours(23, 59, 59, 999); // ✅
+  
+
   // Query raw rows (minimal selects)
   const [salesRows, expenseRows, invoiceRows, prevSalesRows, prevExpenseRows, prevInvoiceRows] =
     await Promise.all([
       prisma.sale.findMany({
-        where: { salesDate: { gte: start, lte: endDay } },
+        where: { salesDate: { gte: start, lte: endOfToday } },
         select: { salesDate: true, grandTotal: true },
       }),
       prisma.expenses.findMany({
-        where: { createdAt: { gte: start, lte: endDay } },
+        where: { createdAt: { gte: start, lte: endOfToday } },
         select: { createdAt: true, amount: true, category: true },
       }),
       prisma.supplierInvoice.findMany({
-        where: { date: { gte: start, lte: endDay } },
+        where: { date: { gte: start, lte: endOfToday } },
         select: { date: true, amount: true },
       }),
 
       prisma.sale.findMany({
-        where: { salesDate: { gte: prevStart, lte: prevEnd } },
+        where: { salesDate: { gte: prevStart, lte: prevEndOfDay } },
         select: { grandTotal: true },
       }),
       prisma.expenses.findMany({
-        where: { createdAt: { gte: prevStart, lte: prevEnd } },
+        where: { createdAt: { gte: prevStart, lte: prevEndOfDay } },
         select: { amount: true },
       }),
       prisma.supplierInvoice.findMany({
-        where: { date: { gte: prevStart, lte: prevEnd } },
+        where: { date: { gte: prevStart, lte: prevEndOfDay } },
         select: { amount: true },
       }),
     ]);
 
   // Build per-day buckets so chart always has continuous x-axis
-  const days = buildDayList(start, endDay);
+  const days = buildDayList(start, endOfToday);
   const revenueByDay = new Map<string, number>();
   const regularByDay = new Map<string, number>();
   const invoiceByDay = new Map<string, number>();
@@ -401,8 +408,12 @@ export const getDashboardMetrics = async (req: Request, res: Response): Promise<
 // SALES KPIs (weekly default, last 90 days)
 // ==============================
 const end = new Date();
-const start = new Date();
-start.setDate(end.getDate() - 90); // ~13 weeks
+end.setDate(end.getDate() + 1);
+end.setHours(0, 0, 0, 0);
+
+const start = new Date(end);
+start.setDate(start.getDate() - 90);
+start.setHours(0, 0, 0, 0); // ~13 weeks
 
 // Totals
 const totals = await prisma.sale.aggregate({
