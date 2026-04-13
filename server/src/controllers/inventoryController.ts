@@ -5,8 +5,32 @@ import { z } from "zod";
 //const prisma = new PrismaClient();
 
 export async function getInventory(req: Request, res: Response){
+
   try {
+     const search = (req.query.search ?? "").trim()
+
+    const where = search
+      ? {
+          OR: [
+            { name: { contains: search, mode: "insensitive" as const } },
+            { category: { contains: search, mode: "insensitive" as const } },
+            { productId: { contains: search, mode: "insensitive" as const } },
+            {
+              inventory: {
+                some: {
+                  OR: [
+                    { lotNumber: { contains: search, mode: "insensitive" as const } },
+                    { supplierId: { contains: search, mode: "insensitive" as const } },
+                  ],
+                },
+              },
+            },
+          ],
+        }
+      : undefined;
+
     const products = await prisma.products.findMany({
+       where,
       include: { inventory: true },
       orderBy: { name: "asc"},
     })

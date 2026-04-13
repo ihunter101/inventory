@@ -21,15 +21,31 @@ import {
 import { InventoryItem as PdfItem } from "@/app/pdf/InventoryDocument";
 import type { Category } from "@/app/(components)/Products/UpdateProductDialog";
 import { MissingExpiryTableCard } from "@/app/(components)/inventory/AddExpiryDate";
+import { Input } from "@/components/ui/input";
 
 export default function InventoryPage() {
-  const { data = [], isLoading, isError, error, refetch } = useGetInventoryQuery();
+
+  const [search, setSearch] = React.useState("");
+  const[debounceSearch, setDebouncedSearch] = React.useState("");
+
+    //debounce for search
+  React.useEffect(() => {
+  const timer = setTimeout(() => {
+    setDebouncedSearch(search.trim());
+  }, 400);
+
+  return () => clearTimeout(timer);
+}, [search]);
+
+
+  const { data = [], isLoading, isError, error, refetch } = useGetInventoryQuery(debounceSearch || undefined);
   const [adjustInventory, { isLoading: adjusting }] = useAdjustInventoryMutation();
   const [setInventory, { isLoading: setting }] = useSetInventoryMutation();
 
   const [status, setStatus] = React.useState<"all" | Status>("all");
   const [category, setCategory] = React.useState<"all" | Category>("all");
 
+  
   const [stocktakeOpen, setStocktakeOpen] = React.useState(false);
   const [stocktakeItem, setStocktakeItem] = React.useState<{
     productId: string;
@@ -39,6 +55,7 @@ export default function InventoryPage() {
   } | null>(null);
 
   const rows = React.useMemo<InventoryRow[]>(() => data as any, [data]);
+
 
   const filteredRows = React.useMemo(
     () =>
@@ -135,6 +152,9 @@ export default function InventoryPage() {
 
         <MissingExpiryTableCard />
 
+        
+       
+
         <InventoryFilters
           status={status}
           category={category}
@@ -142,7 +162,7 @@ export default function InventoryPage() {
           onCategoryChange={setCategory}
           isBusy={busy}
         />
-
+        
         <InventoryTable
           rows={filteredRows}
           isError={isError}
@@ -152,6 +172,8 @@ export default function InventoryPage() {
           setting={setting}
           onQuickAdjust={handleQuickAdjust}
           onOpenStocktake={handleOpenStocktake}
+          search={search}
+          onSearchChange={setSearch}
         />
 
         <StocktakeDialog

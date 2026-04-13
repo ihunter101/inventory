@@ -15,6 +15,8 @@ import { expiryColor, statusChip } from "../../utils/stock";
 import { InventoryRow, formatNumber, deriveStatus } from "./InventoryTypes";
 import { InventoryAction } from "./InventoryRowActions";
 import { useRouter } from "next/navigation";
+import { Input } from "@/components/ui/input"
+import { useEffect, useState } from "react"
 
 type Props = {
   rows: InventoryRow[];
@@ -25,6 +27,8 @@ type Props = {
   setting: boolean;
   onQuickAdjust: (row: InventoryRow, delta: number, reason?: string) => void;
   onOpenStocktake: (row: InventoryRow) => void;
+  search: string | undefined;
+  onSearchChange:  (value: string) => void;
 };
 
 export const InventoryTable: React.FC<Props> = ({
@@ -36,6 +40,8 @@ export const InventoryTable: React.FC<Props> = ({
   setting,
   onQuickAdjust,
   onOpenStocktake,
+  search,
+  onSearchChange,
 }) => {
   const router = useRouter();
 
@@ -239,14 +245,24 @@ export const InventoryTable: React.FC<Props> = ({
       sx={{ borderRadius: "20px" }}
     >
       <CardHeader
-        title={
-          <Typography
-            variant="h6"
-            fontWeight={700}
-            className="text-foreground"
-          >
-            Inventory
-          </Typography>
+         title={
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <Typography
+              variant="h6"
+              fontWeight={700}
+              className="text-foreground"
+            >
+              Inventory
+            </Typography>
+
+            <div className="w-full max-w-sm">
+              <Input
+                placeholder="Search by item name, ID, lot number or supplier"
+                value={search}
+                onChange={(e) => onSearchChange(e.target.value)}
+              />
+            </div>
+          </div>
         }
         sx={{
           bgcolor: "hsl(var(--muted) / 0.35)",

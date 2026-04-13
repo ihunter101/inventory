@@ -114,18 +114,29 @@ model Products {
   @@map("Products")
 }
 
+enum InventorySourceType {
+  GRN
+  LEGACY_IMPORT
+  OPENING_BALANCE
+  ADJUSTMENT
+  RETURN
+}
+
 model Inventory {
-  id        String   @id @default(cuid())
+  id String @id @default(cuid())
 
   productId String
   product   Products @relation(fields: [productId], references: [productId])
 
-  supplierId String
-  supplier   Supplier @relation(fields: [supplierId], references: [supplierId])
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [supplierId])
 
-  // one GRN line -> one inventory row
-  grnItemId String @unique
-  grnItem   GoodsReceiptItem @relation(fields: [grnItemId], references: [id], onDelete: Cascade)
+  grnItemId String? @unique
+  grnItem   GoodsReceiptItem? @relation(fields: [grnItemId], references: [id], onDelete: Cascade)
+
+  sourceType      InventorySourceType @default(GRN)
+  sourceReference String?
+  notes           String?
 
   stockQuantity Int @default(0)
   minQuantity   Int @default(0)
@@ -143,6 +154,7 @@ model Inventory {
   @@index([productId])
   @@index([lotNumber])
   @@index([expiryDate])
+  @@index([sourceType])
 }
 
 model Sale {
