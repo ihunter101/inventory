@@ -146,6 +146,19 @@ type UpdateInventoryMetaPayload = {
   lotNumber?: string; //update to be mandetory in production 
 };
 
+type PaginatedInventoryResponse = {
+  data: Inventory[];
+  totalPages: number;
+  limit: number;
+  total: number;
+  page: number;
+}
+
+type InventoryExpriryParams = {
+  page?: number;
+  limit?: number;
+}
+
 export interface NewProduct {
   name: string;
   rating?: number;
@@ -899,9 +912,10 @@ export const api = createApi({
         ]
       : [{ type: "Inventory" as const, id: "LIST" }],
       }),
-    getInventoryWithoutExpiryDate: build.query<Inventory[], void>({
-      query: () => ({
-        url: 'inventory/expiry'
+    getInventoryWithoutExpiryDate: build.query<PaginatedInventoryResponse, InventoryExpriryParams>({
+      query: ({ page = 1, limit = 15}) => ({
+        url: 'inventory/expiry',
+        params: {page, limit}
       }),
       providesTags: [{ type: "Inventory", id: "LIST"}]
     }),

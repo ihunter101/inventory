@@ -27,6 +27,7 @@ import {
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { ChevronDown } from "lucide-react";
 
 type MissingItem = {
   productId: string;
@@ -61,11 +62,22 @@ function isoToDateInput(iso: string): string {
   return iso.slice(0, 10);
 }
 
-export function MissingExpiryTableCard() {
-  const { data, isLoading, isError } = useGetInventoryWithoutExpiryDateQuery();
+type Props = {
+  isOpen: boolean
+  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+export function MissingExpiryTableCard({ isOpen, setIsOpen }: Props) {
+  const [page, setPage] = React.useState(1)
+  const limit = 15
+  const { data, isLoading, isError } = useGetInventoryWithoutExpiryDateQuery({
+    page, 
+    limit,
+  });
   const [updateMeta] = useUpdateInventoryMetaMutation();
 
-  const items = (data ?? []) as MissingItem[];
+  const items = (data?.data ?? []) as MissingItem[];
+  const totalPages = data?.totalPages ?? 1;
 
   const [drafts, setDrafts] = React.useState<Record<string, RowDraft>>({});
   const [saving, setSaving] = React.useState<Record<string, boolean>>({});
@@ -281,15 +293,24 @@ export function MissingExpiryTableCard() {
 
   return (
     <Card className="mt-4 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base font-semibold tracking-tight text-foreground">
-          Missing Expiry Dates
-        </CardTitle>
-        <CardDescription className="text-muted-foreground">
-          Add expiry date, min quantity, and reorder point. Save each row.
-        </CardDescription>
+      <CardHeader 
+        className="pb-3"
+        onClick={() => setIsOpen((prev) => !prev)}
+      >
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base font-semibold tracking-tight text-foreground">
+            Missing Expiry Dates
+          </CardTitle>
+          <CardDescription className="text-muted-foreground">
+            Add expiry date, min quantity, and reorder point. Save each row.
+          </CardDescription>
+          <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform duration-200 ${
+              isOpen ? "rotate-180" : "rotate-0"
+            }`} />
+        </div>
       </CardHeader>
 
+    {isOpen && (
       <CardContent className="overflow-x-auto pt-0">
         <div className="rounded-2xl border border-border/60 bg-muted/30">
           <Table>
@@ -397,7 +418,29 @@ export function MissingExpiryTableCard() {
             </TableBody>
           </Table>
         </div>
+         <div className="flex items-center justify-between pt-4">
+              <Button
+                variant="outline"
+                disabled={page === 1}
+                onClick={() => setPage((prev) => prev - 1)}
+              >
+                Previous
+              </Button>
+
+              <span className="text-sm text-muted-foreground">
+                Page {data?.page ?? 1} of {totalPages}
+              </span>
+
+              <Button
+                variant="outline"
+                disabled={page >= totalPages}
+                onClick={() => setPage((prev) => prev + 1)}
+              >
+                Next
+              </Button>
+            </div>
       </CardContent>
+    )}
     </Card>
   );
 }

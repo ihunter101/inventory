@@ -195,17 +195,38 @@ export async function setInventory(req: Request, res: Response) {
 
 export async function getInventoryWithoutExpiry(req: Request, res: Response) {
   try {
-    const missingExpiryDate = await prisma.products.findMany({
-      where: {
-        expiryDate: null,
-      },
-      include: {
-        inventory: true, // so you also get minQuantity/reorderPoint/stockQuantity
-      },
-      orderBy: { updatedAt: "desc" },
-    });
 
-    return res.json(missingExpiryDate);
+    const page = Math.max(Number(req.query.page) || 1, 1)
+    const limit = Math.max(Number(req.query.limit) || 15, 1)
+    const skip = (page -1) * limit
+
+
+    const where = {
+      OR: [
+        { expiryDate: null },
+      ]
+    }
+
+    const [items, total] = await Promise.all([
+      prisma.inventory.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: {
+          createdAt: "asc"
+        },
+        include: { product: true }
+      }),
+      prisma.inventory.count({where})
+    ])
+
+    res.json({
+      data: items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    });
   } catch (error) {
     console.error(error);
     return res

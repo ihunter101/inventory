@@ -28,6 +28,9 @@ export default function InventoryPage() {
   const [search, setSearch] = React.useState("");
   const[debounceSearch, setDebouncedSearch] = React.useState("");
 
+  //state for expiry inv
+  const [isOpen, setIsOpen] = React.useState(false);
+
     //debounce for search
   React.useEffect(() => {
   const timer = setTimeout(() => {
@@ -150,7 +153,10 @@ export default function InventoryPage() {
       <div className="flex flex-col gap-6">
         <InventoryHeader onAddItem={() => {}} pdfItems={pdfItems} />
 
-        <MissingExpiryTableCard />
+        <MissingExpiryTableCard
+          isOpen={isOpen}
+          setIsOpen={setIsOpen}
+        />
 
         
        
