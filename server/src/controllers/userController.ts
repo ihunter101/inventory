@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { Role, canModifyUserRole, ROLE_HIERARCHY } from "@lab/shared/userRolesUtils";
-import { verifyApprovalToken } from "../lib/approvalToken";
+import { signApprovalToken, verifyApprovalToken } from "../lib/approvalToken";
 import resend from "../config/resend"
 import { buildAccessDecisionEmail } from "../emails/accessDecisionEmail";
 
@@ -127,7 +127,7 @@ export const updateUserRole = async (req: Request, res: Response) => {
     const { role: newRole } = req.body;
 
     if (!Object.values(Role).includes(newRole)) {
-      return res.status(400).json({ error: "invalid Role" });
+      return res.status(400).json({ error: "Invalid role" });
     }
 
     const auth = (req as any).auth as { userId: string };
@@ -135,10 +135,10 @@ export const updateUserRole = async (req: Request, res: Response) => {
 
     const actor = await prisma.users.findUnique({
       where: { clerkId: actorClerkId },
-      select: { role: true },
+      select: { role: true, accessStatus: true },
     });
 
-    if (!actor) {
+    if (!actor || actor.accessStatus !== "granted") {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
@@ -163,12 +163,12 @@ export const updateUserRole = async (req: Request, res: Response) => {
     );
 
     if (!canModify) {
-      return res.status(403).json({ error: reason || "Insufficient Permissions" });
+      return res.status(403).json({ error: reason || "Insufficient permissions" });
     }
 
     const updated = await prisma.users.update({
       where: { id },
-      data: { role: newRole },
+      data: { role: newRole as Role },
       select: {
         id: true,
         name: true,
@@ -179,15 +179,12 @@ export const updateUserRole = async (req: Request, res: Response) => {
       },
     });
 
-    // Only send the "you now have access" email when:
-    // 1. access is already granted
-    // 2. old role was viewer
-    // 3. new role is now a real role
-    if (
-      updated.accessStatus === "granted" &&
-      (targetUser.role === Role.viewer || Role.orderAgent || Role.labStaff || Role.inventoryClerk || Role.admin) &&
-      updated.role !== Role.viewer
-    ) {
+    const shouldSendFinalAccessEmail =
+      targetUser.accessStatus === "granted" &&
+      targetUser.role === Role.viewer &&
+      updated.role !== Role.viewer;
+
+    if (shouldSendFinalAccessEmail) {
       try {
         await messageToOnboardedUser({
           name: updated.name,
@@ -207,7 +204,6 @@ export const updateUserRole = async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Failed to update user role" });
   }
 };
-
 export const deleteUser = async (req: Request, res: Response) => {
     try {
         const {id} = req.params
@@ -447,3 +443,220 @@ export const messageToOnboardedUser = async (user: {
 
   return result.data;
 };
+
+export const messageAdminsForNewUserApproval = async (user: {
+  id: string;
+  name: string | null;
+  email: string;
+  location?: string | null;
+}) => {
+  const CLIENT_URL = process.env.CLIENT_URL!;
+  const sender = process.env.PROD_RESEND_SENDER_EMAIL;
+
+  if (!sender) {
+    throw new Error("PROD_RESEND_SENDER_EMAIL is missing");
+  }
+
+  const admins = await prisma.users.findMany({
+    where: {
+      accessStatus: "granted",
+      role: {
+        in: ["admin", "inventoryClerk"],
+      },
+    },
+    select: {
+      email: true,
+      name: true,
+    },
+  });
+
+  const adminEmails = admins.map((a) => a.email).filter(Boolean);
+
+  if (adminEmails.length === 0) {
+    console.warn("No admin recipients found for new user approval email");
+    return null;
+  }
+
+  // Generate secure review links
+  const grantToken = signApprovalToken({
+    userId: user.id,
+    action: "grant",
+  });
+
+  const denyToken = signApprovalToken({
+    userId: user.id,
+    action: "deny",
+  });
+
+  const approveUrl =
+    `${CLIENT_URL}/users/review` +
+    `?action=grant&id=${encodeURIComponent(user.id)}` +
+    `&token=${encodeURIComponent(grantToken)}`;
+
+  const denyUrl =
+    `${CLIENT_URL}/users/review` +
+    `?action=deny&id=${encodeURIComponent(user.id)}` +
+    `&token=${encodeURIComponent(denyToken)}`;
+
+  const manageUrl = `${CLIENT_URL}/users?highlight=${encodeURIComponent(user.id)}`;
+
+  const header = `Access Request <${sender}>`;
+  const subject = `New user awaiting access — ${user.name ?? user.email}`;
+
+  const html = `
+    <div style="margin:0;padding:0;background-color:#f8fafc;font-family:Arial,sans-serif;">
+      <div style="max-width:640px;margin:0 auto;padding:32px 20px;">
+        <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.06);">
+          
+          <div style="padding:28px 32px 18px 32px;border-bottom:1px solid #f1f5f9;">
+            <p style="margin:0 0 8px 0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;font-weight:700;">
+              Access Review
+            </p>
+            <h1 style="margin:0;font-size:28px;line-height:1.2;color:#0f172a;">
+              New user requesting access
+            </h1>
+            <p style="margin:14px 0 0 0;font-size:16px;line-height:1.6;color:#475569;">
+              A new user has completed onboarding and is awaiting review.
+            </p>
+          </div>
+
+          <div style="padding:28px 32px;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+              <tr>
+                <td style="padding:14px 16px;font-size:15px;color:#475569;border-bottom:1px solid #e5e7eb;background:#f8fafc;width:34%;font-weight:700;">
+                  Name
+                </td>
+                <td style="padding:14px 16px;font-size:15px;color:#0f172a;border-bottom:1px solid #e5e7eb;">
+                  ${user.name ?? "No name provided"}
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:14px 16px;font-size:15px;color:#475569;border-bottom:1px solid #e5e7eb;background:#f8fafc;font-weight:700;">
+                  Email
+                </td>
+                <td style="padding:14px 16px;font-size:15px;color:#0f172a;border-bottom:1px solid #e5e7eb;">
+                  <a href="mailto:${user.email}" style="color:#2563eb;text-decoration:none;">
+                    ${user.email}
+                  </a>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:14px 16px;font-size:15px;color:#475569;background:#f8fafc;font-weight:700;">
+                  Location
+                </td>
+                <td style="padding:14px 16px;font-size:15px;color:#0f172a;">
+                  ${user.location ?? "Not provided"}
+                </td>
+              </tr>
+            </table>
+
+            <div style="margin-top:28px;">
+              <a
+                href="${approveUrl}"
+                style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;padding:14px 22px;border-radius:10px;font-size:15px;font-weight:700;margin-right:12px;"
+              >
+                Approve Access
+              </a>
+
+              <a
+                href="${denyUrl}"
+                style="display:inline-block;background:#dc2626;color:#ffffff;text-decoration:none;padding:14px 22px;border-radius:10px;font-size:15px;font-weight:700;"
+              >
+                Deny Access
+              </a>
+            </div>
+
+            <p style="margin:24px 0 0 0;font-size:14px;line-height:1.6;color:#64748b;">
+              These secure links expire in 24 hours.
+            </p>
+
+            <p style="margin:14px 0 0 0;font-size:14px;line-height:1.6;color:#475569;">
+              After granting access, please assign the user’s role to complete onboarding.
+            </p>
+
+            <p style="margin:10px 0 0 0;font-size:14px;line-height:1.6;color:#475569;">
+              You can also manage this user manually here:
+              <a href="${manageUrl}" style="color:#2563eb;text-decoration:none;">
+                Open Users Page
+              </a>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const result = await resend.emails.send({
+    from: header,
+    to: adminEmails,
+    subject,
+    html,
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  return result.data;
+};
+
+export const notifyPendingAccess = async (req: Request, res: Response) => {
+  try {
+    const clerkId =
+      (req as any).auth?.userId ||
+      (typeof (req as any).auth === "function"
+        ? (req as any).auth()?.userId
+        : undefined) ||
+      (req as any).userId;
+
+    if (!clerkId) {
+      return res.status(401).json({
+        error: "Unauthorized: missing Clerk userId",
+      });
+    }
+
+    const dbUser = await prisma.users.findUnique({
+      where: { clerkId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        accessStatus: true,
+        onboardedAt: true,
+      },
+    });
+
+    if (!dbUser) {
+      return res.status(404).json({
+        error: "User not found in database",
+      });
+    }
+
+    // Only notify if this user is actually in a waiting state
+    const isAwaitingApproval =
+      dbUser.accessStatus !== "granted" || dbUser.role === "viewer";
+
+    if (!isAwaitingApproval) {
+      return res.json({
+        message: "User already has full access. No admin notification sent.",
+      });
+    }
+
+    await messageAdminsForNewUserApproval({
+      id: dbUser.id,
+      name: dbUser.name,
+      email: dbUser.email,
+    });
+
+    return res.json({
+      message: "Admins notified successfully",
+    });
+  } catch (err) {
+    console.error("notifyPendingAccess error:", err);
+    return res.status(500).json({
+      error: "Failed to notify admins",
+    });
+  }
+};
+

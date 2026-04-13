@@ -91,46 +91,6 @@ export const onboarding = async (req: Request, res: Response) => {
       },
     });
 
-    //console.log("✅ User onboarded:", updated.email);
-
-    try {
-  const privileged = await prisma.users.findMany({
-    where: {
-      role: { in: ["admin", "inventoryClerk"] },
-      accessStatus: "granted",
-    },
-    select: { email: true },
-  });
-
-  //console.log("📨 privileged reviewers:", privileged);
-
-  if (privileged.length === 0) {
-    console.log("⚠️ No granted admins/inventory clerks found. No email sent.");
-  } else {
-    const { subject, html } = buildNewUserEmail({
-      id: updated.id,
-      name: updated.name,
-      email: updated.email,
-      location: String(updated.location),
-    });
-    // console.log("RESEND_API_KEY prefix:", process.env.RESEND_API_KEY?.slice(0, 8));
-    // console.log("EMAIL_FROM:", process.env.PROD_RESEND_SENDER_EMAIL_ONBOARDING);
-
-    const sender = process.env.PROD_RESEND_SENDER_EMAIL_ONBOARDING!
-    const header =`Grant Access <${sender}>`
-    const result = await resend.emails.send({
-      from: header,
-      to: privileged.map((u) => u.email),
-      subject,
-      html,
-    });
-
-    //console.log("✅ Admin notification email sent:", result);
-  }
-} catch (emailError) {
-  console.error("❌ Admin notification email failed:", emailError);
-}
-
     try {
       await clerkClient.users.updateUserMetadata(clerkId, {
         publicMetadata: { onboardingComplete: true },

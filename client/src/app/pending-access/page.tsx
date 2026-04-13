@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   ShieldCheck,
@@ -13,7 +13,10 @@ import {
   Loader2,
 } from "lucide-react";
 
-import { useGetMeQuery } from "@/app/state/api";
+import {
+  useGetMeQuery,
+  useNotifyPendingAccessMutation,
+} from "@/app/state/api";
 import {
   Card,
   CardContent,
@@ -27,6 +30,9 @@ import { Separator } from "@/components/ui/separator";
 
 export default function PendingAccessPage() {
   const router = useRouter();
+  const hasTriggeredNotify = useRef(false);
+
+  const [notifyPendingAccess] = useNotifyPendingAccessMutation();
 
   const { data, isLoading, isError } = useGetMeQuery(undefined, {
     pollingInterval: 50000,
@@ -43,17 +49,56 @@ export default function PendingAccessPage() {
   const isGranted = status === "granted";
   const isDenied = status === "denied";
   const isPending = status === "pending";
+  const isAwaitingRoleAssignment = isGranted && (!role || role === "viewer");
+  const shouldStayOnPendingPage = !isGranted || isAwaitingRoleAssignment;
 
   useEffect(() => {
     if (!user) return;
-    if (!isGranted) return;
+
+    // Only redirect when user is truly fully ready
+    if (status !== "granted") return;
+    if (!role || role === "viewer") return;
 
     if (role === "admin" || role === "inventoryClerk") {
       router.replace("/dashboard");
     } else {
       router.replace("/products");
     }
-  }, [user, isGranted, role, router]);
+  }, [user, status, role, router]);
+
+  useEffect(() => {
+    if (!user) return;
+    if (!shouldStayOnPendingPage) return;
+    if (hasTriggeredNotify.current) return;
+
+    const notificationKey = `pending-access-notified-${user.id}`;
+    const alreadyNotified =
+      typeof window !== "undefined" &&
+      sessionStorage.getItem(notificationKey) === "true";
+
+    if (alreadyNotified) {
+      hasTriggeredNotify.current = true;
+      return;
+    }
+
+    hasTriggeredNotify.current = true;
+
+    const run = async () => {
+      try {
+        await notifyPendingAccess().unwrap();
+
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem(notificationKey, "true");
+        }
+      } catch (error) {
+        console.error("Failed to notify admins about pending access:", error);
+        // allow retry on a future mount/refresh if request failed
+        hasTriggeredNotify.current = false;
+      }
+    };
+
+    run();
+  }, [user, shouldStayOnPendingPage, notifyPendingAccess]);
 
   if (isLoading) {
     return (
@@ -96,19 +141,25 @@ export default function PendingAccessPage() {
   }
 
   const title = isGranted
-    ? `Access approved for ${name}`
+    ? isAwaitingRoleAssignment
+      ? `Approval complete for ${name}`
+      : `Access approved for ${name}`
     : isDenied
       ? `Access update for ${name}`
       : "Access request submitted";
 
   const description = isGranted
-    ? "Your onboarding has been reviewed and access has been granted."
+    ? isAwaitingRoleAssignment
+      ? "Your request was approved. An administrator is now assigning your role."
+      : "Your onboarding has been reviewed and access has been granted."
     : isDenied
       ? "Your onboarding has been reviewed. Access was not approved at this time."
       : "Your onboarding details were submitted successfully and are now awaiting review.";
 
   const badgeText = isGranted
-    ? "Approved"
+    ? isAwaitingRoleAssignment
+      ? "Approved - role pending"
+      : "Approved"
     : isDenied
       ? "Not approved"
       : "Pending review";
@@ -133,7 +184,9 @@ export default function PendingAccessPage() {
 
                   <h1 className="max-w-md text-3xl font-semibold tracking-tight sm:text-4xl">
                     {isGranted
-                      ? "Account access confirmed"
+                      ? isAwaitingRoleAssignment
+                        ? "Approval complete, final setup in progress"
+                        : "Account access confirmed"
                       : isDenied
                         ? "Account review completed"
                         : "Your request is under review"}
@@ -141,7 +194,9 @@ export default function PendingAccessPage() {
 
                   <p className="max-w-lg text-sm leading-6 text-slate-300 sm:text-base dark:text-slate-300">
                     {isGranted
-                      ? "Your account has been approved and is ready for use."
+                      ? isAwaitingRoleAssignment
+                        ? "Your account has been approved. The final step is assigning your system role before you can enter the platform."
+                        : "Your account has been approved and is ready for use."
                       : isDenied
                         ? "Your request was reviewed, but access was not granted at this time."
                         : "An authorized team member will review your onboarding request. This page checks for updates automatically."}
@@ -157,7 +212,9 @@ export default function PendingAccessPage() {
                   </div>
                   <p className="text-sm text-slate-300">
                     {isGranted
-                      ? "Completed successfully"
+                      ? isAwaitingRoleAssignment
+                        ? "Approved, waiting for role assignment"
+                        : "Completed successfully"
                       : isDenied
                         ? "Completed"
                         : "Waiting for authorized review"}
@@ -213,9 +270,18 @@ export default function PendingAccessPage() {
                         </span>
                         .
                       </>
+                    ) : isAwaitingRoleAssignment ? (
+                      <>
+                        Your request has been approved. A final confirmation will
+                        be sent to{" "}
+                        <span className="font-medium text-foreground">
+                          {email || "your email address"}
+                        </span>{" "}
+                        after your role has been assigned.
+                      </>
                     ) : (
                       <>
-                        A confirmation will also be sent to{" "}
+                        A confirmation has been sent to{" "}
                         <span className="font-medium text-foreground">
                           {email || "your email address"}
                         </span>
@@ -238,8 +304,9 @@ export default function PendingAccessPage() {
                         <span className="text-lg font-bold">1. Review</span>
                       </div>
                       <p className="text-sm leading-6 text-muted-foreground">
-                        Your request is checked by an authorized member of the
-                        team.
+                        {isPending
+                          ? "Your request is checked by an authorized member of the team."
+                          : "Your request has already been reviewed."}
                       </p>
                     </div>
 
@@ -248,8 +315,9 @@ export default function PendingAccessPage() {
                         <span className="text-lg font-bold">2. Confirmation</span>
                       </div>
                       <p className="text-sm leading-6 text-muted-foreground">
-                        You will receive an email update confirming the final
-                        decision.{" "}
+                        {isAwaitingRoleAssignment
+                          ? "An administrator is assigning your role before full access is unlocked."
+                          : "You will receive an email update confirming the final decision. "}
                         <span className="font-semibold text-foreground">
                           Please check your trash, spam, or junk mail.
                         </span>
@@ -262,7 +330,9 @@ export default function PendingAccessPage() {
                       </div>
                       <p className="text-sm leading-6 text-muted-foreground">
                         {isGranted
-                          ? "You are being redirected now."
+                          ? isAwaitingRoleAssignment
+                            ? "You have been approved, but final system access will begin after role assignment."
+                            : "You are being redirected now."
                           : isDenied
                             ? "If needed, you can contact an administrator for further assistance."
                             : "This page will update automatically once your access status changes."}

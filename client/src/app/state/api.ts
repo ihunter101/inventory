@@ -1077,6 +1077,12 @@ reviewUserAccess: build.mutation<{ message: string; user: User }, { id: string; 
     { type: "Users", id: "ME" },
   ],
 }),
+notifyPendingAccess: build.mutation<{ message: string }, void>({
+  query: () => ({
+    url: "/users/notify-pending-access",
+    method: "POST",
+  }),
+}),
     // Expenses
     getExpenses: build.query<Expense[], { category?: string; from: string; end: string }>({
     query: (params) => {
@@ -1525,6 +1531,7 @@ export const {
   useDeleteUserMutation,
   useGetMeQuery,
   useReviewUserAccessMutation,
+  useNotifyPendingAccessMutation,
 
   useAdjustInventoryMutation,
   useSetInventoryMutation,
