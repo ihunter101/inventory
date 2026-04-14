@@ -1,12 +1,9 @@
 import { PrismaClient, InventorySourceType } from "@prisma/client";
-//import { randomUUID } from "crypto";
 
 const prisma = new PrismaClient();
 
-const TODAY = new Date();
 
-// All 980 items parsed from the PDF inventory report
-export const inventoryData = [
+ const inventoryData = [
   { itemNo: "00-2224", description: "DIACLON RH+K PHENO II", manufacturer: "", qty: 4, avgCost: 361.00, unit: "EACH" },
   { itemNo: "00-3624", description: "DIA-CELLS ABO(A+B)", manufacturer: "", qty: 2, avgCost: 50.00, unit: "EACH" },
   { itemNo: "009925", description: "BIORAD - BLOOD BANK Q.C SET", manufacturer: "BIORAD", qty: 1, avgCost: 185.00, unit: "EACH" },
@@ -989,92 +986,63 @@ export const inventoryData = [
 ];
 
 async function main() {
-  console.log(`Starting backfill of ${inventoryData.length} items...`);
+  console.log(`Starting delete for ${inventoryData.length} items...`);
 
-  let productUpserted = 0;
-  let inventoryCreated = 0;
-  let skipped = 0;
+  let inventoryDeleted = 0;
+  let productDeleted = 0;
+  let productNotFound = 0;
   let errors = 0;
 
   for (const item of inventoryData) {
     try {
-      await prisma.products.upsert({
-        where: { productId: item.itemNo },
-        update: {
-          name: item.description,
-          stockQuantity: item.qty,
-          minQuantity: 0,
-          reorderPoint: 0,
-        },
-        create: {
-          productId: item.itemNo,
-          name: item.description,
-          minQuantity: 0,
-          reorderPoint: 0,
-          stockQuantity: item.qty,
-        },
-      });
-
-      productUpserted++;
-
-      const existingInventory = await prisma.inventory.findFirst({
+      const deletedInventory = await prisma.inventory.deleteMany({
         where: {
           productId: item.itemNo,
           sourceType: InventorySourceType.LEGACY_IMPORT,
           sourceReference: "backfill-2026-07-04",
-          //lotNumber: "LEGACY-OPENING",
         },
       });
 
-      if (existingInventory) {
-        await prisma.inventory.update({
-          where: { id: existingInventory.id },
-          data: {
-            stockQuantity: item.qty,
-            minQuantity: 0,
-            reorderPoint: 0,
-          },
-        });
+      inventoryDeleted += deletedInventory.count;
 
-        skipped++;
+      const deletedProduct = await prisma.products.deleteMany({
+        where: {
+          productId: item.itemNo,
+        },
+      });
+
+      if (deletedProduct.count > 0) {
+        productDeleted += deletedProduct.count;
       } else {
-        await prisma.inventory.create({
-          data: {
-            productId: item.itemNo,
-            stockQuantity: item.qty,
-            minQuantity: 0,
-            reorderPoint: 0,
-            //expiryDate: TODAY,
-            sourceType: InventorySourceType.LEGACY_IMPORT,
-            sourceReference: "backfill-2026-07-04",
-            //lotNumber: "LEGACY-OPENING",
-          },
-        });
-
-        inventoryCreated++;
+        productNotFound++;
+        console.warn(`Product not found: ${item.itemNo}`);
       }
 
-      if ((productUpserted + inventoryCreated + skipped) % 50 === 0) {
-        console.log(`Progress: ${productUpserted} products processed, ${inventoryCreated} inventory created, ${skipped} skipped`);
+      if ((inventoryDeleted + productDeleted + productNotFound) % 50 === 0) {
+        console.log(
+          `Progress: ${inventoryDeleted} inventory deleted, ${productDeleted} products deleted, ${productNotFound} not found`
+        );
       }
     } catch (err: any) {
-      console.error(`Error processing item ${item.itemNo}:`, err.message);
+      console.error(`Error deleting item ${item.itemNo}:`, err.message);
       errors++;
     }
   }
 
-  console.log("\n✅ Backfill complete!");
-  console.log(`   Products upserted: ${productUpserted}`);
-  console.log(`   Inventory records created: ${inventoryCreated}`);
-  console.log(`   Skipped (already existed): ${skipped}`);
+  console.log("\n✅ Delete script complete!");
+  console.log(`   Inventory rows deleted: ${inventoryDeleted}`);
+  console.log(`   Products deleted: ${productDeleted}`);
+  console.log(`   Products not found: ${productNotFound}`);
   console.log(`   Errors: ${errors}`);
 }
 
 main()
-  .catch((e) => {
-    console.error("Fatal error:", e);
-    process.exit(1);
-  })
-  .finally(async () => {
+  .then(async () => {
     await prisma.$disconnect();
+  })
+  .catch(async (e) => {
+    console.error("Delete script failed:", e);
+    await prisma.$disconnect();
+    process.exit(1);
   });
+

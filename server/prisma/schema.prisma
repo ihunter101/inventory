@@ -145,7 +145,7 @@ model Inventory {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  lotNumber  String
+  lotNumber  String?
   expiryDate DateTime?
 
   stockAllocation StockLedgerAllocation[]

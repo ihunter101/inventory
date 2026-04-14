@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Protect } from "@/app/(components)/auth/Protect";
 import { Can } from "@/app/(components)/auth/Can";
+import { PERMS } from "@lab/shared";
 
 interface ProductFormData {
   // IMPORTANT: for update, we need a productId coming from the dialog
@@ -215,7 +216,7 @@ const Products = () => {
           </select>
 
           {/* Button (kept as-is; you can rename label later) */}
-          <Can>
+          <Can perm={PERMS.WRITE_PRODUCTS}>
             <button
               onClick={() => setIsModalOpen(true)}
               className="flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground shadow-sm transition hover:opacity-90"
@@ -372,8 +373,8 @@ const Products = () => {
       <UpdateProductDialog
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onCreate={handleUpdateProduct}     // ✅ fixed
-        isCreating={isUpdating}            // ✅ update loading
+        onCreate={handleUpdateProduct}    
+        isCreating={isUpdating}            
       />
     </div>
   );
