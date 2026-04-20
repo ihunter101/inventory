@@ -51,6 +51,9 @@ import matchROutes from "./routes/matchRoutes"
 import paymentRouter from "./routes/paymentRoutes";
 import aiRoutes from "./routes/aiRoutes"
 import reportRoutes from "./routes/reportRoutes"
+import qbwcRoutes from "./routes/qbwcRoutes";
+import quickbooksRoutes from "./routes/quickbooksRoutes";
+
 
 process.on('uncaughtException', (err) => {
   console.error('💥 Uncaught Exception:', err);
@@ -124,6 +127,9 @@ protectedRouter.use('/matches', matchROutes);
 protectedRouter.use('/payments', paymentRouter)
 protectedRouter.use('/ai', aiRoutes)
 protectedRouter.use( '/report', reportRoutes)
+app.use("/qbwc", express.text({ type: "*/*", limit: "20mb" }));
+app.use("/qbwc", qbwcRoutes);
+app.use("/quickbooks", quickbooksRoutes);
 // Mount the protected router
 app.use(protectedRouter);
 

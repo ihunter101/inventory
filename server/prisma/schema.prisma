@@ -14,7 +14,7 @@ enum AccessStatus {
   denied
 }
 
-model Users { //make id @id and not unique 
+model Users {
   name      String?
   id        String    @unique @default(cuid())
   clerkId   String?   @unique
@@ -28,10 +28,10 @@ model Users { //make id @id and not unique
 
   session Sessions[]
 
-  accessStatus AccessStatus @default(pending) 
+  accessStatus AccessStatus @default(pending)
 
-  stockRequestsCreated  StockRequest[] @relation("StockRequestRequestedBy")
-  stockRequestsReviewed StockRequest[] @relation("StockRequestReviewedBy")
+  stockRequestsCreated  StockRequest[]  @relation("StockRequestRequestedBy")
+  stockRequestsReviewed StockRequest[]  @relation("StockRequestReviewedBy")
   onboardedAt           DateTime?
   purchaseOrder         PurchaseOrder[]
 }
@@ -131,19 +131,19 @@ model Inventory {
   supplierId String?
   supplier   Supplier? @relation(fields: [supplierId], references: [supplierId])
 
-  grnItemId String? @unique
+  grnItemId String?           @unique
   grnItem   GoodsReceiptItem? @relation(fields: [grnItemId], references: [id], onDelete: Cascade)
 
   sourceType      InventorySourceType @default(GRN)
   sourceReference String?
   notes           String?
 
-  stockQuantity Int @default(0)
-  minQuantity   Int @default(0)
-  reorderPoint  Int @default(0)
+  stockQuantity Int       @default(0)
+  minQuantity   Int       @default(0)
+  reorderPoint  Int       @default(0)
   lastCountedAt DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   lotNumber  String?
   expiryDate DateTime?
@@ -195,6 +195,160 @@ model SalesAuditLog {
   @@map("sales_audit_log")
 }
 
+model Customer {
+  customerId String @id @default(uuid())
+
+  // QuickBooks customer identity
+  qbListId       String? @unique
+  qbEditSequence String?
+
+  name        String
+  companyName String?
+  email       String?
+  phone       String?
+
+  source       DataSource @default(QUICKBOOKS)
+  rawJson      String?
+  lastSyncedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  invoices CustomerInvoice[]
+  payments CustomerPayment[]
+
+  @@index([name])
+}
+
+model CustomerInvoice {
+  invoiceId String @id @default(uuid())
+
+  // QuickBooks invoice identity
+  qbTxnId        String? @unique
+  qbEditSequence String?
+
+  customerId   String?
+  customerName String
+
+  invoiceNumber String?
+  invoiceDate   DateTime?
+  dueDate       DateTime?
+
+  subtotal         Decimal? @db.Decimal(12, 2)
+  taxTotal         Decimal? @db.Decimal(12, 2)
+  totalAmount      Decimal  @db.Decimal(12, 2)
+  amountPaid       Decimal  @default(0) @db.Decimal(12, 2)
+  balanceRemaining Decimal  @default(0) @db.Decimal(12, 2)
+
+  status CustomerInvoiceStatus @default(UNPAID)
+
+  source       DataSource @default(QUICKBOOKS)
+  rawJson      String?
+  lastSyncedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer Customer?         @relation(fields: [customerId], references: [customerId])
+  payments CustomerPayment[]
+
+  @@index([customerId])
+  @@index([invoiceDate])
+  @@index([dueDate])
+  @@index([status])
+}
+
+model CustomerPayment {
+  paymentId String @id @default(uuid())
+
+  // QuickBooks ReceivePayment identity
+  qbTxnId        String? @unique
+  qbEditSequence String?
+
+  customerId        String?
+  customerInvoiceId String?
+
+  customerName String
+  paymentDate  DateTime
+  amount       Decimal  @db.Decimal(12, 2)
+
+  method          PaymentMethod?
+  referenceNumber String?
+  notes           String?
+
+  source       DataSource @default(QUICKBOOKS)
+  rawJson      String?
+  lastSyncedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer Customer?        @relation(fields: [customerId], references: [customerId])
+  invoice  CustomerInvoice? @relation(fields: [customerInvoiceId], references: [invoiceId])
+
+  @@index([customerId])
+  @@index([customerInvoiceId])
+  @@index([paymentDate])
+}
+
+model ChequePayment {
+  chequePaymentId String @id @default(uuid())
+
+  // QuickBooks cheque identity
+  qbTxnId        String? @unique
+  qbEditSequence String?
+
+  payeeName    String
+  chequeNumber String?
+  chequeDate   DateTime?
+  amount       Decimal   @db.Decimal(12, 2)
+
+  accountName String?
+  memo        String?
+  status      ChequeStatus @default(UNKNOWN)
+
+  source       DataSource @default(QUICKBOOKS)
+  rawJson      String?
+  lastSyncedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([payeeName])
+  @@index([chequeDate])
+  @@index([chequeNumber])
+}
+
+enum DataSource {
+  QUICKBOOKS
+  MANUAL
+  INTERNAL
+}
+
+enum CustomerInvoiceStatus {
+  UNPAID
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  VOID
+}
+
+enum PaymentMethod {
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  CHEQUE
+  BANK_TRANSFER
+  OTHER
+}
+
+enum ChequeStatus {
+  ISSUED
+  CLEARED
+  VOID
+  UNKNOWN
+}
+
 model Sales {
   productId   String
   timestamp   DateTime
@@ -215,16 +369,16 @@ model Purchases {
   product    Products @relation(fields: [productId], references: [productId])
 }
 
-model Expenses { //TODO: might add date...check expense controller for notes
-  expenseId   String   @id @default(uuid())
+model Expenses {
+  expenseId   String        @id @default(uuid())
   category    String
   amount      Float
   description String?
-  status      ExpenseStatus  @default(PENDING)
+  status      ExpenseStatus @default(PENDING)
   //add group TODO and check report contoller 
-  group        ExpenseGroup @default(CLINICAL)
-  notes      String? 
-  
+  group       ExpenseGroup  @default(CLINICAL)
+  notes       String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -241,6 +395,7 @@ enum ExpenseStatus {
   PAID
   VOID
 }
+
 // TODO: add an aenum expensestatus to update expsnes tranacationally like pedning approved, paid, void 
 
 model SalesSummary {
@@ -324,9 +479,10 @@ model DraftProduct {
   invoiceItems SupplierInvoiceItem[]
   grnItems     GoodsReceiptItem[]
 }
+
 model PurchaseOrder {
-  id         String              @id @default(cuid())
-  poNumber   String              @unique
+  id         String   @id @default(cuid())
+  poNumber   String   @unique
   supplierId String
   supplier   Supplier @relation(fields: [supplierId], references: [supplierId])
 
@@ -346,10 +502,10 @@ model PurchaseOrder {
   payments InvoicePayment[]
 
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt() @default(now())
-  
+  updatedAt DateTime @default(now()) @updatedAt()
+
   createdById String?
-  createdBy Users? @relation(fields: [createdById], references: [id])
+  createdBy   Users?  @relation(fields: [createdById], references: [id])
 
   @@index([supplierId])
   @@index([poNumber])
@@ -401,7 +557,7 @@ model SupplierInvoice {
   balanceRemaining Decimal?         @db.Decimal(14, 2) //leave optional for now but later we will be updating it to not NULL
 
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt() @default(now())
+  updatedAt DateTime @default(now()) @updatedAt()
 
   @@unique([invoiceNumber, supplierId])
   @@index([poId])
@@ -435,7 +591,7 @@ model GoodsReceipt {
   id        String             @id @default(cuid())
   grnNumber String             @unique
   poId      String?
-  invoiceId String?            
+  invoiceId String?
   date      DateTime           @default(now())
   status    GRNStatus          @default(DRAFT)
   invoice   SupplierInvoice?   @relation(fields: [invoiceId], references: [id])
@@ -444,7 +600,8 @@ model GoodsReceipt {
   matches   ThreeWayMatch?
 
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt() @default(now())
+  updatedAt DateTime @default(now()) @updatedAt()
+
   // this enforces 1 invoice -> max 1 GRN
   @@unique([invoiceId])
   @@index([poId])
@@ -465,7 +622,7 @@ model GoodsReceiptItem {
   productDraftId String
   product        DraftProduct @relation(fields: [productDraftId], references: [id])
 
-  productId String?
+  productId       String?
   promotedProduct Products? @relation(fields: [productId], references: [productId])
 
   unit        String?
@@ -516,7 +673,7 @@ model StockLedger {
 }
 
 model StockLedgerAllocation {
-  id       String  @id @default(cuid())
+  id String @id @default(cuid())
 
   ledgerId String
   ledger   StockLedger @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
@@ -525,7 +682,7 @@ model StockLedgerAllocation {
   inventory   Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
 
   qtyAllocated Int
-  createdAt DateTime @default(now())
+  createdAt    DateTime @default(now())
 
   @@unique([ledgerId, inventoryId])
   @@index([ledgerId])
@@ -579,7 +736,7 @@ model StockRequest {
 }
 
 model StockRequestLine {
-  id             String           @id @default(cuid())
+  id             String       @id @default(cuid())
   stockRequestId String
   stockRequest   StockRequest @relation(fields: [stockRequestId], references: [id], onDelete: Cascade)
 
@@ -587,8 +744,8 @@ model StockRequestLine {
   product   Products @relation(fields: [productId], references: [productId])
 
   qtyOnHandAtRequest Int
-  requestedQty Int
-  grantedQty   Int? // null until reviewed
+  requestedQty       Int
+  grantedQty         Int? // null until reviewed
 
   outcome StockLineOutcome @default(PENDING)
   notes   String?
@@ -654,10 +811,7 @@ model InvoicePayment {
 
   @@index([poId])
   @@index([paidAt])
-
 }
-
-
 
 enum MatchStatus {
   DRAFT

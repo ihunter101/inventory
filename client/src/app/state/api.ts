@@ -1514,6 +1514,27 @@ generateAIQuaterlyReport: build.mutation<QuarterlyReportResponse, QuarterlyRepor
   }), 
   invalidatesTags: ['QuarterlyReport']
 }),
+
+//quickbooks
+getQuickBooksSummary: build.query<any, void>({
+  query: () => "/quickbooks/summary",
+}),
+
+getQuickBooksCustomers: build.query<any[], void>({
+  query: () => "/quickbooks/customers",
+}),
+
+getQuickBooksInvoices: build.query<any[], void>({
+  query: () => "/quickbooks/invoices",
+}),
+
+getQuickBooksPayments: build.query<any[], void>({
+  query: () => "/quickbooks/payments",
+}),
+
+getQuickBooksCheques: build.query<any[], void>({
+  query: () => "/quickbooks/cheques",
+}),
   }),
 });
 
@@ -1616,6 +1637,12 @@ export const {
 
   useGetQuarterlyReportQuery,
   useGenerateAIQuaterlyReportMutation,
+
+  useGetQuickBooksSummaryQuery,
+  useGetQuickBooksCustomersQuery,
+  useGetQuickBooksInvoicesQuery,
+  useGetQuickBooksPaymentsQuery,
+  useGetQuickBooksChequesQuery,
 
 } = api;
 
