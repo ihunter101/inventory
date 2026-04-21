@@ -1,50 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
-
-export async function getQuickBooksCustomers(_req: Request, res: Response) {
-    const customer = await prisma.customer.findMany({
-        orderBy: { updatedAt: "desc"},
-        take: 100
-    })
-
-    res.json(customer)
-}
-
-export async function getQuickBooksInvoices(_req: Request, res: Response) {
-    const invoices = await prisma.customerInvoice.findMany({
-        orderBy: { invoiceDate: "desc"},
-        take: 100,
-        include: {
-            customer: true,
-            payments: true
-        },
-    });
-
-    res.json(invoices)
-};
-
-export async function getQuickBooksPayments(_req: Request, res: Response){
-    const payments = await prisma.customerPayment.findMany({
-        orderBy: { paymentDate: "desc"},
-        take: 100,
-        include: {
-            customer: true,
-            invoice: true 
-        },
-    });
-
-    res.json(payments)
-};
-
-export async function getQuickBooksCheques(_req: Request, res: Response) {
-    const cheques = await prisma.chequePayment.findMany({
-        orderBy: { chequeDate: "desc"},
-        take: 100,
-    });
-
-    res.json(cheques);
-};
-
+import { getPagination, paginatedResponse } from "../utils/pagination";
 
 export async function getQuickBooksSummary(_req: Request, res: Response) {
   const [
@@ -52,7 +8,7 @@ export async function getQuickBooksSummary(_req: Request, res: Response) {
     invoiceCount,
     paymentCount,
     chequeCount,
-    unpaidInvoices,
+    unpaidInvoiceCount,
   ] = await Promise.all([
     prisma.customer.count(),
     prisma.customerInvoice.count(),
@@ -72,6 +28,74 @@ export async function getQuickBooksSummary(_req: Request, res: Response) {
     invoiceCount,
     paymentCount,
     chequeCount,
-    unpaidInvoices,
+    unpaidInvoiceCount,
   });
+}
+
+export async function getQuickBooksCustomers(req: Request, res: Response) {
+  const { page, limit, skip } = getPagination(req);
+
+  const [customers, total] = await Promise.all([
+    prisma.customer.findMany({
+      orderBy: { updatedAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.customer.count(),
+  ]);
+
+  res.json(paginatedResponse({ data: customers, total, page, limit }));
+}
+
+export async function getQuickBooksInvoices(req: Request, res: Response) {
+  const { page, limit, skip } = getPagination(req);
+
+  const [invoices, total] = await Promise.all([
+    prisma.customerInvoice.findMany({
+      orderBy: { invoiceDate: "desc" },
+      skip,
+      take: limit,
+      include: {
+        customer: true,
+        payments: true,
+      },
+    }),
+    prisma.customerInvoice.count(),
+  ]);
+
+  res.json(paginatedResponse({ data: invoices, total, page, limit }));
+}
+
+export async function getQuickBooksPayments(req: Request, res: Response) {
+  const { page, limit, skip } = getPagination(req);
+
+  const [payments, total] = await Promise.all([
+    prisma.customerPayment.findMany({
+      orderBy: { paymentDate: "desc" },
+      skip,
+      take: limit,
+      include: {
+        customer: true,
+        invoice: true,
+      },
+    }),
+    prisma.customerPayment.count(),
+  ]);
+
+  res.json(paginatedResponse({ data: payments, total, page, limit }));
+}
+
+export async function getQuickBooksCheques(req: Request, res: Response) {
+  const { page, limit, skip } = getPagination(req);
+
+  const [cheques, total] = await Promise.all([
+    prisma.chequePayment.findMany({
+      orderBy: { chequeDate: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.chequePayment.count(),
+  ]);
+
+  res.json(paginatedResponse({ data: cheques, total, page, limit }));
 }

@@ -19,11 +19,13 @@ import {
   Building2,
   X,
   HandCoins,
+  LandmarkIcon
 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PERMS, type Perm } from "@lab/shared"
 import { useAuth } from "@/app/hooks/useAuth"
 import SidebarUserFooter from "./SideBaruserFooter"
+import { permission } from "process"
 
 type NavItem = {
   title: string
@@ -107,6 +109,15 @@ const navigation = {
       icon: ClipboardList,
       permission: PERMS.READ_PURCHASE_ORDERS,
     },
+  ] satisfies NavItem[],
+
+  integrations : [
+    {
+      title: "Quickbooks",
+      href: "/quickbooks",
+      icon: LandmarkIcon,
+      permission: PERMS.READ_PURCHASE_ORDERS
+    }
   ] satisfies NavItem[],
 
   settings: [
@@ -237,6 +248,7 @@ export function AppSidebar({ open, isMobile, onCloseMobile }: Props) {
       operations: filter(navigation.operations),
       finance: filter(navigation.finance),
       settings: filter(navigation.settings),
+      integrations: filter(navigation.integrations)
     }
   }, [can])
 
@@ -338,6 +350,15 @@ export function AppSidebar({ open, isMobile, onCloseMobile }: Props) {
                   isActive={isActive}
                   onNavigate={onCloseMobile}
                 />
+
+                {!!visible.finance.length && !!visible.integrations.length && <div className="border-t" />}
+
+                <NavSection 
+                label="Integrations"
+                items={visible.integrations}
+                collapsed={collapsed}
+                isActive={isActive}
+                onNavigate={onCloseMobile}/>
 
                 {!!visible.settings.length && <div className="border-t" />}
 

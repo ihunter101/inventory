@@ -849,6 +849,24 @@ export type PaymentHistory = {
   supplierName?: string | null;
 };
 
+
+type PaginationArgs = {
+  page?: number;
+  limit?: number;
+};
+
+type PaginatedResponse<T> = {
+  data: T[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+};
+
 // ----------------------
 // API Setup
 // ----------------------
@@ -1520,20 +1538,24 @@ getQuickBooksSummary: build.query<any, void>({
   query: () => "/quickbooks/summary",
 }),
 
-getQuickBooksCustomers: build.query<any[], void>({
-  query: () => "/quickbooks/customers",
+getQuickBooksCustomers: build.query<PaginatedResponse<any>, PaginationArgs>({
+  query: ({ page = 1, limit = 10 }) =>
+    `/quickbooks/customers?page=${page}&limit=${limit}`,
 }),
 
-getQuickBooksInvoices: build.query<any[], void>({
-  query: () => "/quickbooks/invoices",
+getQuickBooksInvoices: build.query<PaginatedResponse<any>, PaginationArgs>({
+  query: ({ page = 1, limit = 10 }) =>
+    `/quickbooks/invoices?page=${page}&limit=${limit}`,
 }),
 
-getQuickBooksPayments: build.query<any[], void>({
-  query: () => "/quickbooks/payments",
+getQuickBooksPayments: build.query<PaginatedResponse<any>, PaginationArgs>({
+  query: ({ page = 1, limit = 10 }) =>
+    `/quickbooks/payments?page=${page}&limit=${limit}`,
 }),
 
-getQuickBooksCheques: build.query<any[], void>({
-  query: () => "/quickbooks/cheques",
+getQuickBooksCheques: build.query<PaginatedResponse<any>, PaginationArgs>({
+  query: ({ page = 1, limit = 10 }) =>
+    `/quickbooks/cheques?page=${page}&limit=${limit}`,
 }),
   }),
 });
