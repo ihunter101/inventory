@@ -5,6 +5,8 @@ import {
   getSession,
   advanceStage,
   deleteSession,
+  setIteratorState,
+  resetIteratorState,
 } from "../quickbooks/qbwcStore";
 import { queries } from "../quickbooks/qbxmlRequest";
 import { parseQBResponse } from "../quickbooks/qbxmlParser";
@@ -15,12 +17,17 @@ import {
   getTagValue,
 } from "../quickbooks/xmlUtils";
 import { saveQuickBooksData } from "../services/quickbooksService";
+import {
+  getSyncState,
+  markFullBackfillComplete,
+  updateLastModifiedSyncAt,
+  type QuickBooksEntity,
+} from "../services/quickbooksSyncState"
 
 const router = Router();
 
 const VALID_USER = process.env.QBWC_USERNAME || "admin";
 const VALID_PASS = process.env.QBWC_PASSWORD || "secret123";
-
 const QBWC_APP_URL = process.env.QBWC_APP_URL || "http://localhost:8000";
 
 router.get("/", (_req, res) => {
@@ -50,7 +57,7 @@ router.get("/", (_req, res) => {
         <xsd:complexType>
           <xsd:sequence>
             <xsd:element name="serverVersionResult" type="xsd:string" minOccurs="0"/>
-          </xsd:sequence>
+          </xxd:sequence>
         </xsd:complexType>
       </xsd:element>
 
@@ -165,7 +172,6 @@ router.get("/", (_req, res) => {
   <message name="serverVersionSoapIn">
     <part name="parameters" element="tns:serverVersion"/>
   </message>
-
   <message name="serverVersionSoapOut">
     <part name="parameters" element="tns:serverVersionResponse"/>
   </message>
@@ -173,7 +179,6 @@ router.get("/", (_req, res) => {
   <message name="clientVersionSoapIn">
     <part name="parameters" element="tns:clientVersion"/>
   </message>
-
   <message name="clientVersionSoapOut">
     <part name="parameters" element="tns:clientVersionResponse"/>
   </message>
@@ -181,7 +186,6 @@ router.get("/", (_req, res) => {
   <message name="authenticateSoapIn">
     <part name="parameters" element="tns:authenticate"/>
   </message>
-
   <message name="authenticateSoapOut">
     <part name="parameters" element="tns:authenticateResponse"/>
   </message>
@@ -189,7 +193,6 @@ router.get("/", (_req, res) => {
   <message name="sendRequestXMLSoapIn">
     <part name="parameters" element="tns:sendRequestXML"/>
   </message>
-
   <message name="sendRequestXMLSoapOut">
     <part name="parameters" element="tns:sendRequestXMLResponse"/>
   </message>
@@ -197,7 +200,6 @@ router.get("/", (_req, res) => {
   <message name="receiveResponseXMLSoapIn">
     <part name="parameters" element="tns:receiveResponseXML"/>
   </message>
-
   <message name="receiveResponseXMLSoapOut">
     <part name="parameters" element="tns:receiveResponseXMLResponse"/>
   </message>
@@ -205,7 +207,6 @@ router.get("/", (_req, res) => {
   <message name="getLastErrorSoapIn">
     <part name="parameters" element="tns:getLastError"/>
   </message>
-
   <message name="getLastErrorSoapOut">
     <part name="parameters" element="tns:getLastErrorResponse"/>
   </message>
@@ -213,7 +214,6 @@ router.get("/", (_req, res) => {
   <message name="closeConnectionSoapIn">
     <part name="parameters" element="tns:closeConnection"/>
   </message>
-
   <message name="closeConnectionSoapOut">
     <part name="parameters" element="tns:closeConnectionResponse"/>
   </message>
@@ -223,32 +223,26 @@ router.get("/", (_req, res) => {
       <input message="tns:serverVersionSoapIn"/>
       <output message="tns:serverVersionSoapOut"/>
     </operation>
-
     <operation name="clientVersion">
       <input message="tns:clientVersionSoapIn"/>
       <output message="tns:clientVersionSoapOut"/>
     </operation>
-
     <operation name="authenticate">
       <input message="tns:authenticateSoapIn"/>
       <output message="tns:authenticateSoapOut"/>
     </operation>
-
     <operation name="sendRequestXML">
       <input message="tns:sendRequestXMLSoapIn"/>
       <output message="tns:sendRequestXMLSoapOut"/>
     </operation>
-
     <operation name="receiveResponseXML">
       <input message="tns:receiveResponseXMLSoapIn"/>
       <output message="tns:receiveResponseXMLSoapOut"/>
     </operation>
-
     <operation name="getLastError">
       <input message="tns:getLastErrorSoapIn"/>
       <output message="tns:getLastErrorSoapOut"/>
     </operation>
-
     <operation name="closeConnection">
       <input message="tns:closeConnectionSoapIn"/>
       <output message="tns:closeConnectionSoapOut"/>
@@ -377,7 +371,26 @@ router.post("/", async (req, res) => {
         );
       }
 
-      const qbxml = queries[session.stage]();
+      const stage = session.stage as QuickBooksEntity;
+      const iterator = session.iterators[stage];
+      const syncState = await getSyncState(stage);
+
+      const fromModifiedDate =
+        syncState.fullBackfillComplete && syncState.lastModifiedSyncAt
+          ? syncState.lastModifiedSyncAt.toISOString()
+          : null;
+
+      const qbxml =
+        iterator.iteratorID && iterator.remainingCount > 0
+          ? queries[stage]({
+              iterator: "Continue",
+              iteratorID: iterator.iteratorID,
+              fromModifiedDate,
+            })
+          : queries[stage]({
+              iterator: "Start",
+              fromModifiedDate,
+            });
 
       return res.send(
         soapEnvelope(`
@@ -392,7 +405,7 @@ router.post("/", async (req, res) => {
       const responseXml = getTagValue(xml, "response");
       const session = getSession(ticket);
 
-      if (!session) {
+      if (!session || session.stage === "done") {
         return res.send(
           soapEnvelope(`
 <receiveResponseXMLResponse xmlns="http://developer.intuit.com/">
@@ -406,14 +419,34 @@ router.post("/", async (req, res) => {
         const parsed = await parseQBResponse(decodedResponseXml);
 
         if (parsed) {
-          session.data[parsed.type] = parsed.data;
+          session.data[parsed.type].push(...parsed.data);
 
           await saveQuickBooksData(parsed.type, parsed.data);
 
-          console.log(`Saved QuickBooks ${parsed.type}: ${parsed.data.length}`);
-        }
+          setIteratorState(
+            ticket,
+            parsed.type,
+            parsed.iteratorID,
+            parsed.remainingCount
+          );
 
-        advanceStage(ticket);
+          if (parsed.remainingCount === 0) {
+            const syncState = await getSyncState(parsed.type);
+
+            if (!syncState.fullBackfillComplete) {
+              await markFullBackfillComplete(parsed.type);
+            } else {
+              await updateLastModifiedSyncAt(parsed.type);
+            }
+
+            resetIteratorState(ticket, parsed.type);
+            advanceStage(ticket);
+          }
+
+          console.log(
+            `Saved QuickBooks ${parsed.type}: ${parsed.data.length} rows, remaining=${parsed.remainingCount}`
+          );
+        }
 
         const updatedSession = getSession(ticket);
         const percent = updatedSession?.stage === "done" ? 100 : 50;

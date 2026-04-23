@@ -1,3 +1,5 @@
+//server/src/service/quickbooksService.ts
+
 import { prisma } from "../lib/prisma";
 
 function dedupeBy<T>(items: T[], getKey: (item: T) => string | undefined | null): T[] {
