@@ -447,7 +447,6 @@ enum GRNStatus {
   CLOSED
 }
 
-
 enum InvoiceStatus {
   PENDING
   READY_TO_PAY
