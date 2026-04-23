@@ -458,14 +458,16 @@ enum InvoiceStatus {
 }
 
 model Supplier {
-  supplierId     String            @id @default(cuid())
-  name           String
-  email          String            @unique
-  phone          String
-  address        String
+  supplierId    String           @id @default(cuid())
+  name          String
+  email         String           @unique
+  phone         String
+  address       String
   purchaseOrders PurchaseOrder[]
-  invoices       SupplierInvoice[]
-  inventory      Inventory[]
+  invoices      SupplierInvoice[]
+  inventory     Inventory[]
+  createdAt     DateTime         @default(now())   // ← add this
+  updatedAt     DateTime         @updatedAt   @default(now())      // ← add this
 }
 
 model DraftProduct {
