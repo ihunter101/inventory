@@ -1,5 +1,4 @@
 //server/src/quickbooks/qbwcStore
-
 export type SyncStage =
   | "customers"
   | "invoices"
@@ -15,12 +14,6 @@ type IteratorState = {
 export interface QBWCSession {
   token: string;
   stage: SyncStage;
-  data: {
-    customers: any[];
-    invoices: any[];
-    receivePayments: any[];
-    checks: any[];
-  };
   iterators: Record<Exclude<SyncStage, "done">, IteratorState>;
 }
 
@@ -30,12 +23,6 @@ export function createSession(token: string): QBWCSession {
   const session: QBWCSession = {
     token,
     stage: "customers",
-    data: {
-      customers: [],
-      invoices: [],
-      receivePayments: [],
-      checks: [],
-    },
     iterators: {
       customers: { iteratorID: null, remainingCount: 0 },
       invoices: { iteratorID: null, remainingCount: 0 },

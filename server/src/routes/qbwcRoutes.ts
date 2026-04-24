@@ -433,34 +433,32 @@ const message = getTagValue(xml, "message");
         //console.log("PARSED QB RESPONSE:\n", parsed);
 
         if (parsed) {
-          session.data[parsed.type].push(...parsed.data);
+  await saveQuickBooksData(parsed.type, parsed.data);
 
-          await saveQuickBooksData(parsed.type, parsed.data);
+  setIteratorState(
+    ticket,
+    parsed.type,
+    parsed.iteratorID,
+    parsed.remainingCount
+  );
 
-          setIteratorState(
-            ticket,
-            parsed.type,
-            parsed.iteratorID,
-            parsed.remainingCount
-          );
+  if (parsed.remainingCount === 0) {
+    const syncState = await getSyncState(parsed.type);
 
-          if (parsed.remainingCount === 0) {
-            const syncState = await getSyncState(parsed.type);
+    if (!syncState.fullBackfillComplete) {
+      await markFullBackfillComplete(parsed.type);
+    } else {
+      await updateLastModifiedSyncAt(parsed.type);
+    }
 
-            if (!syncState.fullBackfillComplete) {
-              await markFullBackfillComplete(parsed.type);
-            } else {
-              await updateLastModifiedSyncAt(parsed.type);
-            }
+    resetIteratorState(ticket, parsed.type);
+    advanceStage(ticket);
+  }
 
-            resetIteratorState(ticket, parsed.type);
-            advanceStage(ticket);
-          }
-
-          console.log(
-            `Saved QuickBooks ${parsed.type}: ${parsed.data.length} rows, remaining=${parsed.remainingCount}`
-          );
-        }
+  console.log(
+    `Saved QuickBooks ${parsed.type}: ${parsed.data.length} rows, remaining=${parsed.remainingCount}`
+  );
+}
 
         const updatedSession = getSession(ticket);
         const percent = updatedSession?.stage === "done" ? 100 : 50;
