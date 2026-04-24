@@ -1,5 +1,4 @@
 //server/src/quickbooks/xlmUtils
-
 export function soapEnvelope(body: string) {
   return `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
@@ -28,6 +27,17 @@ export function xmlUnescape(value: string) {
 }
 
 export function getTagValue(xml: string, tag: string): string {
-  const match = xml.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`));
-  return match?.[1] ?? "";
+  const patterns = [
+    new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, "i"),
+    new RegExp(`<\\w+:${tag}[^>]*>([\\s\\S]*?)</\\w+:${tag}>`, "i"),
+  ];
+
+  for (const pattern of patterns) {
+    const match = xml.match(pattern);
+    if (match?.[1] !== undefined) {
+      return match[1].trim();
+    }
+  }
+
+  return "";
 }

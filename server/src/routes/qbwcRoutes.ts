@@ -114,6 +114,7 @@ router.get("/", (_req, res) => {
           </xsd:sequence>
         </xsd:complexType>
       </xsd:element>
+      
 
       <xsd:element name="receiveResponseXML">
         <xsd:complexType>
@@ -375,7 +376,7 @@ router.post("/", async (req, res) => {
       const iterator = session.iterators[stage];
       const syncState = await getSyncState(stage);
 
-      const fromModifiedDate =
+      const fromModifiedDate = null;
         syncState.fullBackfillComplete && syncState.lastModifiedSyncAt
           ? syncState.lastModifiedSyncAt.toISOString()
           : null;
@@ -392,6 +393,7 @@ router.post("/", async (req, res) => {
               fromModifiedDate,
             });
 
+            //console.log("QBXML SENT TO QUICKBOOKS:\n", qbxml);
       return res.send(
         soapEnvelope(`
 <sendRequestXMLResponse xmlns="http://developer.intuit.com/">
@@ -403,6 +405,16 @@ router.post("/", async (req, res) => {
     if (xml.includes("<receiveResponseXML")) {
       const ticket = getTagValue(xml, "ticket");
       const responseXml = getTagValue(xml, "response");
+      //console.log("SOAP RESPONSE TAG LENGTH:", responseXml.length);
+// console.log("SOAP RESPONSE TAG PREVIEW:", responseXml.slice(0, 300));
+
+const hresult = getTagValue(xml, "hresult");
+const message = getTagValue(xml, "message");
+
+// console.log("SOAP RESPONSE TAG LENGTH:", responseXml.length);
+// console.log("SOAP RESPONSE TAG PREVIEW:", responseXml.slice(0, 300));
+// console.log("QB HRESULT:", hresult);
+// console.log("QB MESSAGE:", message);
       const session = getSession(ticket);
 
       if (!session || session.stage === "done") {
@@ -416,7 +428,9 @@ router.post("/", async (req, res) => {
 
       try {
         const decodedResponseXml = xmlUnescape(responseXml);
+        //console.log("RAW RESPONSE FROM QUICKBOOKS:\n", decodedResponseXml);
         const parsed = await parseQBResponse(decodedResponseXml);
+        //console.log("PARSED QB RESPONSE:\n", parsed);
 
         if (parsed) {
           session.data[parsed.type].push(...parsed.data);
@@ -489,6 +503,7 @@ router.post("/", async (req, res) => {
 </closeConnectionResponse>`)
       );
     }
+    
 
     return res.status(500).send(
       soapEnvelope(`
@@ -496,6 +511,7 @@ router.post("/", async (req, res) => {
   <getLastErrorResult>Unknown SOAP action</getLastErrorResult>
 </getLastErrorResponse>`)
     );
+    
   } catch (error) {
     console.error(error);
 
