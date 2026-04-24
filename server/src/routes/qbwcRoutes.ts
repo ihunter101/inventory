@@ -57,7 +57,7 @@ router.get("/", (_req, res) => {
         <xsd:complexType>
           <xsd:sequence>
             <xsd:element name="serverVersionResult" type="xsd:string" minOccurs="0"/>
-          </xxd:sequence>
+          </xsd:sequence>
         </xsd:complexType>
       </xsd:element>
 

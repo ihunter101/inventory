@@ -330,6 +330,59 @@ export interface Supplier {
   number?: string;
 }
 
+
+export type SupplierAnalytics = {
+  supplier: {
+    supplierId: string;
+    name: string;
+    email: string;
+    phone: string;
+    address: string;
+  };
+
+  kpis: {
+    totalInvoiceAmount: number;
+    totalPaid: number;
+    totalOwed: number;
+    totalPurchaseOrderAmount: number;
+    totalPurchaseOrders: number;
+    totalInvoices: number;
+    totalPayments: number;
+    paymentRate: number;
+    averageDeliveryDays: number | null;
+    fastestDeliveryDays: number | null;
+    slowestDeliveryDays: number | null;
+    overdueInvoiceCount: number;
+  };
+
+  invoiceStatusBreakdown: {
+    status: string;
+    count: number;
+    totalAmount: number;
+  }[];
+
+  overdueInvoices: {
+    id: string;
+    invoiceNumber: string;
+    amount: number;
+    balanceRemaining: number;
+    date: string;
+    dueDate: string | null;
+    status: string;
+  }[];
+
+  recentInvoices: {
+    id: string;
+    invoiceNumber: string;
+    amount: number;
+    paidAmount: number;
+    balanceRemaining: number;
+    status: string;
+    date: string;
+    dueDate: string | null;
+  }[];
+};
+
 export type POStatus =
   | "DRAFT" | "APPROVED" | "SENT" | "PARTIALLY_RECEIVED" | "RECEIVED" | "CLOSED";
 export type InvoiceStatus = "PENDING" | "PAID" | "OVERDUE" | "READY_TO_PAY" | "PARTIALLY_PAID" | "VOID";
@@ -888,7 +941,7 @@ export const api = createApi({
     "PurchaseOrders", "SupplierInvoices", "GoodsReceipts", 
     "Suppliers", "Inventory", "DraftProducts", "StockSheet",
     "SalesAnalytics", "TodaySale", "Sales", "Matches", "InvoicePayments", 
-    "PoPaymentSummary", "QuarterlyReport", "PendingAccess"
+    "PoPaymentSummary", "QuarterlyReport", "PendingAccess", "SuppliersAnalytics",
   ],
   endpoints: (build) => ({
     // Dashboard Metrics
@@ -1133,10 +1186,15 @@ notifyPendingAccess: build.mutation<{ message: string }, void>({
     }),
     invalidatesTags: ["Expenses", "DashboardMetrics"],
   }),
-  // Suppliers (basic)
+
   getSuppliers: build.query<Supplier[], void>({
     query: () => "/suppliers",
     providesTags: ["Suppliers"],
+  }),
+  // Suppliers (basic)
+  getSuppliersAnalytics: build.query<SupplierAnalytics, string>({
+    query: (supplierId) => `suppliers/${supplierId}/analytics`,
+    providesTags: ["SuppliersAnalytics"],
   }),
 
   // Purchases
@@ -1600,7 +1658,8 @@ export const {
   useCreateExpenseMutation,
   useUpdateExpenseStatusMutation,
 
-  useGetSuppliersQuery,
+ useGetSuppliersQuery,
+ useGetSuppliersAnalyticsQuery,
 
 
   useListPurchaseOrderQuery,
