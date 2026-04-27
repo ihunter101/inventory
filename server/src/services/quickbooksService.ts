@@ -57,6 +57,40 @@ export async function saveQuickBooksData(type: string, data: any[]) {
     return;
   }
 }
+// async function saveCustomers(customers: any[]) {
+//   for (const customer of customers) {
+//     const qbListId = customer.ListID;
+//     if (!qbListId) continue;
+
+//     await prisma.customer.upsert({
+//       where: {
+//         qbListId,
+//       },
+//       update: {
+//         qbEditSequence: customer.EditSequence,
+//         name: customer.FullName || customer.Name || "Unknown Customer",
+//         companyName: customer.CompanyName || null,
+//         email: customer.Email || null,
+//         phone: customer.Phone || null,
+//         source: "QUICKBOOKS",
+//         rawJson: stringifyRaw(customer),
+//         lastSyncedAt: new Date(),
+//       },
+//       create: {
+//         qbListId,
+//         qbEditSequence: customer.EditSequence,
+//         name: customer.FullName || customer.Name || "Unknown Customer",
+//         companyName: customer.CompanyName || null,
+//         email: customer.Email || null,
+//         phone: customer.Phone || null,
+//         source: "QUICKBOOKS",
+//         rawJson: stringifyRaw(customer),
+//         lastSyncedAt: new Date(),
+//       },
+//     });
+//   }
+// }
+
 async function saveCustomers(customers: any[]) {
   for (const customer of customers) {
     const qbListId = customer.ListID;
@@ -68,10 +102,30 @@ async function saveCustomers(customers: any[]) {
       },
       update: {
         qbEditSequence: customer.EditSequence,
+
         name: customer.FullName || customer.Name || "Unknown Customer",
         companyName: customer.CompanyName || null,
         email: customer.Email || null,
         phone: customer.Phone || null,
+
+        altPhone: customer.AltPhone || null,
+        contact: customer.Contact || null,
+        altContact: customer.AltContact || null,
+        accountNumber: customer.AccountNumber || null,
+
+        balance: toDecimalString(customer.Balance),
+        totalBalance: toDecimalString(customer.TotalBalance),
+
+        termsName: customer.TermsRef?.FullName || null,
+
+        billingAddress: customer.BillAddress
+          ? stringifyRaw(customer.BillAddress)
+          : null,
+
+        shippingAddress: customer.ShipAddress
+          ? stringifyRaw(customer.ShipAddress)
+          : null,
+
         source: "QUICKBOOKS",
         rawJson: stringifyRaw(customer),
         lastSyncedAt: new Date(),
@@ -79,10 +133,30 @@ async function saveCustomers(customers: any[]) {
       create: {
         qbListId,
         qbEditSequence: customer.EditSequence,
+
         name: customer.FullName || customer.Name || "Unknown Customer",
         companyName: customer.CompanyName || null,
         email: customer.Email || null,
         phone: customer.Phone || null,
+
+        altPhone: customer.AltPhone || null,
+        contact: customer.Contact || null,
+        altContact: customer.AltContact || null,
+        accountNumber: customer.AccountNumber || null,
+
+        balance: toDecimalString(customer.Balance),
+        totalBalance: toDecimalString(customer.TotalBalance),
+
+        termsName: customer.TermsRef?.FullName || null,
+
+        billingAddress: customer.BillAddress
+          ? stringifyRaw(customer.BillAddress)
+          : null,
+
+        shippingAddress: customer.ShipAddress
+          ? stringifyRaw(customer.ShipAddress)
+          : null,
+
         source: "QUICKBOOKS",
         rawJson: stringifyRaw(customer),
         lastSyncedAt: new Date(),
