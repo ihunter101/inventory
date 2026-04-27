@@ -34,9 +34,6 @@ if (
   redirect("/dashboard");
 }
 
-
-
-
   return (
     <OnboardingForm
       initialName=""

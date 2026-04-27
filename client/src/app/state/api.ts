@@ -330,6 +330,28 @@ export interface Supplier {
   number?: string;
 }
 
+export interface SupplierWithPurchaseOrders extends Supplier {
+  address?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  purchaseOrders: {
+    orderDate: string;
+  }[];
+}
+
+export interface GetSuppliersParams {
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface GetSuppliersResponse {
+  suppliers: SupplierWithPurchaseOrders[];
+  total: number;
+  totalPages: number;
+  limit: number;
+  page: number;
+}
 
 export type SupplierAnalytics = {
   supplier: {
@@ -1150,11 +1172,17 @@ export const api = createApi({
       }),
       invalidatesTags: (_results, _err, id) => [{ type: "Users", id: "LIST"}, { type: "Users", id}]
     }),
-reviewUserAccess: build.mutation<{ message: string; user: User }, { id: string; token: string; action: "grant" | "deny" }>({
+reviewUserAccess: build.mutation<
+  { message: string; user: User },
+  { id: string; token: string; action: "grant" | "deny" }
+>({
   query: ({ id, token, action }) => ({
-    url: `/users/${id}/review?token=${token}`,
+    url: `/users/${id}/review`,
     method: "PATCH",
-    body: { action },
+    body: {
+      token,
+      action,
+    },
   }),
   invalidatesTags: (result, error, arg) => [
     { type: "Users", id: arg.id },
@@ -1187,10 +1215,13 @@ notifyPendingAccess: build.mutation<{ message: string }, void>({
     invalidatesTags: ["Expenses", "DashboardMetrics"],
   }),
 
-  getSuppliers: build.query<Supplier[], void>({
-    query: () => "/suppliers",
-    providesTags: ["Suppliers"],
+  getSuppliers: build.query<GetSuppliersResponse, GetSuppliersParams | void>({
+  query: (params) => ({
+    url: "/suppliers",
+    params: params ?? {}
   }),
+  providesTags: ["Suppliers"],
+}),
   // Suppliers (basic)
   getSuppliersAnalytics: build.query<SupplierAnalytics, string>({
     query: (supplierId) => `suppliers/${supplierId}/analytics`,

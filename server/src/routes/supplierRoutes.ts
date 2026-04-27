@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getSuppliers } from "../services/supplierAnalytics.service.ts";
+import { getSuppliers } from "../controllers/supplierController"
 import { PERMS } from "@lab/shared"
 import { must } from "../middleware/auth"
 import { getSupplierSummary } from "../controllers/supplierController";

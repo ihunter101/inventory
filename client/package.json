@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-  "dev": "tsc --noEmit && next dev",
-  "start": "next start",
-  "lint": "next lint",
-  "type-check": "tsc --noEmit",
-  "build": "cd ../shared && npm install && npm run build && cd ../client && tsc --noEmit && next build"
-},
+    "dev": "tsc --noEmit && next dev",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit",
+    "build": "cd ../shared && npm install && npm run build && cd ../client && tsc --noEmit && next build"
+  },
   "dependencies": {
     "@clerk/nextjs": "^6.36.3",
     "@emotion/react": "^11.14.0",
@@ -35,6 +35,7 @@
     "@react-pdf/renderer": "^4.3.1",
     "@reduxjs/toolkit": "^2.8.2",
     "@tailwindcss/typography": "^0.5.19",
+    "@tanstack/react-table": "^8.21.3",
     "@uploadthing/react": "^7.3.3",
     "axios": "^1.13.5",
     "class-variance-authority": "^0.7.1",

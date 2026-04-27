@@ -1,0 +1,37 @@
+TxnID 63CF3-1202851648
+TimeCreated 2008-02-12T17:27:28-04:00
+TimeModified 2008-02-12T17:38:32-04:00
+EditSequence 1202852312
+TxnNumber 64777
+CustomerRef
+ListID 1010000-1120513134
+FullName dR AZIMA LONG
+ARAccountRef
+ListID 460000-1091625834
+FullName Accounts Receivable
+TemplateRef
+ListID 50000-1092776849
+FullName Invoice
+TxnDate 2008-02-12
+RefNumber VF2341
+BillAddress
+Addr1 DR AZIMA LONG
+Note RE: DELICIA HINKSON
+BillAddressBlock
+Addr1 DR AZIMA LONG
+Addr2 RE: DELICIA HINKSON
+IsPending false
+IsFinanceCharge false
+DueDate 2008-02-12
+ShipDate 2008-02-12
+Subtotal 80.00
+SalesTaxPercentage 0.00
+SalesTaxTotal 0.00
+AppliedAmount 0.00
+BalanceRemaining 80.00
+Memo DELICIA HINKSON
+IsPaid false
+IsToBePrinted false
+IsToBeEmailed false
+
+

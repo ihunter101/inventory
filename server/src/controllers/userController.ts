@@ -324,75 +324,75 @@ export const getMe = async (req: Request, res: Response) => {
 
 
 export const reviewUserAccess = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const { token } = req.query;
-  const { action } = req.body as { action?: "grant" | "deny" };
-
-  if (!token || typeof token !== "string") {
-    return res.status(400).json({ error: "Missing approval token" });
-  }
-
-  if (!action || !["grant", "deny"].includes(action)) {
-    return res.status(400).json({ error: "Invalid action" });
-  }
-
-  let payload: { userId: string; action: "grant" | "deny" };
-
   try {
-    payload = verifyApprovalToken(token);
-  } catch {
-    return res.status(401).json({ error: "Token is invalid or has expired" });
+    const { id } = req.params;
+    const { token, action } = req.body as {
+      token?: string;
+      action?: "grant" | "deny";
+    };
+
+    if (!id || !token || !action) {
+      return res.status(400).json({
+        error: "Missing id, token, or action",
+      });
+    }
+
+    if (!["grant", "deny"].includes(action)) {
+      return res.status(400).json({
+        error: "Invalid review action",
+      });
+    }
+
+    const payload = verifyApprovalToken(token);
+
+    if (!payload) {
+      return res.status(401).json({
+        error: "Invalid or expired approval token",
+      });
+    }
+
+    if (payload.userId !== id) {
+      return res.status(403).json({
+        error: "Approval token does not match this user",
+      });
+    }
+
+    if (payload.action !== action) {
+      return res.status(403).json({
+        error: "Approval token action does not match requested action",
+      });
+    }
+
+    const newAccessStatus = action === "grant" ? "granted" : "denied";
+
+    const updatedUser = await prisma.users.update({
+      where: { id },
+      data: {
+        accessStatus: newAccessStatus,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        location: true,
+        accessStatus: true,
+      },
+    });
+
+    return res.json({
+      message:
+        action === "grant"
+          ? "Access granted. Please assign the user a role to complete onboarding."
+          : "Access denied successfully.",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("reviewUserAccess error:", error);
+    return res.status(500).json({
+      error: "Failed to review user access",
+    });
   }
-
-  if (payload.userId !== id) {
-    return res.status(400).json({ error: "Token mismatch" });
-  }
-
-  if (payload.action !== action) {
-    return res.status(400).json({ error: "Action mismatch" });
-  }
-
-  const clerkId = (req as any).auth?.userId;
-
-  if (!clerkId) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
-  const reviewer = await prisma.users.findUnique({
-    where: { clerkId },
-    select: {
-      role: true,
-      accessStatus: true,
-      name: true,
-      email: true,
-    },
-  });
-
-  if (
-    !reviewer ||
-    !["admin", "inventoryClerk"].includes(reviewer.role) ||
-    reviewer.accessStatus !== "granted"
-  ) {
-    return res.status(403).json({ error: "Insufficient permissions" });
-  }
-
-  const newStatus = action === "grant" ? "granted" : "denied";
-
-  const updated = await prisma.users.update({
-    where: { id },
-    data: { accessStatus: newStatus },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      accessStatus: true,
-    },
-  });
-
-  return res.json({
-    message: `Access ${newStatus} successfully`,
-    user: updated,
-  });
 };
 
 // server/src/controllers/userController.ts
@@ -444,11 +444,14 @@ export const messageToOnboardedUser = async (user: {
   return result.data;
 };
 
+
+
 export const messageAdminsForNewUserApproval = async (user: {
   id: string;
   name: string | null;
   email: string;
   location?: string | null;
+  accessStatus?: string | null;
 }) => {
   const CLIENT_URL = process.env.CLIENT_URL!;
   const sender = process.env.PROD_RESEND_SENDER_EMAIL;
@@ -624,6 +627,7 @@ export const notifyPendingAccess = async (req: Request, res: Response) => {
         role: true,
         accessStatus: true,
         onboardedAt: true,
+        location: true,
       },
     });
 
@@ -647,6 +651,8 @@ export const notifyPendingAccess = async (req: Request, res: Response) => {
       id: dbUser.id,
       name: dbUser.name,
       email: dbUser.email,
+      location: dbUser.location,
+      accessStatus: dbUser.accessStatus
     });
 
     return res.json({
