@@ -360,47 +360,62 @@ router.post("/", async (req, res) => {
     }
 
     if (xml.includes("<sendRequestXML")) {
-      const ticket = getTagValue(xml, "ticket");
-      const session = getSession(ticket);
+  const ticket = getTagValue(xml, "ticket");
+  const session = getSession(ticket);
 
-      if (!session || session.stage === "done") {
-        return res.send(
-          soapEnvelope(`
+  if (!session || session.stage === "done") {
+    return res.send(
+      soapEnvelope(`
 <sendRequestXMLResponse xmlns="http://developer.intuit.com/">
   <sendRequestXMLResult></sendRequestXMLResult>
 </sendRequestXMLResponse>`)
-        );
-      }
+    );
+  }
 
-      const stage = session.stage as QuickBooksEntity;
-      const iterator = session.iterators[stage];
-      const syncState = await getSyncState(stage);
+  const stage = session.stage as QuickBooksEntity;
+  const iterator = session.iterators[stage];
 
-      const fromModifiedDate =  null;
-        syncState.fullBackfillComplete && syncState.lastModifiedSyncAt
-          ? syncState.lastModifiedSyncAt.toISOString()
-          : null;
+  // Pull transaction records from June 1, 2025 up to today.
+  // Applies to invoices, receivePayments, and checks.
+  const fromTxnDate = "2025-06-01";
+  const toTxnDate = new Date().toISOString().slice(0, 10);
 
-      const qbxml =
-        iterator.iteratorID && iterator.remainingCount > 0
-          ? queries[stage]({
-              iterator: "Continue",
-              iteratorID: iterator.iteratorID,
-              fromModifiedDate,
-            })
-          : queries[stage]({
-              iterator: "Start",
-              fromModifiedDate,
-            });
+  // Customers are master records, not transaction records.
+  // Leave this null so CustomerQuery pulls all customers.
+  const fromModifiedDate = null;
 
-            //console.log("QBXML SENT TO QUICKBOOKS:\n", qbxml);
-      return res.send(
-        soapEnvelope(`
+  const queryOptions = {
+    fromTxnDate,
+    toTxnDate,
+    fromModifiedDate,
+  };
+
+  const qbxml =
+    iterator.iteratorID && iterator.remainingCount > 0
+      ? queries[stage]({
+          iterator: "Continue",
+          iteratorID: iterator.iteratorID,
+          ...queryOptions,
+        })
+      : queries[stage]({
+          iterator: "Start",
+          ...queryOptions,
+        });
+
+  console.log("========== QBWC SEND REQUEST ==========");
+  console.log("Stage:", stage);
+  console.log("From Txn Date:", fromTxnDate);
+  console.log("To Txn Date:", toTxnDate);
+  console.log("From Modified Date:", fromModifiedDate);
+  console.log("QBXML SENT TO QUICKBOOKS:\n", qbxml);
+
+  return res.send(
+    soapEnvelope(`
 <sendRequestXMLResponse xmlns="http://developer.intuit.com/">
   <sendRequestXMLResult>${xmlEscape(qbxml)}</sendRequestXMLResult>
 </sendRequestXMLResponse>`)
-      );
-    }
+  );
+}
 
     if (xml.includes("<receiveResponseXML")) {
       const ticket = getTagValue(xml, "ticket");

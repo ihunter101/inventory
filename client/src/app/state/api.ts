@@ -1639,18 +1639,28 @@ getQuickBooksCustomers: build.query<PaginatedResponse<any>, PaginationArgs>({
 }),
 
 getQuickBooksInvoices: build.query<PaginatedResponse<any>, PaginationArgs>({
-  query: ({ page = 1, limit = 10 }) =>
-    `/quickbooks/invoices?page=${page}&limit=${limit}`,
+  query: ({ page = 1, limit = 10, search = "" }) => ({
+    url: "/quickbooks/invoices",
+    params: {
+      page,
+      limit,
+      search,
+    },
+  }),
 }),
 
 getQuickBooksPayments: build.query<PaginatedResponse<any>, PaginationArgs>({
-  query: ({ page = 1, limit = 10 }) =>
-    `/quickbooks/payments?page=${page}&limit=${limit}`,
+  query: ({ page = 1, limit = 10, search = "" }) => ({
+    url: "/quickbooks/payments",
+    params: { page, limit, search },
+  }),
 }),
 
 getQuickBooksCheques: build.query<PaginatedResponse<any>, PaginationArgs>({
-  query: ({ page = 1, limit = 10 }) =>
-    `/quickbooks/cheques?page=${page}&limit=${limit}`,
+  query: ({ page = 1, limit = 10, search = "" }) => ({
+    url: "/quickbooks/cheques",
+    params: { limit, search, page },
+  }),
 }),
   }),
 });

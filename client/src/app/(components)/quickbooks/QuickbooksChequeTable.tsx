@@ -9,10 +9,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import QuickbooksPagination from "./Pagination";
 import { useState } from "react";
+import { SearchIcon } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 function money(value: unknown) {
   return `$${Number(value ?? 0).toFixed(2)}`;
@@ -27,11 +29,13 @@ function date(value?: string | null) {
 export default function QuickbooksChequeTable() {
 
      const [page, setPage] = useState(1);
+     const [search, setSearch] = useState("");
     const limit = 10;
 
   const { data, isLoading, isError } = useGetQuickBooksChequesQuery({
   page,
   limit,
+  search
 });
 
 const cheques = data?.data ?? [];
@@ -42,8 +46,25 @@ const meta = data?.meta;
 
   return (
     <Card className="rounded-2xl">
-      <CardHeader>
-        <CardTitle>Cheques Paid</CardTitle>
+      <CardHeader className="space-y-3">
+        <div>
+          <CardTitle>Cheques Paid</CardTitle>
+          <CardDescription>Cheques Sync from Quickbooks Desktop</CardDescription>
+        </div>
+
+        <div className="relative max-w-sm">
+          <SearchIcon className="absolute w-4 h-4 text-muted-foreground top-2.5 left-3"/>
+          <Input
+            placeholder="Search by Payee, Cheque # or Account Name..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(1)
+            }}
+            className="pl-9"
+          />
+        </div>
+        
       </CardHeader>
 
       <CardContent>

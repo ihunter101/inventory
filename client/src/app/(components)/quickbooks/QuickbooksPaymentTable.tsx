@@ -9,10 +9,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import QuickbooksPagination from "./Pagination";
+import { SearchIcon } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 function money(value: unknown) {
   return `$${Number(value ?? 0).toFixed(2)}`;
@@ -27,11 +29,13 @@ function date(value?: string | null) {
 export default function QuickbooksPaymentTable() {
 
     const [page, setPage] = useState(1);
+    const [search, setSearch] = useState("");
 const limit = 10;
 
 const { data, isLoading, isError } = useGetQuickBooksPaymentsQuery({
   page,
   limit,
+  search,
 });
 
 const payments = data?.data ?? [];
@@ -43,8 +47,24 @@ const meta = data?.meta;
 
   return (
     <Card className="rounded-2xl">
-      <CardHeader>
-        <CardTitle>Payments Received</CardTitle>
+      <CardHeader className="space-y-3">
+        <div>
+          <CardTitle>Payments Received</CardTitle>
+        <CardDescription>Payments Synced from Quickbooks Desktop</CardDescription>
+        </div>
+        
+        <div className="relative max-w-sm">
+          <SearchIcon className="h-4 w-4 absolute text-muted-foreground left-3 top-2.5"/>
+          <Input 
+            placeholder="Search by Inv#, Customer Name or Customer Id..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1)
+            }}
+            className="pl-9"
+          />
+        </div>
       </CardHeader>
 
       <CardContent>

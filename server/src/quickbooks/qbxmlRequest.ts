@@ -2,10 +2,8 @@ type QueryOptions = {
   iterator?: "Start" | "Continue";
   iteratorID?: string | null;
 
-  // For customer master records
   fromModifiedDate?: string | null;
 
-  // For transaction records: invoices, payments, checks
   fromTxnDate?: string | null;
   toTxnDate?: string | null;
 };
@@ -26,6 +24,19 @@ function escapeXmlAttr(value: string) {
     .replace(/>/g, "&gt;");
 }
 
+function formatQBDateOnly(value?: string | null) {
+  if (!value) return null;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function formatQBDateTime(value?: string | null) {
   if (!value) return null;
 
@@ -42,29 +53,6 @@ function formatQBDateTime(value?: string | null) {
   return `${yyyy}-${mm}-${dd}T${hh}:${mi}:${ss}`;
 }
 
-function formatQBDateOnly(value?: string | null) {
-  if (!value) return null;
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function buildModifiedDateFilter(options: QueryOptions) {
-  const formatted = formatQBDateTime(options.fromModifiedDate);
-  if (!formatted) return "";
-
-  return `
-      <ModifiedDateRangeFilter>
-        <FromModifiedDate>${formatted}</FromModifiedDate>
-      </ModifiedDateRangeFilter>`;
-}
-
 function buildTxnDateFilter(options: QueryOptions) {
   const from = formatQBDateOnly(options.fromTxnDate);
   const to = formatQBDateOnly(options.toTxnDate);
@@ -76,6 +64,16 @@ function buildTxnDateFilter(options: QueryOptions) {
         ${from ? `<FromTxnDate>${from}</FromTxnDate>` : ""}
         ${to ? `<ToTxnDate>${to}</ToTxnDate>` : ""}
       </TxnDateRangeFilter>`;
+}
+
+function buildModifiedDateFilter(options: QueryOptions) {
+  const formatted = formatQBDateTime(options.fromModifiedDate);
+  if (!formatted) return "";
+
+  return `
+      <ModifiedDateRangeFilter>
+        <FromModifiedDate>${formatted}</FromModifiedDate>
+      </ModifiedDateRangeFilter>`;
 }
 
 function buildStartQuery(tag: string, requestID: string, innerBody: string) {
