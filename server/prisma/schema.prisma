@@ -207,6 +207,25 @@ model Customer {
   email       String?
   phone       String?
 
+  // Extra QuickBooks/customer details
+  altContact    String?
+  accountNumber String?
+
+  balance      Decimal? @default(0)
+  totalBalance Decimal? @default(0)
+  termsName    String?
+
+  // Business-specific customer details
+  customerDetail1 String?
+  customerDetail2 String?
+  customerDetail3 String?
+  customerDetail4 String?
+  customerDetail5 String?
+
+  // Known business meaning:
+  // QuickBooks BillAddress.Addr2 is used like a sub-client/client name.
+  subClientName String?
+
   source       DataSource @default(QUICKBOOKS)
   rawJson      String?
   lastSyncedAt DateTime?
@@ -218,6 +237,7 @@ model Customer {
   payments CustomerPayment[]
 
   @@index([name])
+  @@index([subClientName])
 }
 
 model CustomerInvoice {
@@ -225,20 +245,49 @@ model CustomerInvoice {
 
   // QuickBooks invoice identity
   qbTxnId        String? @unique
+  qbTxnNumber    String?
   qbEditSequence String?
 
   customerId   String?
   customerName String
 
+  // Invoice references
   invoiceNumber String?
-  invoiceDate   DateTime?
-  dueDate       DateTime?
+  arAccountName String?
+  templateName  String?
+  termsName     String?
+  salesRepName  String?
+
+  // Dates
+  invoiceDate     DateTime?
+  dueDate         DateTime?
+  shipServiceDate DateTime?
+
+  // Business-specific customer details from QuickBooks invoice address fields
+  customerDetail1 String?
+  customerDetail2 String?
+  customerDetail3 String?
+  customerDetail4 String?
+  customerDetail5 String?
+
+  // Known company meaning:
+  // QuickBooks BillAddress.Addr2 is used like sub-client/client/person served.
+  subClientName String?
+
+  memo String?
 
   subtotal         Decimal? @db.Decimal(12, 2)
+  taxPercentage    Decimal? @db.Decimal(12, 2)
   taxTotal         Decimal? @db.Decimal(12, 2)
+  appliedAmount    Decimal? @db.Decimal(12, 2)
   totalAmount      Decimal  @db.Decimal(12, 2)
   amountPaid       Decimal  @default(0) @db.Decimal(12, 2)
   balanceRemaining Decimal  @default(0) @db.Decimal(12, 2)
+
+  isPending       Boolean?
+  isFinanceCharge Boolean?
+  isPaid          Boolean?
+  isToBePrinted   Boolean?
 
   status CustomerInvoiceStatus @default(UNPAID)
 
@@ -249,13 +298,49 @@ model CustomerInvoice {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  customer Customer?         @relation(fields: [customerId], references: [customerId])
+  customer Customer? @relation(fields: [customerId], references: [customerId])
   payments CustomerPayment[]
+  lines    CustomerInvoiceLine[]
 
   @@index([customerId])
+  @@index([customerName])
+  @@index([subClientName])
   @@index([invoiceDate])
   @@index([dueDate])
   @@index([status])
+}
+
+model CustomerInvoiceLine {
+  lineId String @id @default(uuid())
+
+  invoiceId String
+  invoice   CustomerInvoice @relation(fields: [invoiceId], references: [invoiceId], onDelete: Cascade)
+
+  qbTxnLineId String?
+
+  itemListId String?
+  itemName   String?
+
+  description String?
+
+  classListId String?
+  className   String?
+
+  quantity Decimal? @db.Decimal(12, 2)
+  rate     Decimal? @db.Decimal(12, 2)
+  amount   Decimal? @db.Decimal(12, 2)
+
+  serviceDate DateTime?
+
+  rawJson String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([invoiceId])
+  @@index([itemName])
+  @@index([className])
+  @@unique([invoiceId, qbTxnLineId])
 }
 
 model CustomerPayment {

@@ -77,16 +77,19 @@ export const queries = {
   },
 
   invoices: (options: QueryOptions = {}) => {
-    if (options.iterator === "Continue" && options.iteratorID) {
-      return buildContinueQuery("InvoiceQueryRq", "invoices_001", options.iteratorID);
-    }
+  if (options.iterator === "Continue" && options.iteratorID) {
+    return buildContinueQuery("InvoiceQueryRq", "invoices_001", options.iteratorID);
+  }
 
-    return buildStartQuery(
-      "InvoiceQueryRq",
-      "invoices_001",
-      `${buildModifiedDateFilter(options)}`
-    );
-  },
+  return buildStartQuery(
+    "InvoiceQueryRq",
+    "invoices_001",
+    `
+      ${buildModifiedDateFilter(options)}
+      <IncludeLineItems>true</IncludeLineItems>
+    `
+  );
+},
 
   receivePayments: (options: QueryOptions = {}) => {
     if (options.iterator === "Continue" && options.iteratorID) {
