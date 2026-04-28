@@ -928,19 +928,21 @@ export type PaymentHistory = {
 type PaginationArgs = {
   page?: number;
   limit?: number;
+  search?: string;
 };
 
-type PaginatedResponse<T> = {
+export interface PaginatedResponse<T> {
   data: T[];
   meta: {
-    page: number;
-    limit: number;
     total: number;
-    totalPages: number;
-    hasNextPage: boolean;
-    hasPrevPage: boolean;
-  };
-};
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+  }
+
+}
 
 // ----------------------
 // API Setup
@@ -1628,8 +1630,12 @@ getQuickBooksSummary: build.query<any, void>({
 }),
 
 getQuickBooksCustomers: build.query<PaginatedResponse<any>, PaginationArgs>({
-  query: ({ page = 1, limit = 10 }) =>
-    `/quickbooks/customers?page=${page}&limit=${limit}`,
+  query: ({ 
+    page = 1, 
+    limit = 10, 
+    search = "" 
+  }) =>
+    `/quickbooks/customers?page=${page}&limit=${limit}&search=${search}`,
 }),
 
 getQuickBooksInvoices: build.query<PaginatedResponse<any>, PaginationArgs>({

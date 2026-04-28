@@ -34,18 +34,43 @@ export async function getQuickBooksSummary(_req: Request, res: Response) {
 
 export async function getQuickBooksCustomers(req: Request, res: Response) {
   const { page, limit, skip } = getPagination(req);
+  const search = String(req.query.search ?? "").trim();
+
+  const where = search
+    ? {
+        OR: [
+          { companyName: { contains: search, mode: "insensitive" as const } },
+          { name: { contains: search, mode: "insensitive" as const } },
+          { customerDetail1: { contains: search, mode: "insensitive" as const } },
+          { customerDetail2: { contains: search, mode: "insensitive" as const } },
+          { subClientName: { contains: search, mode: "insensitive" as const } },
+        ],
+      }
+    : undefined;
 
   const [customers, total] = await Promise.all([
     prisma.customer.findMany({
+      where,
       orderBy: { updatedAt: "desc" },
       skip,
       take: limit,
     }),
-    prisma.customer.count(),
+
+    prisma.customer.count({
+      where,
+    }),
   ]);
 
-  res.json(paginatedResponse({ data: customers, total, page, limit }));
+  res.json(
+    paginatedResponse({
+      data: customers,
+      total,
+      page,
+      limit,
+    })
+  );
 }
+
 
 export async function getQuickBooksInvoices(req: Request, res: Response) {
   const { page, limit, skip } = getPagination(req);

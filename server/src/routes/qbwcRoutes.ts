@@ -376,11 +376,10 @@ router.post("/", async (req, res) => {
       const iterator = session.iterators[stage];
       const syncState = await getSyncState(stage);
 
-      const fromModifiedDate = "2025-06-01T00:00:00";
-      //null
-        // syncState.fullBackfillComplete && syncState.lastModifiedSyncAt
-        //   ? syncState.lastModifiedSyncAt.toISOString()
-        //   : null;
+      const fromModifiedDate =  null;
+        syncState.fullBackfillComplete && syncState.lastModifiedSyncAt
+          ? syncState.lastModifiedSyncAt.toISOString()
+          : null;
 
       const qbxml =
         iterator.iteratorID && iterator.remainingCount > 0
@@ -481,6 +480,7 @@ const message = getTagValue(xml, "message");
         );
       }
     }
+    
 
     if (xml.includes("<getLastError")) {
       return res.send(

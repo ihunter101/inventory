@@ -147,6 +147,7 @@ import QuickbooksSyncStatus from "@/app/(components)/quickbooks/QuickbooksSyncSt
 import QuickbooksInvoiceTable from "@/app/(components)/quickbooks/QuickbooksInvoiceTable";
 import QuickbooksPaymentTable from "@/app/(components)/quickbooks/QuickbooksPaymentTable";
 import QuickbooksChequeTable from "@/app/(components)/quickbooks/QuickbooksChequeTable";
+import QuickbooksCustomerTable from "@/app/(components)/quickbooks/QuickbooksCustomerTable";
 
 export default function QuickBooksPage() {
   return (
@@ -159,6 +160,8 @@ export default function QuickBooksPage() {
       </div>
 
       <QuickbooksSyncStatus />
+
+      <QuickbooksCustomerTable />
 
       <QuickbooksInvoiceTable />
 
