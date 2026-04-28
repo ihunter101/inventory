@@ -20,6 +20,17 @@ import {
 } from "@/components/ui/table";
 import { useGetQuickBooksCustomersQuery } from "@/app/state/api";
 
+function date(value?: string | null) {
+  if (!value) return "—";
+
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString();
+}
+
+function money(value: unknown) {
+  return `$${Number(value ?? 0).toFixed(2)}`;
+}
+
 export default function QuickbooksCustomerTable() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -31,11 +42,11 @@ export default function QuickbooksCustomerTable() {
   });
 
   const customers = data?.data ?? [];
-const meta = data?.meta;
+  const meta = data?.meta;
 
-const totalPages = meta?.totalPages ?? 1;
-const total = meta?.total ?? 0;
-const currentPage = meta?.page ?? page;
+  const totalPages = meta?.totalPages ?? 1;
+  const total = meta?.total ?? 0;
+  const currentPage = meta?.page ?? page;
 
   return (
     <Card>
@@ -76,9 +87,9 @@ const currentPage = meta?.page ?? page;
                   <TableHead>Name</TableHead>
                   <TableHead>Company</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Phone</TableHead>
+                  <TableHead>Created in QB</TableHead>
                   <TableHead>Sub-client</TableHead>
-                  <TableHead>Balance</TableHead>
+                  <TableHead className="text-right">Balance</TableHead>
                 </TableRow>
               </TableHeader>
 
@@ -86,19 +97,19 @@ const currentPage = meta?.page ?? page;
                 {customers.map((customer: any) => (
                   <TableRow key={customer.customerId}>
                     <TableCell className="font-medium">
-                      {customer.name}
+                      {customer.name ?? "—"}
                     </TableCell>
 
                     <TableCell>{customer.companyName ?? "—"}</TableCell>
 
                     <TableCell>{customer.email ?? "—"}</TableCell>
 
-                    <TableCell>{customer.phone ?? "—"}</TableCell>
+                    <TableCell>{date(customer.qbTimeCreated)}</TableCell>
 
                     <TableCell>{customer.subClientName ?? "—"}</TableCell>
 
-                    <TableCell>
-                      ${Number(customer.balance ?? 0).toFixed(2)}
+                    <TableCell className="text-right">
+                      {money(customer.balance)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -108,28 +119,28 @@ const currentPage = meta?.page ?? page;
         )}
 
         <div className="flex items-center justify-between pt-4">
-            <p className="text-sm text-muted-foreground">
-                Page {currentPage} of {totalPages} · {total} records
-            </p>
+          <p className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages} · {total} records
+          </p>
 
-            <div className="flex gap-2">
-                <button
-                disabled={!meta?.hasPrevPage}
-                onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                className="rounded-md border px-3 py-1 text-sm disabled:opacity-50"
-                >
-                Previous
-                </button>
+          <div className="flex gap-2">
+            <button
+              disabled={!meta?.hasPrevPage}
+              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+              className="rounded-md border px-3 py-1 text-sm disabled:opacity-50"
+            >
+              Previous
+            </button>
 
-                <button
-                disabled={!meta?.hasNextPage}
-                onClick={() => setPage((prev) => prev + 1)}
-                className="rounded-md border px-3 py-1 text-sm disabled:opacity-50"
-                >
-                Next
-                </button>
-            </div>
-            </div>
+            <button
+              disabled={!meta?.hasNextPage}
+              onClick={() => setPage((prev) => prev + 1)}
+              className="rounded-md border px-3 py-1 text-sm disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

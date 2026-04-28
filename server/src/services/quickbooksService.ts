@@ -1,7 +1,10 @@
 //server/src/service/quickbooksService.ts
+// server/src/service/quickbooksService.ts
 
+import { CustomerInvoiceStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma";
-import { CustomerInvoiceStatus } from "@prisma/client";;
+
+const QB_START_DATE = new Date("2025-06-01T00:00:00");
 
 function dedupeBy<T>(items: T[], getKey: (item: T) => string | undefined | null): T[] {
   const seen = new Set<string>();
@@ -26,6 +29,13 @@ function toDate(value?: string | null) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function wasCreatedFromStartDate(item: any) {
+  const createdAt = toDate(item.TimeCreated);
+  if (!createdAt) return false;
+
+  return createdAt >= QB_START_DATE;
+}
+
 function toDecimalString(value?: string | number | null) {
   if (value === undefined || value === null || value === "") return "0";
   return String(value);
@@ -38,59 +48,33 @@ function stringifyRaw(data: unknown) {
 export async function saveQuickBooksData(type: string, data: any[]) {
   if (!data.length) return;
 
+  const filteredData = data.filter(wasCreatedFromStartDate);
+
+  if (!filteredData.length) {
+    console.log(`No ${type} records created from 2025-06-01 onward.`);
+    return;
+  }
+
   if (type === "customers") {
-    await saveCustomers(dedupeBy(data, (customer) => customer.ListID));
+    await saveCustomers(dedupeBy(filteredData, (customer) => customer.ListID));
     return;
   }
 
   if (type === "invoices") {
-    await saveCustomerInvoices(dedupeBy(data, (invoice) => invoice.TxnID));
+    await saveCustomerInvoices(dedupeBy(filteredData, (invoice) => invoice.TxnID));
     return;
   }
 
   if (type === "receivePayments") {
-    await saveCustomerPayments(dedupeBy(data, (payment) => payment.TxnID));
+    await saveCustomerPayments(dedupeBy(filteredData, (payment) => payment.TxnID));
     return;
   }
 
   if (type === "checks") {
-    await saveChequePayments(dedupeBy(data, (check) => check.TxnID));
+    await saveChequePayments(dedupeBy(filteredData, (check) => check.TxnID));
     return;
   }
 }
-// async function saveCustomers(customers: any[]) {
-//   for (const customer of customers) {
-//     const qbListId = customer.ListID;
-//     if (!qbListId) continue;
-
-//     await prisma.customer.upsert({
-//       where: {
-//         qbListId,
-//       },
-//       update: {
-//         qbEditSequence: customer.EditSequence,
-//         name: customer.FullName || customer.Name || "Unknown Customer",
-//         companyName: customer.CompanyName || null,
-//         email: customer.Email || null,
-//         phone: customer.Phone || null,
-//         source: "QUICKBOOKS",
-//         rawJson: stringifyRaw(customer),
-//         lastSyncedAt: new Date(),
-//       },
-//       create: {
-//         qbListId,
-//         qbEditSequence: customer.EditSequence,
-//         name: customer.FullName || customer.Name || "Unknown Customer",
-//         companyName: customer.CompanyName || null,
-//         email: customer.Email || null,
-//         phone: customer.Phone || null,
-//         source: "QUICKBOOKS",
-//         rawJson: stringifyRaw(customer),
-//         lastSyncedAt: new Date(),
-//       },
-//     });
-//   }
-// }
 
 async function saveCustomers(customers: any[]) {
   for (const customer of customers) {
@@ -107,35 +91,27 @@ async function saveCustomers(customers: any[]) {
 
     const data = {
       qbEditSequence: customer.EditSequence || null,
+      qbTimeCreated: toDate(customer.TimeCreated),
 
-      // Main customer/company identity
       name: customerName,
       companyName: customer.CompanyName || customerName,
 
-      // Basic customer contact
       email: customer.Email || null,
       phone: customer.Phone || null,
 
-      // Extra QuickBooks/customer details
       altContact: customer.AltContact || null,
       accountNumber: customer.AccountNumber || null,
 
-      // Customer financial details
       balance: toDecimalString(customer.Balance),
       totalBalance: toDecimalString(customer.TotalBalance),
       termsName: customer.TermsRef?.FullName || null,
 
-      // Business-specific customer details
-      // Source: QuickBooks BillAddress fields,
-      // but named for how your company actually uses them.
       customerDetail1: qbCustomerDetails.Addr1 || null,
       customerDetail2: qbCustomerDetails.Addr2 || null,
       customerDetail3: qbCustomerDetails.Addr3 || null,
       customerDetail4: qbCustomerDetails.Addr4 || null,
       customerDetail5: qbCustomerDetails.Addr5 || null,
 
-      // Known business rule:
-      // BillAddress.Addr2 is commonly used as the sub-client/client name.
       subClientName: qbCustomerDetails.Addr2 || null,
 
       source: "QUICKBOOKS" as const,
@@ -183,19 +159,16 @@ async function saveCustomerInvoices(invoices: any[]) {
 
     const subtotal = Number(invoice.Subtotal || 0);
     const taxTotal = Number(invoice.SalesTaxTotal || 0);
-    const appliedAmount = Number(invoice.AppliedAmount || 0);
     const balanceRemaining = Number(invoice.BalanceRemaining || 0);
 
     const totalAmount = subtotal + taxTotal;
-
     const isPaid = invoice.IsPaid === "true";
 
-const status: CustomerInvoiceStatus =
-  isPaid
-    ? CustomerInvoiceStatus.PAID
-    : balanceRemaining < totalAmount
-      ? CustomerInvoiceStatus.PARTIALLY_PAID
-      : CustomerInvoiceStatus.UNPAID;
+    const status: CustomerInvoiceStatus = isPaid
+      ? CustomerInvoiceStatus.PAID
+      : balanceRemaining < totalAmount
+        ? CustomerInvoiceStatus.PARTIALLY_PAID
+        : CustomerInvoiceStatus.UNPAID;
 
     const invoiceData = {
       qbTxnNumber: invoice.TxnNumber || null,
@@ -215,14 +188,12 @@ const status: CustomerInvoiceStatus =
       dueDate: toDate(invoice.DueDate),
       shipServiceDate: toDate(invoice.ShipDate),
 
-      // Business meaning, not QuickBooks meaning
       customerDetail1: billDetails.Addr1 || null,
       customerDetail2: billDetails.Addr2 || null,
       customerDetail3: billDetails.Addr3 || null,
       customerDetail4: billDetails.Addr4 || null,
       customerDetail5: billDetails.Addr5 || null,
 
-      // Known pattern in your company data
       subClientName: billDetails.Addr2 || null,
 
       memo: invoice.Memo || null,
@@ -346,42 +317,31 @@ async function saveChequePayments(checks: any[]) {
     const qbTxnId = check.TxnID;
     if (!qbTxnId) continue;
 
+    const data = {
+      qbEditSequence: check.EditSequence,
+      payeeName:
+        check.PayeeEntityRef?.FullName ||
+        check.EntityRef?.FullName ||
+        "Unknown Payee",
+      chequeNumber: check.RefNumber || null,
+      chequeDate: toDate(check.TxnDate),
+      amount: toDecimalString(check.Amount),
+      accountName: check.AccountRef?.FullName || null,
+      memo: check.Memo || null,
+      status: "UNKNOWN" as const,
+      source: "QUICKBOOKS" as const,
+      rawJson: stringifyRaw(check),
+      lastSyncedAt: new Date(),
+    };
+
     await prisma.chequePayment.upsert({
       where: {
         qbTxnId,
       },
-      update: {
-        qbEditSequence: check.EditSequence,
-        payeeName:
-          check.PayeeEntityRef?.FullName ||
-          check.EntityRef?.FullName ||
-          "Unknown Payee",
-        chequeNumber: check.RefNumber || null,
-        chequeDate: toDate(check.TxnDate),
-        amount: toDecimalString(check.Amount),
-        accountName: check.AccountRef?.FullName || null,
-        memo: check.Memo || null,
-        status: "UNKNOWN",
-        source: "QUICKBOOKS",
-        rawJson: stringifyRaw(check),
-        lastSyncedAt: new Date(),
-      },
+      update: data,
       create: {
         qbTxnId,
-        qbEditSequence: check.EditSequence,
-        payeeName:
-          check.PayeeEntityRef?.FullName ||
-          check.EntityRef?.FullName ||
-          "Unknown Payee",
-        chequeNumber: check.RefNumber || null,
-        chequeDate: toDate(check.TxnDate),
-        amount: toDecimalString(check.Amount),
-        accountName: check.AccountRef?.FullName || null,
-        memo: check.Memo || null,
-        status: "UNKNOWN",
-        source: "QUICKBOOKS",
-        rawJson: stringifyRaw(check),
-        lastSyncedAt: new Date(),
+        ...data,
       },
     });
   }

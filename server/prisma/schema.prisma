@@ -201,6 +201,7 @@ model Customer {
   // QuickBooks customer identity
   qbListId       String? @unique
   qbEditSequence String?
+  qbTimeCreated  DateTime?
 
   name        String
   companyName String?
@@ -222,8 +223,6 @@ model Customer {
   customerDetail4 String?
   customerDetail5 String?
 
-  // Known business meaning:
-  // QuickBooks BillAddress.Addr2 is used like a sub-client/client name.
   subClientName String?
 
   source       DataSource @default(QUICKBOOKS)
@@ -238,6 +237,7 @@ model Customer {
 
   @@index([name])
   @@index([subClientName])
+  @@index([qbTimeCreated])
 }
 
 model CustomerInvoice {

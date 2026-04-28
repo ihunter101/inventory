@@ -36,6 +36,23 @@ export async function getQuickBooksCustomers(req: Request, res: Response) {
   const { page, limit, skip } = getPagination(req);
   const search = String(req.query.search ?? "").trim();
 
+
+//   const where = {
+//   qbTimeCreated: {
+//     gte: fromDate,
+//   },
+//   ...(search
+//     ? {
+//         OR: [
+//           { companyName: { contains: search, mode: "insensitive" as const } },
+//           { name: { contains: search, mode: "insensitive" as const } },
+//           { customerDetail1: { contains: search, mode: "insensitive" as const } },
+//           { customerDetail2: { contains: search, mode: "insensitive" as const } },
+//           { subClientName: { contains: search, mode: "insensitive" as const } },
+//         ],
+//       }
+//     : {}),
+// };
   const where = search
     ? {
         OR: [
@@ -51,7 +68,7 @@ export async function getQuickBooksCustomers(req: Request, res: Response) {
   const [customers, total] = await Promise.all([
     prisma.customer.findMany({
       where,
-      orderBy: { updatedAt: "desc" },
+      orderBy: { qbTimeCreated: "desc" },
       skip,
       take: limit,
     }),
