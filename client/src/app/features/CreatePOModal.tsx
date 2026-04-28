@@ -19,6 +19,7 @@ import {
   POItem,
   Product,
   Supplier,
+  SupplierWithPurchaseOrders,
 } from "@/app/state/api";
 
 type ItemRow = {
@@ -42,15 +43,19 @@ export default function POForm({
   const { toast } = useToast();
 
   // data for selects
-  const { data: suppliers = [] } = useGetSuppliersQuery();
+  const { data: suppliersResponse } = useGetSuppliersQuery();
   const { data: ProductResponse } = useGetProductsQuery();
   const [createProduct] = useCreateProductMutation();
   const [createPO, { isLoading }] = useCreatePurchaseOrderMutation();
 
-  const supplierOptions: ComboOption[] = suppliers.map((s: Supplier) => ({
-    value: s.supplierId,
-    label: s.name,
-  }));
+ 
+const suppliers: SupplierWithPurchaseOrders[] =
+  suppliersResponse?.suppliers ?? [];
+
+const supplierOptions: ComboOption[] = suppliers.map((s) => ({
+  value: s.supplierId,
+  label: s.name,
+}));
 
   const products: Product[] = ProductResponse?.items ?? []
   const productOptions: ComboOption[] = products.map((p: Product) => ({
