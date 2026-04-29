@@ -944,6 +944,141 @@ export interface PaginatedResponse<T> {
 
 }
 
+export interface Organization {
+  organizationId: string;
+  name: string;
+  customerId: string;
+  createdAt: string;
+  updatedAt: string;
+
+  customer?: {
+    customerId: string;
+    qbListId?: string | null;
+    name: string;
+    companyName?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    balance?: number | string | null;
+    totalBalance?: number | string | null;
+  };
+
+  users?: {
+    id: string;
+    name?: string | null;
+    email: string;
+    role: string;
+    accessStatus: string;
+  }[];
+}
+
+export interface AvailableCustomer {
+  customerId: string;
+  qbListId?: string | null;
+  name: string;
+  companyName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  balance?: number | string | null;
+  totalBalance?: number | string | null;
+}
+
+export interface CreateOrganizationBody {
+  customerId: string;
+  name?: string;
+}
+
+export interface AssignUserToOrganizationBody {
+  userId: string;
+  organizationId: string;
+}
+
+export interface ClientInvoice {
+  invoiceId: string;
+  qbTxnId?: string | null;
+  qbTxnNumber?: string | null;
+  invoiceNumber?: string | null;
+  customerName: string;
+  subClientName?: string | null;
+  invoiceDate?: string | null;
+  dueDate?: string | null;
+  totalAmount: number | string;
+  amountPaid: number | string;
+  balanceRemaining: number | string;
+  status: string;
+  memo?: string | null;
+  createdAt: string;
+}
+
+export interface ClientInvoiceLine {
+  lineId: string;
+  invoiceId: string;
+  qbTxnLineId?: string | null;
+  itemListId?: string | null;
+  itemName?: string | null;
+  description?: string | null;
+  classListId?: string | null;
+  className?: string | null;
+  quantity?: number | string | null;
+  rate?: number | string | null;
+  amount?: number | string | null;
+  serviceDate?: string | null;
+}
+
+export interface ClientInvoiceDetail extends ClientInvoice {
+  lines: ClientInvoiceLine[];
+  payments: {
+    paymentId: string;
+    paymentDate: string;
+    amount: number | string;
+    method?: string | null;
+    referenceNumber?: string | null;
+    notes?: string | null;
+  }[];
+  customer?: {
+    customerId: string;
+    name: string;
+    companyName?: string | null;
+    email?: string | null;
+    phone?: string | null;
+  };
+}
+
+export interface ClientInvoicesResponse {
+  invoices: ClientInvoice[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface ClientInvoicesParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+}
+
+export interface ClientDashboardResponse {
+  organization: {
+    organizationId: string;
+    name: string;
+  };
+  customer: {
+    customerId: string;
+    name: string;
+    companyName?: string | null;
+    email?: string | null;
+    phone?: string | null;
+  };
+  summary: {
+    totalInvoices: number;
+    totalBilled: number | string;
+    totalPaid: number | string;
+    totalOutstanding: number | string;
+    openInvoices: number;
+  };
+  recentInvoices: ClientInvoice[];
+}
+
 // ----------------------
 // API Setup
 // ----------------------
@@ -966,6 +1101,7 @@ export const api = createApi({
     "Suppliers", "Inventory", "DraftProducts", "StockSheet",
     "SalesAnalytics", "TodaySale", "Sales", "Matches", "InvoicePayments", 
     "PoPaymentSummary", "QuarterlyReport", "PendingAccess", "SuppliersAnalytics",
+    "Organizations", "AvailableCustomers", "ClientDashboard", "ClientInvoices",
   ],
   endpoints: (build) => ({
     // Dashboard Metrics
@@ -1677,6 +1813,82 @@ getQuickBooksInvoiceById: build.query<any, string>({
     url: `/quickbooks/invoices/${invoiceId}`,
   }),
 }),
+
+getOrganizations: build.query<{ organizations: Organization[] }, void>({
+  query: () => ({
+    url: "/organizations",
+    method: "GET",
+  }),
+  providesTags: ["Organizations"],
+}),
+
+getAvailableOrganizationCustomers: build.query<
+  { customers: AvailableCustomer[] },
+  void
+>({
+  query: () => ({
+    url: "/organizations/available-customers",
+    method: "GET",
+  }),
+  providesTags: ["AvailableCustomers"],
+}),
+
+createOrganization: build.mutation<
+  { message: string; organization: Organization },
+  CreateOrganizationBody
+>({
+  query: (body) => ({
+    url: "/organizations",
+    method: "POST",
+    body,
+  }),
+  invalidatesTags: ["Organizations", "AvailableCustomers"],
+}),
+
+getOrganizationById: build.query<{ organization: Organization }, string>({
+  query: (organizationId) => ({
+    url: `/organizations/${organizationId}`,
+    method: "GET",
+  }),
+  providesTags: (result, error, organizationId) => [
+    { type: "Organizations", id: organizationId },
+  ],
+}),
+
+assignUserToOrganization: build.mutation<{ message: string; user: any }, AssignUserToOrganizationBody>({
+  query: ({ userId, organizationId }) => ({
+    url: `/users/${userId}/organization`,
+    method: "PATCH",
+    body: { organizationId },
+  }),
+  invalidatesTags: ["Users", "Organizations"],
+}),
+getClientDashboard: build.query<ClientDashboardResponse, void>({
+  query: () => ({
+    url: "/client/dashboard",
+    method: "GET",
+  }),
+  providesTags: ["ClientDashboard"],
+}),
+
+getClientInvoices: build.query<ClientInvoicesResponse, ClientInvoicesParams | void>({
+  query: (params) => ({
+    url: "/client/invoices",
+    method: "GET",
+    params: params ?? {},
+  }),
+  providesTags: ["ClientInvoices"],
+}),
+
+getClientInvoiceById: build.query<{ invoice: ClientInvoiceDetail }, string>({
+  query: (invoiceId) => ({
+    url: `/client/invoices/${invoiceId}`,
+    method: "GET",
+  }),
+  providesTags: (result, error, invoiceId) => [
+    { type: "ClientInvoices", id: invoiceId },
+  ],
+}),
   }),
 });
 
@@ -1789,6 +2001,16 @@ export const {
 
   useGetQuickBooksPaymentsQuery,
   useGetQuickBooksChequesQuery,
+
+   useGetOrganizationsQuery,
+  useGetAvailableOrganizationCustomersQuery,
+  useCreateOrganizationMutation,
+  useGetOrganizationByIdQuery,
+  useAssignUserToOrganizationMutation,
+
+  useGetClientDashboardQuery,
+  useGetClientInvoicesQuery,
+  useGetClientInvoiceByIdQuery,
 } = api;
 
 

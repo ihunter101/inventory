@@ -58,6 +58,12 @@ const navigation = {
       icon: Package,
       permission: PERMS.READ_INVENTORY,
     },
+        {
+      title: "Suppliers",
+      href: "/suppliers",
+      icon: Building2,
+      permission: PERMS.READ_SUPPLIERS,
+    },
     {
       title: "Products",
       href: "/products",
@@ -121,12 +127,6 @@ const navigation = {
   ] satisfies NavItem[],
 
   settings: [
-    // {
-    //   title: "Suppliers",
-    //   href: "/suppliers",
-    //   icon: Building2,
-    //   permission: PERMS.READ_SUPPLIERS,
-    // },
     {
       title: "Users",
       href: "/users",

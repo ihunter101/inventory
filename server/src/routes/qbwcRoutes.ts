@@ -346,7 +346,26 @@ router.post("/", async (req, res) => {
       }
 
       const token = randomUUID();
-      createSession(token);
+
+const customerState = await getSyncState("customers");
+const invoiceState = await getSyncState("invoices");
+const paymentState = await getSyncState("receivePayments");
+const checkState = await getSyncState("checks");
+
+const initialStage =
+  !customerState.fullBackfillComplete
+    ? "customers"
+    : !invoiceState.fullBackfillComplete
+      ? "invoices"
+      : !paymentState.fullBackfillComplete
+        ? "receivePayments"
+        : !checkState.fullBackfillComplete
+          ? "checks"
+          : "done";
+
+createSession(token, initialStage);
+
+console.log("QBWC initial stage:", initialStage);
 
       return res.send(
         soapEnvelope(`
@@ -375,8 +394,11 @@ router.post("/", async (req, res) => {
 const stage = session.stage as QuickBooksEntity;
 const iterator = session.iterators[stage];
 
+const fromModifiedDate =
+  stage === "customers" ? null : "2025-06-01T00:00:00";
+
 const queryOptions = {
-  fromModifiedDate: null,
+  fromModifiedDate,
   fromTxnDate: null,
   toTxnDate: null,
 };
@@ -397,7 +419,6 @@ console.log("========== QBWC SEND REQUEST ==========");
 console.log("Stage:", stage);
 console.log("Query Options:", queryOptions);
 console.log("QBXML SENT TO QUICKBOOKS:\n", qbxml);
-  console.log("QBXML SENT TO QUICKBOOKS:\n", qbxml);
 
   return res.send(
     soapEnvelope(`

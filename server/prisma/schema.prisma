@@ -34,6 +34,9 @@ model Users {
   stockRequestsReviewed StockRequest[]  @relation("StockRequestReviewedBy")
   onboardedAt           DateTime?
   purchaseOrder         PurchaseOrder[]
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [organizationId])
 }
 
 model Sessions {
@@ -48,6 +51,20 @@ model Sessions {
   @@index([userId, createdAt])
 }
 
+model Organization {
+  organizationId String @default(cuid()) @id
+
+  name String 
+
+  customerId String @unique
+  customer Customer @relation(fields: [customerId], references: [customerId])
+
+  users Users[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+}
 enum Role {
   admin
   inventoryClerk
@@ -234,6 +251,8 @@ model Customer {
 
   invoices CustomerInvoice[]
   payments CustomerPayment[]
+
+  organization Organization?
 
   @@index([name])
   @@index([subClientName])

@@ -1,6 +1,13 @@
 // App roles 
 
-export type Role = "admin" | "inventoryClerk" | "labStaff" | "orderAgent" | "viewer"
+export type Role = 
+    "admin" | 
+    "inventoryClerk" |
+    "labStaff" |
+    "orderAgent" |
+     "viewer" | 
+     "clientAdmin"
+  | "clientUser";
 
 export const PERMS = {
     ACCESS_HOME: 'access_home',
@@ -56,6 +63,11 @@ export const PERMS = {
     READ_ME: 'read_me',
     WRITE_ME: 'write_me',
 
+    READ_CLIENT_PORTAL: "read_client_portal",
+    READ_CLIENT_INVOICES: "read_client_invoices",
+
+    READ_ORGANIZATIONS: "read_organizations",
+    WRITE_ORGANIZATIONS: "write_organizations",
 } as const;
 
 export type Perm = typeof PERMS[keyof typeof PERMS]
@@ -96,7 +108,10 @@ export const ROLE_PERMS: Record<Role, Perm[]> = {
 
         PERMS.READ_STOCK_SHEET, PERMS.WRITE_STOCK_SHEET,
 
-        PERMS.READ_ME, PERMS.WRITE_ME
+        PERMS.READ_ME, PERMS.WRITE_ME,
+
+        PERMS.READ_ORGANIZATIONS,
+        PERMS.WRITE_ORGANIZATIONS,
     ],
 
     labStaff: [
@@ -120,6 +135,23 @@ export const ROLE_PERMS: Record<Role, Perm[]> = {
         PERMS.READ_ME, PERMS.WRITE_ME
     ],
 
+    clientAdmin: [
+  PERMS.ACCESS_HOME,
+  PERMS.READ_ME,
+  PERMS.WRITE_ME,
+  PERMS.READ_CLIENT_PORTAL,
+  PERMS.READ_CLIENT_INVOICES,
+   PERMS.READ_ORGANIZATIONS,
+],
+
+clientUser: [
+  PERMS.ACCESS_HOME,
+  PERMS.READ_ME,
+  PERMS.WRITE_ME,
+  PERMS.READ_CLIENT_PORTAL,
+  PERMS.READ_CLIENT_INVOICES,
+   PERMS.READ_ORGANIZATIONS,
+],
 }
 
 export const hasPerm = (role: Role | undefined, perm: Perm): boolean => 

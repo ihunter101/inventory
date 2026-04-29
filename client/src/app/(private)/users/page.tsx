@@ -26,6 +26,8 @@ import { RouteGuard } from "@/app/(components)/auth/RouteGaurd";
 import { Can } from "@/app/(components)/auth/Can";
 import { PERMS } from "@lab/shared";
 import { useAuth } from "@/app/hooks/useAuth";
+import { CreateOrganizationButton } from "@/app/(components)/organizations/CreateOrganizationButton";
+import { OrganizationsTable } from "@/app/(components)/organizations/OrganizationsTable";
 
 export default function UsersPage() {
   const { user: clerkUser } = useUser();
@@ -229,11 +231,25 @@ export default function UsersPage() {
 
   return (
     // ✅ Page-level guard - triggers 404 if user lacks permission
+
+    
     <>
+
+    
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Typography variant="h4" fontWeight={700} gutterBottom>
           Users
         </Typography>
+
+<Can perm={PERMS.WRITE_USERS}>
+  <Box sx={{ mb: 3, display: "flex", justifyContent: "flex-end" }}>
+    <CreateOrganizationButton />
+  </Box>
+</Can>
+
+<Box sx={{ mb: 4 }}>
+  <OrganizationsTable />
+</Box>
 
         <Card sx={{ borderRadius: "16px", boxShadow: 3 }}>
           <CardHeader

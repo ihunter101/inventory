@@ -1,4 +1,5 @@
-//server/src/quickbooks/qbwcStore
+// server/src/quickbooks/qbwcStore.ts
+
 export type SyncStage =
   | "customers"
   | "invoices"
@@ -19,10 +20,13 @@ export interface QBWCSession {
 
 const sessions = new Map<string, QBWCSession>();
 
-export function createSession(token: string): QBWCSession {
+export function createSession(
+  token: string,
+  initialStage: SyncStage = "customers"
+): QBWCSession {
   const session: QBWCSession = {
     token,
-    stage: "customers",
+    stage: initialStage,
     iterators: {
       customers: { iteratorID: null, remainingCount: 0 },
       invoices: { iteratorID: null, remainingCount: 0 },
@@ -80,6 +84,12 @@ export function advanceStage(token: string): void {
   ];
 
   const currentIndex = order.indexOf(session.stage);
+
+  if (currentIndex === -1) {
+    session.stage = "done";
+    return;
+  }
+
   session.stage = order[currentIndex + 1] ?? "done";
 }
 
