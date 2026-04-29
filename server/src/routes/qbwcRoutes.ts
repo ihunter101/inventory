@@ -372,15 +372,10 @@ router.post("/", async (req, res) => {
     );
   }
 
-  const stage = session.stage as QuickBooksEntity;
+const stage = session.stage as QuickBooksEntity;
 const iterator = session.iterators[stage];
 
-
-const fromTxnDate = "2025-06-01";
-const toTxnDate = new Date().toISOString().slice(0, 10);
-
-
-  const queryOptions = {
+const queryOptions = {
   fromModifiedDate: null,
   fromTxnDate: null,
   toTxnDate: null,
@@ -398,12 +393,10 @@ const qbxml =
         ...queryOptions,
       });
 
-  console.log("========== QBWC SEND REQUEST ==========");
-  console.log("Query Options:", queryOptions);
-  console.log("Stage:", stage);
-  console.log("From Txn Date:", fromTxnDate);
-  console.log("To Txn Date:", toTxnDate);
- // console.log("From Modified Date:", fromModifiedDate);
+console.log("========== QBWC SEND REQUEST ==========");
+console.log("Stage:", stage);
+console.log("Query Options:", queryOptions);
+console.log("QBXML SENT TO QUICKBOOKS:\n", qbxml);
   console.log("QBXML SENT TO QUICKBOOKS:\n", qbxml);
 
   return res.send(
