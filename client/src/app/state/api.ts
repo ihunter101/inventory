@@ -1629,13 +1629,23 @@ getQuickBooksSummary: build.query<any, void>({
   query: () => "/quickbooks/summary",
 }),
 
-getQuickBooksCustomers: build.query<PaginatedResponse<any>, PaginationArgs>({
-  query: ({ 
-    page = 1, 
-    limit = 10, 
-    search = "" 
-  }) =>
-    `/quickbooks/customers?page=${page}&limit=${limit}&search=${search}`,
+getQuickBooksCustomers: build.query<
+PaginatedResponse<any> & { summary?: any },
+  PaginationArgs & { balanceFilter?: "withBalance" | "zeroBalance" | "all" }
+>({
+  query: ({ page = 1, limit = 10, search = "", balanceFilter = "withBalance" }) => ({
+    url: "/quickbooks/customers",
+    params: {
+      page,
+      limit,
+      search,
+      balanceFilter,
+    },
+  }),
+}),
+
+getQuickBooksCustomerById: build.query<any, string>({
+  query: (customerId) => `/quickbooks/customers/${customerId}`,
 }),
 
 getQuickBooksInvoices: build.query<PaginatedResponse<any>, PaginationArgs>({
@@ -1660,6 +1670,11 @@ getQuickBooksCheques: build.query<PaginatedResponse<any>, PaginationArgs>({
   query: ({ page = 1, limit = 10, search = "" }) => ({
     url: "/quickbooks/cheques",
     params: { limit, search, page },
+  }),
+}),
+getQuickBooksInvoiceById: build.query<any, string>({
+  query: (invoiceId) => ({
+    url: `/quickbooks/invoices/${invoiceId}`,
   }),
 }),
   }),
@@ -1768,10 +1783,12 @@ export const {
 
   useGetQuickBooksSummaryQuery,
   useGetQuickBooksCustomersQuery,
+  useGetQuickBooksCustomerByIdQuery,
   useGetQuickBooksInvoicesQuery,
+  useGetQuickBooksInvoiceByIdQuery,
+
   useGetQuickBooksPaymentsQuery,
   useGetQuickBooksChequesQuery,
-
 } = api;
 
 

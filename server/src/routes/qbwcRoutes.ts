@@ -373,40 +373,37 @@ router.post("/", async (req, res) => {
   }
 
   const stage = session.stage as QuickBooksEntity;
-  const iterator = session.iterators[stage];
+const iterator = session.iterators[stage];
 
-  // Pull transaction records from June 1, 2025 up to today.
-  // Applies to invoices, receivePayments, and checks.
-  const fromTxnDate = "2025-06-01";
-  const toTxnDate = new Date().toISOString().slice(0, 10);
 
-  // Customers are master records, not transaction records.
-  // Leave this null so CustomerQuery pulls all customers.
-  const fromModifiedDate = null;
+const fromTxnDate = "2025-06-01";
+const toTxnDate = new Date().toISOString().slice(0, 10);
+
 
   const queryOptions = {
-    fromTxnDate,
-    toTxnDate,
-    fromModifiedDate,
-  };
+  fromModifiedDate: null,
+  fromTxnDate: null,
+  toTxnDate: null,
+};
 
-  const qbxml =
-    iterator.iteratorID && iterator.remainingCount > 0
-      ? queries[stage]({
-          iterator: "Continue",
-          iteratorID: iterator.iteratorID,
-          ...queryOptions,
-        })
-      : queries[stage]({
-          iterator: "Start",
-          ...queryOptions,
-        });
+const qbxml =
+  iterator.iteratorID && iterator.remainingCount > 0
+    ? queries[stage]({
+        iterator: "Continue",
+        iteratorID: iterator.iteratorID,
+        ...queryOptions,
+      })
+    : queries[stage]({
+        iterator: "Start",
+        ...queryOptions,
+      });
 
   console.log("========== QBWC SEND REQUEST ==========");
+  console.log("Query Options:", queryOptions);
   console.log("Stage:", stage);
   console.log("From Txn Date:", fromTxnDate);
   console.log("To Txn Date:", toTxnDate);
-  console.log("From Modified Date:", fromModifiedDate);
+ // console.log("From Modified Date:", fromModifiedDate);
   console.log("QBXML SENT TO QUICKBOOKS:\n", qbxml);
 
   return res.send(

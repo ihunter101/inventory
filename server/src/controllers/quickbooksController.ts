@@ -34,41 +34,57 @@ export async function getQuickBooksSummary(_req: Request, res: Response) {
 
 export async function getQuickBooksCustomers(req: Request, res: Response) {
   const { page, limit, skip } = getPagination(req);
+
   const search = String(req.query.search ?? "").trim();
 
+  // Default: show customers with balance > 0
+  const balanceFilter = String(req.query.balanceFilter ?? "withBalance");
 
-//   const where = {
-//   qbTimeCreated: {
-//     gte: fromDate,
-//   },
-//   ...(search
-//     ? {
-//         OR: [
-//           { companyName: { contains: search, mode: "insensitive" as const } },
-//           { name: { contains: search, mode: "insensitive" as const } },
-//           { customerDetail1: { contains: search, mode: "insensitive" as const } },
-//           { customerDetail2: { contains: search, mode: "insensitive" as const } },
-//           { subClientName: { contains: search, mode: "insensitive" as const } },
-//         ],
-//       }
-//     : {}),
-// };
-  const where = search
+  const searchWhere = search
     ? {
         OR: [
           { companyName: { contains: search, mode: "insensitive" as const } },
           { name: { contains: search, mode: "insensitive" as const } },
           { customerDetail1: { contains: search, mode: "insensitive" as const } },
           { customerDetail2: { contains: search, mode: "insensitive" as const } },
+          { customerDetail3: { contains: search, mode: "insensitive" as const } },
+          { customerDetail4: { contains: search, mode: "insensitive" as const } },
+          { customerDetail5: { contains: search, mode: "insensitive" as const } },
           { subClientName: { contains: search, mode: "insensitive" as const } },
+          { accountNumber: { contains: search, mode: "insensitive" as const } },
         ],
       }
-    : undefined;
+    : {};
 
-  const [customers, total] = await Promise.all([
+  const balanceWhere =
+    balanceFilter === "all"
+      ? {}
+      : balanceFilter === "zeroBalance"
+        ? {
+            balance: {
+              equals: 0,
+            },
+          }
+        : {
+            balance: {
+              gt: 0,
+            },
+          };
+
+  const where = {
+    ...balanceWhere,
+    ...searchWhere,
+  };
+
+  const [customers, total, summary, allCustomerSummary] = await Promise.all([
     prisma.customer.findMany({
       where,
-      orderBy: { qbTimeCreated: "desc" },
+      orderBy: [
+        { balance: "desc" },
+        { totalBalance: "desc" },
+        { qbTimeCreated: "desc" },
+        { updatedAt: "desc" },
+      ],
       skip,
       take: limit,
     }),
@@ -76,18 +92,113 @@ export async function getQuickBooksCustomers(req: Request, res: Response) {
     prisma.customer.count({
       where,
     }),
+
+    prisma.customer.aggregate({
+      where,
+      _count: {
+        customerId: true,
+      },
+      _sum: {
+        balance: true,
+        totalBalance: true,
+      },
+    }),
+
+    prisma.customer.aggregate({
+      _count: {
+        customerId: true,
+      },
+      _sum: {
+        balance: true,
+        totalBalance: true,
+      },
+    }),
   ]);
 
-  res.json(
-    paginatedResponse({
+  res.json({
+    ...paginatedResponse({
       data: customers,
       total,
       page,
       limit,
-    })
-  );
+    }),
+
+    summary: {
+      filteredCustomerCount: summary._count.customerId,
+      filteredBalanceTotal: summary._sum.balance ?? 0,
+      filteredTotalBalance: summary._sum.totalBalance ?? 0,
+
+      allCustomerCount: allCustomerSummary._count.customerId,
+      allBalanceTotal: allCustomerSummary._sum.balance ?? 0,
+      allTotalBalance: allCustomerSummary._sum.totalBalance ?? 0,
+
+      activeFilter: balanceFilter,
+    },
+  });
 }
 
+export async function getQuickBooksCustomerById(req: Request, res: Response) {
+  const { customerId } = req.params;
+
+  const customer = await prisma.customer.findUnique({
+    where: {
+      customerId,
+    },
+    include: {
+      invoices: {
+        orderBy: {
+          invoiceDate: "desc",
+        },
+        include: {
+          lines: true,
+          payments: true,
+        },
+      },
+      payments: {
+        orderBy: {
+          paymentDate: "desc",
+        },
+      },
+    },
+  });
+
+  if (!customer) {
+    return res.status(404).json({
+      message: "Customer not found",
+    });
+  }
+
+  const totalInvoiced = customer.invoices.reduce(
+    (sum, invoice) => sum + Number(invoice.totalAmount ?? 0),
+    0
+  );
+
+  const totalPaid = customer.payments.reduce(
+    (sum, payment) => sum + Number(payment.amount ?? 0),
+    0
+  );
+
+  const totalBalance = customer.invoices.reduce(
+    (sum, invoice) => sum + Number(invoice.balanceRemaining ?? 0),
+    0
+  );
+
+  const unpaidInvoiceCount = customer.invoices.filter(
+    (invoice) => invoice.status === "UNPAID" || invoice.status === "PARTIALLY_PAID"
+  ).length;
+
+  res.json({
+    customer,
+    summary: {
+      totalInvoiced,
+      totalPaid,
+      totalBalance,
+      invoiceCount: customer.invoices.length,
+      paymentCount: customer.payments.length,
+      unpaidInvoiceCount,
+    },
+  });
+}
 
 export async function getQuickBooksInvoices(req: Request, res: Response) {
   const { page, limit, skip } = getPagination(req);
@@ -125,6 +236,40 @@ export async function getQuickBooksInvoices(req: Request, res: Response) {
   ]);
 
   res.json(paginatedResponse({ data: invoices, total, page, limit }));
+}
+
+export async function getQuickBooksInvoiceById(req: Request, res: Response) {
+  try {
+    const { invoiceId } = req.params;
+
+    const invoice = await prisma.customerInvoice.findUnique({
+      where: {
+        invoiceId,
+      },
+      include: {
+        lines: {
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
+        customer: true,
+      },
+    });
+
+    if (!invoice) {
+      return res.status(404).json({
+        message: "Invoice not found",
+      });
+    }
+
+    return res.json(invoice);
+  } catch (error) {
+    console.error("Failed to get QuickBooks invoice by ID:", error);
+
+    return res.status(500).json({
+      message: "Failed to get QuickBooks invoice",
+    });
+  }
 }
 
 export async function getQuickBooksPayments(req: Request, res: Response) {

@@ -48,15 +48,18 @@ function stringifyRaw(data: unknown) {
 export async function saveQuickBooksData(type: string, data: any[]) {
   if (!data.length) return;
 
+  // Customers are master records.
+  // Save all customers so invoices can link correctly.
+  if (type === "customers") {
+    await saveCustomers(dedupeBy(data, (customer) => customer.ListID));
+    return;
+  }
+
+  // Transactions only: keep records created from June 1, 2025 onward.
   const filteredData = data.filter(wasCreatedFromStartDate);
 
   if (!filteredData.length) {
     console.log(`No ${type} records created from 2025-06-01 onward.`);
-    return;
-  }
-
-  if (type === "customers") {
-    await saveCustomers(dedupeBy(filteredData, (customer) => customer.ListID));
     return;
   }
 
