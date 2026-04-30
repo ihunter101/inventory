@@ -19,7 +19,8 @@ import {
   Building2,
   X,
   HandCoins,
-  LandmarkIcon
+  LandmarkIcon,
+  HandshakeIcon,
 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PERMS, type Perm } from "@lab/shared"
@@ -140,6 +141,16 @@ const navigation = {
       permission: PERMS.VIEW_SETTINGS,
     },
   ] satisfies NavItem[],
+
+  clients: [
+      {
+      title: "Clients",
+      href: "/client/dashboard",
+      icon: HandshakeIcon,
+      permission: PERMS.READ_CLIENT_PORTAL,
+    },
+  ] satisfies NavItem[]
+  
 }
 
 function LoadingSection({
@@ -248,7 +259,8 @@ export function AppSidebar({ open, isMobile, onCloseMobile }: Props) {
       operations: filter(navigation.operations),
       finance: filter(navigation.finance),
       settings: filter(navigation.settings),
-      integrations: filter(navigation.integrations)
+      integrations: filter(navigation.integrations),
+      clients: filter(navigation.clients),
     }
   }, [can])
 
@@ -365,6 +377,14 @@ export function AppSidebar({ open, isMobile, onCloseMobile }: Props) {
                 <NavSection
                   label="People & Settings"
                   items={visible.settings}
+                  collapsed={collapsed}
+                  isActive={isActive}
+                  onNavigate={onCloseMobile}
+                />
+
+                <NavSection 
+                  label="Clients"
+                  items={visible.clients}
                   collapsed={collapsed}
                   isActive={isActive}
                   onNavigate={onCloseMobile}

@@ -8,6 +8,6 @@ import { getSupplierSummary } from "../controllers/supplierController";
 
 const router = Router();
 
-router.get("/", getSuppliers);
+router.get("/",...must(PERMS.READ_SUPPLIERS), getSuppliers);
 router.get("/:supplierId/analytics", ...must(PERMS.READ_SUPPLIERS), getSupplierSummary)
 export default router;

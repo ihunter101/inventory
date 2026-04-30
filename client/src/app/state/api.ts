@@ -1079,6 +1079,44 @@ export interface ClientDashboardResponse {
   recentInvoices: ClientInvoice[];
 }
 
+export interface InviteTokenDTO {
+  id: string;
+  email: string;
+  role: string;
+  expiresAt: string;
+  usedAt?: string | null;
+  usedByUserId?: string | null;
+  createdByUserId?: string | null;
+  createdAt: string;
+}
+
+export interface CreateInviteBody {
+  organizationId: string;
+  email: string;
+  role: "clientUser" | "clientAdmin";
+}
+
+export interface CreateInviteResponse {
+  message: string;
+  invite: InviteTokenDTO;
+  inviteLink: string;
+  emailSent?: boolean;
+}
+
+export interface GetOrganizationInvitesResponse {
+  invites: InviteTokenDTO[];
+}
+
+export interface AcceptInviteBody {
+  token: string;
+}
+
+export interface AcceptInviteResponse {
+  message: string;
+  user: any;
+  redirectTo: string;
+}
+
 // ----------------------
 // API Setup
 // ----------------------
@@ -1102,6 +1140,7 @@ export const api = createApi({
     "SalesAnalytics", "TodaySale", "Sales", "Matches", "InvoicePayments", 
     "PoPaymentSummary", "QuarterlyReport", "PendingAccess", "SuppliersAnalytics",
     "Organizations", "AvailableCustomers", "ClientDashboard", "ClientInvoices",
+    "Invites",
   ],
   endpoints: (build) => ({
     // Dashboard Metrics
@@ -1889,6 +1928,44 @@ getClientInvoiceById: build.query<{ invoice: ClientInvoiceDetail }, string>({
     { type: "ClientInvoices", id: invoiceId },
   ],
 }),
+createOrganizationInvite: build.mutation<CreateInviteResponse, CreateInviteBody>({
+  query: ({ organizationId, email, role }) => ({
+    url: `/invites/organizations/${organizationId}`,
+    method: "POST",
+    body: {
+      email,
+      role,
+    },
+  }),
+  invalidatesTags: (result, error, arg) => [
+    { type: "Invites", id: arg.organizationId },
+    "Invites",
+  ],
+}),
+
+getOrganizationInvites: build.query<GetOrganizationInvitesResponse,string>({
+  query: (organizationId) => ({
+    url: `/invites/organizations/${organizationId}`,
+    method: "GET",
+  }),
+  providesTags: (result, error, organizationId) => [
+    { type: "Invites", id: organizationId },
+  ],
+}),
+
+acceptInvite: build.mutation<AcceptInviteResponse,AcceptInviteBody>({
+  query: (body) => ({
+    url: "/invites/accept",
+    method: "POST",
+    body,
+  }),
+  invalidatesTags: [
+    "Users",
+    "Organizations",
+    "ClientDashboard",
+    "ClientInvoices",
+  ],
+}),
   }),
 });
 
@@ -2011,6 +2088,10 @@ export const {
   useGetClientDashboardQuery,
   useGetClientInvoicesQuery,
   useGetClientInvoiceByIdQuery,
+
+   useCreateOrganizationInviteMutation,
+  useGetOrganizationInvitesQuery,
+  useAcceptInviteMutation,
 } = api;
 
 

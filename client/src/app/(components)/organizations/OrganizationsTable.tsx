@@ -12,6 +12,7 @@ import {
 } from "@mui/material";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { useGetOrganizationsQuery } from "@/app/state/api";
+import { OrganizationActions } from "./organizationAction";
 
 export function OrganizationsTable() {
   const theme = useTheme();
@@ -92,6 +93,22 @@ export function OrganizationsTable() {
         </Typography>
       ),
     },
+    {
+  field: "actions",
+  headerName: "Actions",
+  flex: 0.5,
+  minWidth: 110,
+  sortable: false,
+  filterable: false,
+  align: "right",
+  headerAlign: "right",
+  renderCell: (params) => (
+    <OrganizationActions
+      organizationId={params.row.organizationId}
+      organizationName={params.row.name}
+    />
+  ),
+},
   ];
 
   return (

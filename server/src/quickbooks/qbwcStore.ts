@@ -15,6 +15,16 @@ type IteratorState = {
 export interface QBWCSession {
   token: string;
   stage: SyncStage;
+
+  /**
+   * Fixed timestamp captured when this QBWC run starts.
+   *
+   * We use this as the safe checkpoint when updating lastModifiedSyncAt.
+   * Do NOT use new Date() at the end of the sync, because records changed
+   * during the sync window could be skipped on the next incremental run.
+   */
+  syncStartedAt: Date;
+
   iterators: Record<Exclude<SyncStage, "done">, IteratorState>;
 }
 
@@ -27,6 +37,7 @@ export function createSession(
   const session: QBWCSession = {
     token,
     stage: initialStage,
+    syncStartedAt: new Date(),
     iterators: {
       customers: { iteratorID: null, remainingCount: 0 },
       invoices: { iteratorID: null, remainingCount: 0 },

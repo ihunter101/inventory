@@ -53,8 +53,9 @@ import aiRoutes from "./routes/aiRoutes"
 import reportRoutes from "./routes/reportRoutes"
 import qbwcRoutes from "./routes/qbwcRoutes";
 import quickbooksRoutes from "./routes/quickbooksRoutes";
-import clientPortalRoutes from './routes/clientPortalRoutes'
-import  organizationRoutes  from './routes/organizationRoutes'
+import clientPortalRoutes from './routes/clientPortalRoutes';
+import  organizationRoutes  from './routes/organizationRoutes';
+import inviteRoutes from "./routes/inviteRoutes";
 
 
 process.on('uncaughtException', (err) => {
@@ -134,6 +135,7 @@ protectedRouter.use("/client", clientPortalRoutes);
 app.use("/qbwc", express.text({ type: "*/*", limit: "20mb" }));
 app.use("/qbwc", qbwcRoutes);
 app.use("/quickbooks", quickbooksRoutes);
+protectedRouter.use("/invites", inviteRoutes);
 // Mount the protected router
 app.use(protectedRouter);
 

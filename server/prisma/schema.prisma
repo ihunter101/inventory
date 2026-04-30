@@ -39,6 +39,30 @@ model Users {
   organization   Organization? @relation(fields: [organizationId], references: [organizationId])
 }
 
+model InviteToken {
+  id String @id @default(cuid())
+
+  tokenHash String @unique
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [organizationId], onDelete: Cascade)
+
+  role Role @default(clientUser)
+
+  email String
+
+  expiresAt DateTime
+  usedAt DateTime?
+  usedByUserId String?
+
+  createdByUserId String?
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([organizationId])
+  @@index([expiresAt])
+}
+
 model Sessions {
   id        String   @default(cuid())
   userId    String   @unique
@@ -60,6 +84,7 @@ model Organization {
   customer Customer @relation(fields: [customerId], references: [customerId])
 
   users Users[]
+  inviteTokens InviteToken[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -71,6 +96,10 @@ enum Role {
   labStaff
   orderAgent
   viewer
+  clientAdmin
+  clientUser
+  staffLead
+  adminLead
 }
 
 enum Location {

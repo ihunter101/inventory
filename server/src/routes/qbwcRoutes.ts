@@ -352,6 +352,7 @@ const invoiceState = await getSyncState("invoices");
 const paymentState = await getSyncState("receivePayments");
 const checkState = await getSyncState("checks");
 
+
 const initialStage =
   !customerState.fullBackfillComplete
     ? "customers"
@@ -361,7 +362,7 @@ const initialStage =
         ? "receivePayments"
         : !checkState.fullBackfillComplete
           ? "checks"
-          : "done";
+          : "invoices";
 
 createSession(token, initialStage);
 
@@ -394,8 +395,14 @@ console.log("QBWC initial stage:", initialStage);
 const stage = session.stage as QuickBooksEntity;
 const iterator = session.iterators[stage];
 
+const syncState = await getSyncState(stage);
+
 const fromModifiedDate =
-  stage === "customers" ? null : "2025-06-01T00:00:00";
+  syncState.fullBackfillComplete && syncState.lastModifiedSyncAt
+    ? syncState.lastModifiedSyncAt.toISOString()
+    : stage === "customers"
+      ? null
+      : "2025-06-01T00:00:00";
 
 const queryOptions = {
   fromModifiedDate,
@@ -454,7 +461,7 @@ const message = getTagValue(xml, "message");
 
       try {
         const decodedResponseXml = xmlUnescape(responseXml);
-        //console.log("RAW RESPONSE FROM QUICKBOOKS:\n", decodedResponseXml);
+        console.log("RAW RESPONSE FROM QUICKBOOKS:\n", decodedResponseXml);
         const parsed = await parseQBResponse(decodedResponseXml);
         //console.log("PARSED QB RESPONSE:\n", parsed);
 
@@ -468,18 +475,20 @@ const message = getTagValue(xml, "message");
     parsed.remainingCount
   );
 
-  if (parsed.remainingCount === 0) {
-    const syncState = await getSyncState(parsed.type);
+if (parsed.remainingCount === 0) {
+  const syncState = await getSyncState(parsed.type);
 
-    if (!syncState.fullBackfillComplete) {
-      await markFullBackfillComplete(parsed.type);
-    } else {
-      await updateLastModifiedSyncAt(parsed.type);
-    }
+  if (!syncState.fullBackfillComplete) {
+    await markFullBackfillComplete(parsed.type);
+  } else {
+    const syncCheckpoint = session.syncStartedAt;
 
-    resetIteratorState(ticket, parsed.type);
-    advanceStage(ticket);
+    await updateLastModifiedSyncAt(parsed.type, syncCheckpoint);
   }
+
+  resetIteratorState(ticket, parsed.type);
+  advanceStage(ticket);
+}
 
   console.log(
     `Saved QuickBooks ${parsed.type}: ${parsed.data.length} rows, remaining=${parsed.remainingCount}`
