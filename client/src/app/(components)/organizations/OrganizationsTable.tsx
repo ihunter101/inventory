@@ -21,16 +21,21 @@ export function OrganizationsTable() {
 
   const organizations = data?.organizations ?? [];
 
-  const rows = organizations.map((org) => ({
-    id: org.organizationId,
-    organizationId: org.organizationId,
-    name: org.name,
-    customerName: org.customer?.companyName || org.customer?.name || "No customer",
-    email: org.customer?.email || "—",
-    phone: org.customer?.phone || "—",
-    userCount: org.users?.length ?? 0,
-    totalBalance: org.customer?.totalBalance ?? org.customer?.balance ?? 0,
-  }));
+    const rows = organizations.map((org) => ({
+      id: org.organizationId,
+      organizationId: org.organizationId,
+      name: org.name,
+      customerName: org.customer?.companyName || org.customer?.name || "No customer",
+      email: org.customer?.email || "—",
+      phone: org.customer?.phone || "—",
+      userCount: org.users?.length ?? 0,
+      invoiceCount: org.invoiceSummary?.invoiceCount ?? 0,
+      totalBalance:
+        org.invoiceSummary?.invoiceBalanceRemaining ??
+        org.customer?.totalBalance ??
+        0,
+    }));
+ //console.log("remaining blance: ", organizations[3]?.customer)
 
   const columns: GridColDef[] = [
     {
@@ -91,6 +96,21 @@ export function OrganizationsTable() {
         <Typography fontWeight={600}>
           ${Number(params.row.totalBalance || 0).toFixed(2)}
         </Typography>
+      ),
+    },
+    {
+      field: "invoiceCount",
+      headerName: "Invoices",
+      flex: 0.6,
+      minWidth: 110,
+      align: "center",
+      headerAlign: "center",
+      renderCell: (params) => (
+        <Chip
+          size="small"
+          label={params.row.invoiceCount}
+          color={params.row.invoiceCount > 0 ? "primary" : "default"}
+        />
       ),
     },
     {

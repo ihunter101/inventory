@@ -250,9 +250,10 @@ export async function sendClientInviteEmail({
   inviteLink: string;
   role: string;
 }) {
-  const header = process.env.SENDER_EMAIL || "Lab Services <noreply@example.com>";
-  const from = `Client Portal <${header}>`
+  //const header = process.env.SENDER_EMAIL || "Lab Services <noreply@example.com>";
 
+
+  const from = process.env.PROD_RESEND_SENDER_EMAIL || "Client Portal <support@slulabservices.com>";
 
   return resend.emails.send({
     from,

@@ -56,6 +56,7 @@ import quickbooksRoutes from "./routes/quickbooksRoutes";
 import clientPortalRoutes from './routes/clientPortalRoutes';
 import  organizationRoutes  from './routes/organizationRoutes';
 import inviteRoutes from "./routes/inviteRoutes";
+import expenseDocumentRoutes from "./routes/expenseDocumentRoutes";
 
 
 process.on('uncaughtException', (err) => {
@@ -132,6 +133,7 @@ protectedRouter.use('/ai', aiRoutes)
 protectedRouter.use( '/report', reportRoutes)
 protectedRouter.use("/organizations", organizationRoutes);
 protectedRouter.use("/client", clientPortalRoutes);
+protectedRouter.use("/expense-documents", expenseDocumentRoutes);
 app.use("/qbwc", express.text({ type: "*/*", limit: "20mb" }));
 app.use("/qbwc", qbwcRoutes);
 app.use("/quickbooks", quickbooksRoutes);

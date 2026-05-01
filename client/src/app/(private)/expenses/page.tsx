@@ -18,6 +18,7 @@ import ExpenseKPICards from "../../(components)/expense/ExpenseKPICard";
 import RecentTransactionsTable from "../../(components)/expense/RecentTransactionTable";
 import BarChartCategoryAnalysis from "../../(components)/expense/BarChartCategoryAnalysis";
 import ExpenseGroupDonutCard from "@/app/(components)/expense/PieChartExpenses";
+import CreateExpenseFromPdfButton from "@/app/(components)/expense/CreateExpenseFromPdfButton";
 
 type Range = "1w" | "1m" | "6m" | "1y" | "all";
 
@@ -120,6 +121,7 @@ const ExpenseDashboard = () => {
                 ))}
               </Box>
 
+                <CreateExpenseFromPdfButton />
               <AddExpenseDialog />
             </Box>
           </Grid>

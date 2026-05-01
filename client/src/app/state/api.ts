@@ -962,6 +962,13 @@ export interface Organization {
     totalBalance?: number | string | null;
   };
 
+  invoiceSummary?: {
+    invoiceCount: number;
+    invoiceTotalAmount: number;
+    invoiceAmountPaid: number;
+    invoiceBalanceRemaining: number;
+  };
+
   users?: {
     id: string;
     name?: string | null;
@@ -1117,6 +1124,95 @@ export interface AcceptInviteResponse {
   redirectTo: string;
 }
 
+export type ExpenseDocumentStatus =
+  | "UPLOADED"
+  | "PROCESSING"
+  | "AI_EXTRACTED"
+  | "REVIEWED"
+  | "SAVED"
+  | "FAILED";
+
+export interface ExtractedExpenseLineItem {
+  description: string | null;
+  quantity: number | null;
+  unitPrice: number | null;
+  total: number | null;
+}
+
+export interface ExtractedExpenseData {
+  category: string;
+  amount: number;
+  description: string | null;
+  group: ExpenseGroup;
+  notes: string | null;
+
+  supplierName: string | null;
+  invoiceNumber: string | null;
+  invoiceDate: string | null;
+  dueDate: string | null;
+
+  subtotal: number | null;
+  tax: number | null;
+  total: number | null;
+
+  confidence: number;
+  missingFields: string[];
+
+  lineItems: ExtractedExpenseLineItem[];
+}
+
+export interface ExpenseDocument {
+  documentId: string;
+  uploadThingKey: string;
+  fileUrl: string;
+  fileName: string;
+  mimeType?: string | null;
+  sizeBytes?: number | null;
+
+  aiExtractedJson?: ExtractedExpenseData | null;
+  aiError?: string | null;
+  status: ExpenseDocumentStatus;
+
+  expenseId?: string | null;
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExtractExpenseDocumentResponse {
+  message: string;
+  document: ExpenseDocument;
+  extractedData: ExtractedExpenseData;
+}
+
+
+export interface SaveExpenseFromDocumentBody {
+  category: string;
+  amount: number;
+  description?: string | null;
+  group: ExpenseGroup;
+  notes?: string | null;
+}
+
+export interface SaveExpenseFromDocumentResponse {
+  message: string;
+  expense: Expense;
+  document: ExpenseDocument;
+}
+
+export interface CreateExpenseDocumentBody {
+  uploadThingKey: string;
+  fileUrl: string;
+  fileName: string;
+  mimeType?: string | null;
+  sizeBytes?: number | null;
+}
+
+export interface CreateExpenseDocumentResponse {
+  message: string;
+  document: ExpenseDocument;
+}
+
 // ----------------------
 // API Setup
 // ----------------------
@@ -1140,7 +1236,7 @@ export const api = createApi({
     "SalesAnalytics", "TodaySale", "Sales", "Matches", "InvoicePayments", 
     "PoPaymentSummary", "QuarterlyReport", "PendingAccess", "SuppliersAnalytics",
     "Organizations", "AvailableCustomers", "ClientDashboard", "ClientInvoices",
-    "Invites",
+    "Invites", "ExpenseDocuments"
   ],
   endpoints: (build) => ({
     // Dashboard Metrics
@@ -1966,6 +2062,52 @@ acceptInvite: build.mutation<AcceptInviteResponse,AcceptInviteBody>({
     "ClientInvoices",
   ],
 }),
+getExpenseDocumentById: build.query<ExpenseDocument, string>({
+  query: (documentId) => `/expense-documents/${documentId}`,
+  providesTags: (result, error, documentId) => [
+    { type: "ExpenseDocuments", id: documentId },
+  ],
+}),
+
+extractExpenseDocument: build.mutation<ExtractExpenseDocumentResponse,string>({
+  query: (documentId) => ({
+    url: `/expense-documents/${documentId}/extract`,
+    method: "POST",
+  }),
+  invalidatesTags: (result, error, documentId) => [
+    { type: "ExpenseDocuments", id: documentId },
+    { type: "ExpenseDocuments", id: "LIST" },
+  ],
+}),
+
+saveExpenseFromDocument: build.mutation<
+  SaveExpenseFromDocumentResponse,
+  {
+    documentId: string;
+    body: SaveExpenseFromDocumentBody;
+  }
+>({
+  query: ({ documentId, body }) => ({
+    url: `/expense-documents/${documentId}/save-expense`,
+    method: "POST",
+    body,
+  }),
+  invalidatesTags: (result, error, arg) => [
+    { type: "ExpenseDocuments", id: arg.documentId },
+    { type: "ExpenseDocuments", id: "LIST" },
+    { type: "Expenses", id: "LIST" },
+  ],
+}),
+createExpenseDocument: build.mutation<CreateExpenseDocumentResponse, CreateExpenseDocumentBody>({
+  query: (body) => ({
+    url: "/expense-documents",
+    method: "POST",
+    body,
+  }),
+  invalidatesTags: [
+    { type: "ExpenseDocuments", id: "LIST" },
+  ],
+}),
   }),
 });
 
@@ -2092,6 +2234,11 @@ export const {
    useCreateOrganizationInviteMutation,
   useGetOrganizationInvitesQuery,
   useAcceptInviteMutation,
+
+  useGetExpenseDocumentByIdQuery,
+  useExtractExpenseDocumentMutation,
+  useSaveExpenseFromDocumentMutation,
+   useCreateExpenseDocumentMutation,
 } = api;
 
 

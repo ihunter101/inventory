@@ -51,12 +51,12 @@ model InviteToken {
 
   email String
 
-  expiresAt DateTime
-  usedAt DateTime?
+  expiresAt    DateTime
+  usedAt       DateTime?
   usedByUserId String?
 
   createdByUserId String?
-  createdAt DateTime @default(now())
+  createdAt       DateTime @default(now())
 
   @@index([email])
   @@index([organizationId])
@@ -76,20 +76,20 @@ model Sessions {
 }
 
 model Organization {
-  organizationId String @default(cuid()) @id
+  organizationId String @id @default(cuid())
 
-  name String 
+  name String
 
-  customerId String @unique
-  customer Customer @relation(fields: [customerId], references: [customerId])
+  customerId String   @unique
+  customer   Customer @relation(fields: [customerId], references: [customerId])
 
-  users Users[]
+  users        Users[]
   inviteTokens InviteToken[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
 }
+
 enum Role {
   admin
   inventoryClerk
@@ -245,7 +245,7 @@ model Customer {
   customerId String @id @default(uuid())
 
   // QuickBooks customer identity
-  qbListId       String? @unique
+  qbListId       String?   @unique
   qbEditSequence String?
   qbTimeCreated  DateTime?
 
@@ -346,7 +346,7 @@ model CustomerInvoice {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  customer Customer? @relation(fields: [customerId], references: [customerId])
+  customer Customer?             @relation(fields: [customerId], references: [customerId])
   payments CustomerPayment[]
   lines    CustomerInvoiceLine[]
 
@@ -385,10 +385,10 @@ model CustomerInvoiceLine {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([invoiceId, qbTxnLineId])
   @@index([invoiceId])
   @@index([itemName])
   @@index([className])
-  @@unique([invoiceId, qbTxnLineId])
 }
 
 model CustomerPayment {
@@ -512,8 +512,17 @@ model Expenses {
   group       ExpenseGroup  @default(CLINICAL)
   notes       String?
 
+  document ExpenseDocument[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([group])
+  @@index([category])
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([group, createdAt])
 }
 
 enum ExpenseGroup {
@@ -530,6 +539,40 @@ enum ExpenseStatus {
 }
 
 // TODO: add an aenum expensestatus to update expsnes tranacationally like pedning approved, paid, void 
+
+model ExpenseDocument {
+  documentId String @id @default(cuid())
+
+  uploadThingKey String  @unique()
+  fileUrl        String
+  fileName       String
+  mimeType       String?
+  sizeBytes      Int?
+
+  aiError         String?
+  aiExtractedJson Json?
+  status          ExpenseDocumentStatus @default(UPLOADED)
+
+  expenseId String?
+  expense   Expenses? @relation(fields: [expenseId], references: [expenseId])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([expenseId])
+  @@index([createdAt])
+  @@index([status, createdAt])
+}
+
+enum ExpenseDocumentStatus {
+  UPLOADED
+  PROCESSESING
+  AI_EXTRACTED
+  REVIEWED
+  SAVED
+  FAILED
+}
 
 model SalesSummary {
   salesSummaryId   String   @id
@@ -591,16 +634,16 @@ enum InvoiceStatus {
 }
 
 model Supplier {
-  supplierId    String           @id @default(cuid())
-  name          String
-  email         String           @unique
-  phone         String
-  address       String
+  supplierId     String            @id @default(cuid())
+  name           String
+  email          String            @unique
+  phone          String
+  address        String
   purchaseOrders PurchaseOrder[]
-  invoices      SupplierInvoice[]
-  inventory     Inventory[]
-  createdAt     DateTime         @default(now())   // ← add this
-  updatedAt     DateTime         @updatedAt   @default(now())      // ← add this
+  invoices       SupplierInvoice[]
+  inventory      Inventory[]
+  createdAt      DateTime          @default(now()) // ← add this
+  updatedAt      DateTime          @default(now()) @updatedAt // ← add this
 }
 
 model DraftProduct {
@@ -723,11 +766,11 @@ model SupplierInvoiceItem {
 }
 
 model QuickBooksSyncState {
-  entity                String   @id
-  fullBackfillComplete  Boolean  @default(false)
-  lastModifiedSyncAt    DateTime?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  entity               String    @id
+  fullBackfillComplete Boolean   @default(false)
+  lastModifiedSyncAt   DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 }
 
 model GoodsReceipt {

@@ -20,6 +20,16 @@ export async function getOrganizations(req: Request, res: Response) {
             customerDetail2: true,
             customerDetail3: true,
             subClientName: true,
+
+            invoices: {
+              select: {
+                invoiceId: true,
+                totalAmount: true,
+                amountPaid: true,
+                balanceRemaining: true,
+                status: true,
+              },
+            },
           },
         },
         users: {
@@ -38,7 +48,33 @@ export async function getOrganizations(req: Request, res: Response) {
       },
     });
 
-    return res.json({ organizations });
+    const formattedOrganizations = organizations.map((org) => {
+      const invoices = org.customer?.invoices ?? [];
+
+      const invoiceTotalAmount = invoices.reduce((sum, invoice) => {
+        return sum + Number(invoice.totalAmount ?? 0);
+      }, 0);
+
+      const invoiceAmountPaid = invoices.reduce((sum, invoice) => {
+        return sum + Number(invoice.amountPaid ?? 0);
+      }, 0);
+
+      const invoiceBalanceRemaining = invoices.reduce((sum, invoice) => {
+        return sum + Number(invoice.balanceRemaining ?? 0);
+      }, 0);
+
+      return {
+        ...org,
+        invoiceSummary: {
+          invoiceCount: invoices.length,
+          invoiceTotalAmount,
+          invoiceAmountPaid,
+          invoiceBalanceRemaining,
+        },
+      };
+    });
+
+    return res.json({ organizations: formattedOrganizations });
   } catch (error) {
     console.error("Failed to fetch organizations:", error);
     return res.status(500).json({ message: "Failed to fetch organizations" });
