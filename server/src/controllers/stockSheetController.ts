@@ -68,10 +68,8 @@ export const createStockSheet = async (req: Request, res: Response) => {
                 role: { in:  ["admin", "inventoryClerk"]}
             }
         })
-        console.log("recipients:", recipients)
 
         const to = recipients.map((r: any)=> r.email).filter(Boolean);
-        console.log("Send to:", to)
 
         if (to.length === 0) {
             console.log("No valid recipients found, skipping email");

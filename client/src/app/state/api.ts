@@ -870,6 +870,76 @@ export type CreateMatchDTO = {
   grnId: string;
 };
 
+export interface PurchaseOrderDetailCount {
+  invoices: number;
+  grns: number;
+}
+
+export interface PurchaseOrderDetailInvoiceItem {
+  id?: string;
+  poItemId?: string | null;
+  quantity?: number;
+  unitPrice?: number;
+  lineTotal?: number;
+  draftProduct?: any;
+  product?: any;
+  poItem?: any;
+}
+
+export interface PurchaseOrderDetailInvoice {
+  id: string;
+  invoiceNumber: string;
+  date?: string | null;
+  dueDate?: string | null;
+  amount?: number;
+  status?: string;
+  goodsReceipt?: any;
+  items?: PurchaseOrderDetailInvoiceItem[];
+}
+
+export interface PurchaseOrderDetailGRNLine {
+  id?: string;
+  receivedQty?: number;
+  quantity?: number;
+  product?: any;
+  poItem?: any;
+  invoiceItem?: any;
+}
+
+export interface PurchaseOrderDetailGRN {
+  id: string;
+  grnNumber?: string;
+  date?: string | null;
+  status?: string;
+  invoice?: any;
+  lines?: PurchaseOrderDetailGRNLine[];
+}
+
+export interface PurchaseOrderDetailItem extends POItem {
+  product?: any;
+  promotedProduct?: any;
+  invoiceLines?: any[];
+  grnLines?: any[];
+
+  orderedQty?: number;
+  invoicedQty?: number;
+  remainingToInvoice?: number;
+  receivedQty?: number;
+  pendingQty?: number;
+}
+
+export interface PurchaseOrderDetailDTO extends PurchaseOrderDTO {
+  _count: PurchaseOrderDetailCount;
+  invoices: PurchaseOrderDetailInvoice[];
+  grns: PurchaseOrderDetailGRN[];
+  items: PurchaseOrderDetailItem[];
+
+  invoiceCount: number;
+  grnCount: number;
+  invoicedTotal: number;
+  receivedQtyTotal: number;
+}
+
 export type PaymentStatus = "POSTED" | "VOID"
 
 export type CreateInvoicePaymentBody =
@@ -1588,31 +1658,26 @@ notifyPendingAccess: build.mutation<{ message: string }, void>({
   }),
 
   // Purchases
-  getPurchaseOrders: build.query<PurchaseOrderDTO[], {status?: POStatus; q?: string} | void>({
-    query: (params) => ({
-      url: "/purchase-orders", 
-      params: params ?? undefined
-    }),
-    providesTags: [{type: "PurchaseOrders", id: "LIST"}],
-  }), 
+ getPurchaseOrders: build.query<PaginatedResponse<PurchaseOrderDTO>, { page?: number; limit?: number; status?: string; q?: string; } | void>({
+  query: (params) => ({
+    url: "/purchase-orders",
+    params: params ?? {},
+  }),
+  providesTags: [{type: "PurchaseOrders", id: "LIST"} ],
+}),
   getPurchaseOrder: build.query<PurchaseOrderDTO, string>({
     query: (poId) => `/purchase-orders/${poId}`,
     providesTags: (_r, _e, id) => [{ type: "PurchaseOrders", id }],
   }),
-  getPurchaseOrderById: build.query<any, string>({
-    query: (id) => ({
-      url: `/purchase-orders/${id}`,
-      method: "GET",
-    }),
-    providesTags: (_res, _err, id) => [{ type: "PurchaseOrders", id }],
+  getPurchaseOrderById: build.query<PurchaseOrderDetailDTO, string>({
+  query: (id) => ({
+    url: `/purchase-orders/${id}`,
+    method: "GET",
   }),
-  listPurchaseOrder: build.query<PurchaseOrderDTO[], { q?: string } | void>({
-    query: (arg) => ({
-      url: "/purchase-orders",
-      params: arg && arg?.q ? {q: arg.q} : undefined
-    }),
-    providesTags: [{ type: "PurchaseOrders", id: "LIST" }],
-  }),
+  providesTags: (_res, _err, id) => [
+    { type: "PurchaseOrders", id },
+  ],
+}),
   createPurchaseOrder: build.mutation<PurchaseOrderDTO, NewPurchaseOrderDTO>({
     query: (body) => ({ url: "/purchase-orders", method: "POST", body }),
     invalidatesTags: ["PurchaseOrders", "DashboardMetrics"]
@@ -2292,8 +2357,6 @@ export const {
  useGetSuppliersQuery,
  useGetSuppliersAnalyticsQuery,
 
-
-  useListPurchaseOrderQuery,
   useGetPurchaseOrderQuery,
   useGetPurchaseOrdersQuery,
   useGetPurchaseOrderByIdQuery,

@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { POStatus } from "@prisma/client";
+import { getPagination, paginatedResponse } from "../utils/pagination";
+
 import it from "zod/v4/locales/it.js";
 import { create } from "domain";
 import { PhoneNumber } from "@clerk/backend";
@@ -97,99 +99,189 @@ function toPurchaseOrderDTO(po: any) {
 }
 
 
- export const listPurchaseOrders = async (req: Request, res: Response) => {
+export const listPurchaseOrders = async (req: Request, res: Response) => {
   try {
-    const { status, q } = req.query as Partial<{ status: string; q: string }>;
+    const { status, q } = req.query as Partial<{
+      status: string;
+      q: string;
+    }>;
+
+    const { page, limit, skip } = getPagination(req);
+
     const where: any = {};
 
     if (
       status &&
-      ["DRAFT", "APPROVED", "SENT", "PARTIALLY_RECEIVED", "RECEIVED", "CLOSED"].includes(status)
+      [
+        "DRAFT",
+        "APPROVED",
+        "SENT",
+        "PARTIALLY_RECEIVED",
+        "RECEIVED",
+        "CLOSED",
+      ].includes(status)
     ) {
       where.status = status as POStatus;
     }
 
     if (q && q.trim()) {
       where.OR = [
-        { poNumber: { contains: q, mode: "insensitive" } },
-        { supplier: { is: { name: { contains: q, mode: "insensitive" } } } },
+        {
+          poNumber: {
+            contains: q,
+            mode: "insensitive",
+          },
+        },
+        {
+          id: {
+            contains: q,
+            mode: "insensitive",
+          },
+        },
+        {
+          supplier: {
+            is: {
+              name: {
+                contains: q,
+                mode: "insensitive",
+              },
+            },
+          },
+        },
       ];
     }
 
-        const rows = await prisma.purchaseOrder.findMany({
-      where,
-      include: {
-        supplier: true,
-        items: { include: { product: true } },
+    const [total, rows] = await Promise.all([
+      prisma.purchaseOrder.count({
+        where,
+      }),
 
-        // ✅ add this (minimal fields only)
-        invoices: {
-          select: {
-            id: true,
-            items: { select: { poItemId: true, quantity: true } },
+      prisma.purchaseOrder.findMany({
+        where,
+        include: {
+          supplier: true,
+
+          items: {
+            include: {
+              product: true,
+            },
+          },
+
+          invoices: {
+            select: {
+              id: true,
+              items: {
+                select: {
+                  poItemId: true,
+                  quantity: true,
+                },
+              },
+            },
+          },
+
+          grns: true,
+
+          _count: {
+            select: {
+              invoices: true,
+            },
           },
         },
+        orderBy: {
+          orderDate: "desc",
+        },
+        take: limit,
+        skip,
+      }),
+    ]);
 
-        grns: true,
-        _count: { select: { invoices: true } },
-      },
-      orderBy: { orderDate: "desc" },
-    });
-
-    // ✅ Compute per PO item: invoicedQty + remainingToInvoice
     const mapped = rows.map((po) => {
       const invoicedByPoItemId = new Map<string, number>();
 
-      for (const inv of po.invoices ?? []) {
-        for (const it of inv.items ?? []) {
-          if (!it.poItemId) continue;
-          const prev = invoicedByPoItemId.get(it.poItemId) ?? 0;
-          invoicedByPoItemId.set(it.poItemId, prev + Number(it.quantity ?? 0));
+      for (const invoice of po.invoices ?? []) {
+        for (const invoiceItem of invoice.items ?? []) {
+          if (!invoiceItem.poItemId) continue;
+
+          const previousQty =
+            invoicedByPoItemId.get(invoiceItem.poItemId) ?? 0;
+
+          invoicedByPoItemId.set(
+            invoiceItem.poItemId,
+            previousQty + Number(invoiceItem.quantity ?? 0)
+          );
         }
       }
 
-      const itemsWithRemaining = po.items.map((poi) => {
-        const orderedQty = Number(poi.quantity ?? 0);
-        const invoicedQty = invoicedByPoItemId.get(poi.id) ?? 0;
+      const dto = toPurchaseOrderDTO(po);
+
+      const items = po.items.map((poItem) => {
+        const orderedQty = Number(poItem.quantity ?? 0);
+        const invoicedQty = invoicedByPoItemId.get(poItem.id) ?? 0;
         const remainingToInvoice = Math.max(0, orderedQty - invoicedQty);
 
         return {
-          ...poi,
+          id: poItem.id,
+
+          // Important: FE expects this.
+          poItemId: poItem.id,
+
+          productId: poItem.productId,
+
+          // Your FE often treats draftProductId as the product reference.
+          // If your schema has promotedProductId, keep this fallback.
+          draftProductId:
+            (poItem as any).promotedProductId ??
+            poItem.productId,
+
+          //sku: poItem.product?.sku,
+          name: poItem.product?.name ?? "",
+          unit: poItem.unit ?? "",
+
+          quantity: orderedQty,
           orderedQty,
           invoicedQty,
           remainingToInvoice,
           fullyInvoiced: remainingToInvoice === 0,
+
+          unitPrice: Number(poItem.unitPrice ?? 0),
+          lineTotal: Number(poItem.lineTotal ?? 0),
         };
       });
 
-      const hasRemainingToInvoice = itemsWithRemaining.some((i) => i.remainingToInvoice > 0);
+      const remainingToInvoiceCount = items.filter(
+        (item) => item.remainingToInvoice > 0
+      ).length;
+
+      const remainingToInvoiceQty = items.reduce(
+        (sum, item) => sum + item.remainingToInvoice,
+        0
+      );
+
+      const hasRemainingToInvoice = remainingToInvoiceCount > 0;
 
       return {
-        ...toPurchaseOrderDTO(po),
-        // ✅ add fields the picker/UI can use
-        items: itemsWithRemaining.map((x) => ({
-          id: x.id,
-          name: x.product?.name,
-          unit: x.unit,
-          quantity: Number(x.quantity),
-          unitPrice: Number(x.unitPrice ?? 0),
-          lineTotal: Number(x.lineTotal ?? 0),
-          productId: x.productId,
-          draftProductId: x.promotedProductId,
-          // ✅ extra computed fields
-          orderedQty: x.orderedQty,
-          invoicedQty: x.invoicedQty,
-          remainingToInvoice: x.remainingToInvoice,
-          fullyInvoiced: x.fullyInvoiced,
-        })),
+        ...dto,
+        items,
+        remainingToInvoiceCount,
+        remainingToInvoiceQty,
         hasRemainingToInvoice,
       };
     });
 
-    return res.json(mapped);
+    return res.json(
+      paginatedResponse({
+        data: mapped,
+        total,
+        page,
+        limit,
+      })
+    );
   } catch (error) {
     console.error("listPurchaseOrders error:", error);
-    return res.status(500).json({ message: "Error retrieving purchase orders." });
+
+    return res.status(500).json({
+      message: "Error retrieving purchase orders.",
+    });
   }
 };
 
@@ -221,30 +313,51 @@ export const getPurchaseOrder = async (req: Request, res: Response) => {
   }
 };
 
-export const getPurchaseOrderById = async(req: Request, res: Response) => {
+export const getPurchaseOrderById = async (req: Request, res: Response) => {
   try {
     const id = String(req.params.id || "").trim();
-    if (!id) return res.status(400).json({ message: "id is required." });
+
+    if (!id) {
+      return res.status(400).json({
+        message: "id is required.",
+      });
+    }
 
     const po = await prisma.purchaseOrder.findUnique({
       where: { id },
       include: {
         supplier: true,
-        _count: { select: { invoices: true, grns: true } },
+
+        _count: {
+          select: {
+            invoices: true,
+            grns: true,
+          },
+        },
+
         items: {
           include: {
-            product: true, 
+            product: true,
             promotedProduct: true,
+
             invoiceLines: {
-              include: { invoice: true },
+              include: {
+                invoice: true,
+              },
             },
+
             grnLines: {
-              include: { grn: true },
+              include: {
+                grn: true,
+              },
             },
           },
         },
+
         invoices: {
-          orderBy: { date: "desc"},
+          orderBy: {
+            date: "desc",
+          },
           include: {
             goodsReceipt: true,
             items: {
@@ -256,8 +369,11 @@ export const getPurchaseOrderById = async(req: Request, res: Response) => {
             },
           },
         },
+
         grns: {
-          orderBy: { date: "desc" },
+          orderBy: {
+            date: "desc",
+          },
           include: {
             invoice: true,
             lines: {
@@ -272,14 +388,158 @@ export const getPurchaseOrderById = async(req: Request, res: Response) => {
       },
     });
 
-    if (!po) return res.status(404).json({ message: "Purchase Order not found."})
+    if (!po) {
+      return res.status(404).json({
+        message: "Purchase Order not found.",
+      });
+    }
 
-      return res.json(po)
+    const items = po.items.map((item: any) => {
+      const orderedQty = Number(item.quantity ?? 0);
+
+      const invoicedQty = (item.invoiceLines ?? []).reduce(
+        (sum: number, line: any) => sum + Number(line.quantity ?? 0),
+        0
+      );
+
+      const receivedQty = (item.grnLines ?? []).reduce(
+        (sum: number, line: any) => sum + Number(line.receivedQty ?? 0),
+        0
+      );
+
+      const remainingToInvoice = Math.max(0, orderedQty - invoicedQty);
+      const pendingQty = Math.max(0, orderedQty - receivedQty);
+
+      return {
+        ...item,
+
+        poItemId: item.id,
+
+        productId: item.productId,
+        draftProductId:
+          item.promotedProductId ??
+          item.productId,
+
+        name:
+          item.product?.name ??
+          item.promotedProduct?.name ??
+          item.name ??
+          "",
+
+        unit:
+          item.unit ??
+          item.product?.unit ??
+          item.promotedProduct?.unit ??
+          "",
+
+        quantity: orderedQty,
+        unitPrice: Number(item.unitPrice ?? 0),
+        lineTotal: Number(item.lineTotal ?? 0),
+
+        orderedQty,
+        invoicedQty,
+        remainingToInvoice,
+        fullyInvoiced: remainingToInvoice === 0,
+
+        receivedQty,
+        pendingQty,
+        fullyReceived: pendingQty === 0,
+      };
+    });
+
+    const invoices = po.invoices.map((invoice: any) => ({
+      ...invoice,
+      amount: Number(invoice.amount ?? invoice.total ?? 0),
+    }));
+
+    const grns = po.grns;
+
+    const invoiceCount = po._count?.invoices ?? invoices.length;
+    const grnCount = po._count?.grns ?? grns.length;
+
+    const invoicedTotal = invoices.reduce(
+      (sum: number, invoice: any) => sum + Number(invoice.amount ?? 0),
+      0
+    );
+
+    const receivedQtyTotal = grns
+      .flatMap((grn: any) => grn.lines ?? [])
+      .reduce(
+        (sum: number, line: any) => sum + Number(line.receivedQty ?? 0),
+        0
+      );
+
+    const response = {
+      id: po.id,
+      poNumber: po.poNumber,
+      supplierId: po.supplierId,
+      supplier: po.supplier
+        ? {
+            supplierId: po.supplier.supplierId,
+            name: po.supplier.name,
+            email: po.supplier.email,
+            phone: po.supplier.phone,
+            address: po.supplier.address,
+          }
+        : undefined,
+
+      status: po.status,
+      orderDate:
+        po.orderDate instanceof Date
+          ? po.orderDate.toISOString()
+          : po.orderDate,
+
+      dueDate: po.dueDate
+        ? po.dueDate instanceof Date
+          ? po.dueDate.toISOString()
+          : po.dueDate
+        : undefined,
+
+      notes: po.notes ?? undefined,
+
+      subtotal: Number(po.subtotal ?? 0),
+      tax: Number(po.tax ?? 0),
+      total: Number(po.total ?? 0),
+
+      items,
+      invoices,
+      grns,
+
+      _count: {
+        invoices: invoiceCount,
+        grns: grnCount,
+      },
+
+      invoiceCount,
+      grnCount,
+      invoicedTotal,
+      receivedQtyTotal,
+
+      hasRemainingToInvoice: items.some(
+        (item: any) => Number(item.remainingToInvoice ?? 0) > 0
+      ),
+
+      remainingToInvoiceCount: items.filter(
+        (item: any) => Number(item.remainingToInvoice ?? 0) > 0
+      ).length,
+
+      remainingToInvoiceQty: items.reduce(
+        (sum: number, item: any) =>
+          sum + Number(item.remainingToInvoice ?? 0),
+        0
+      ),
+    };
+
+    return res.json(response);
   } catch (error: any) {
     console.error("getPurchaseOrderById error:", error);
-    return res.status(500).json({ message: "Error retrieving purchase order.", debug: error?.message });
+
+    return res.status(500).json({
+      message: "Error retrieving purchase order.",
+      debug: error?.message,
+    });
   }
-}
+};
 
 export const createPurchaseOrder = async (req: Request, res: Response) => {
   try {

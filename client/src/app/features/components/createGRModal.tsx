@@ -40,12 +40,7 @@ export function CreateGRNDialog({
     if (!draft) return null;
 
     setSubmitting(true);
-     console.log("Draft lines:", draft.lines?.map(ln => ({
-      invoiceItemId: ln.invoiceItemId,
-      productDraftId: ln.productDraftId,
-      hasInvoiceItemId: !!ln.invoiceItemId,
-      hasProductDraftId: !!ln.productDraftId,
-    })));
+    
     try {
 
       // Validate lines have productDraftId
@@ -265,7 +260,7 @@ export function CreateGRNDialog({
                     <td>
                       <input 
                         type="text"
-                        value={ln.lotNumber ?? 0}
+                        value={ln.lotNumber ?? ""}
                         className="w-36 rounded-lg border border-slate-300 px-2 py-1 outline-none ring-blue-500 transition focus:ring-2"
                         onChange={(e) => {
                           const v = e.target.value;

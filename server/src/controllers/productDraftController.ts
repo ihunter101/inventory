@@ -107,7 +107,7 @@ export const bulkFinalizeProducts = async (req: Request, res: Response) => {
             ...(u.imageUrl && { imageUrl: u.imageUrl }),
           },
           create: {
-            productId: draftId,
+            productId: crypto.randomUUID(),
             name: draft.name,
             unit: draft.unit ??  "unit",
             category: u.category ?? "misc",

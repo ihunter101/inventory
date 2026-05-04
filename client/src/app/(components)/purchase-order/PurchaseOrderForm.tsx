@@ -144,7 +144,13 @@ export default function PurchaseOrderForm({
     ];
   });
 
-  const { data: purchaseOrders = [] } = useGetPurchaseOrdersQuery(undefined);
+  const { data: purchaseOrdersResponse } = useGetPurchaseOrdersQuery({
+    page:1,
+    limit: 100
+  });
+
+  const purchaseOrders = purchaseOrdersResponse?.data ?? [];
+  
   const { data: draftProducts = [] } = useGetDraftProductsQuery(undefined);
   const [createDraftProduct] = useCreateDraftProductMutation();
 

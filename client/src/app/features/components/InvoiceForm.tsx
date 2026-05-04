@@ -17,11 +17,11 @@ import {
 import { useToast } from "@/components/ui/toaster";
 
 import {
-  SupplierInvoiceDTO,
+   SupplierInvoiceDTO,
   CreateSupplierInvoiceDTO,
   PurchaseOrderDTO,
-  useListPurchaseOrderQuery,
   useGetDraftProductsQuery,
+  useGetPurchaseOrdersQuery,
 } from "@/app/state/api";
 
 import type { LineRow } from "@/app/features/lib/types";
@@ -90,9 +90,18 @@ export default function InvoiceForm({
 
   // Use server list (supports ?q=)
   const searchActive = poSearch.trim().length > 0;
-  const { data: allPOs = [], isFetching: poSearching } = useListPurchaseOrderQuery(
-    searchActive ? { q: poSearch } : undefined
+
+
+
+const { data: allPOsResponse, isFetching: poSearching } =
+  useGetPurchaseOrdersQuery(
+    searchActive
+      ? { q: poSearch, page: 1, limit: 50 }
+      : { page: 1, limit: 50 }
   );
+
+const allPOs = allPOsResponse?.data ?? [];
+
 
   // ✅ IMPORTANT: Eligibility is item-based, not invoiceCount-based.
   // Show PO if ANY item still has remainingToInvoice > 0

@@ -222,8 +222,6 @@ export default function StockRequestDetailPage() {
 
       await review({ id, body }).unwrap();
       const result = await fulfill(id).unwrap();
-
-      console.log("Fulfill success:", result);
       toast.success("Request fulfilled successfully!", { id: toastId });
 
       setTimeout(() => {

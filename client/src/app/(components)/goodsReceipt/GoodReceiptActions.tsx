@@ -59,10 +59,8 @@ export function GoodsReceiptAction({
   const matchedInvoice = invoices.find((inv) => inv.id === goodsReceipt.invoiceId);
   const hasFullMatch = !!matchedPurchaseOrder && !!matchedInvoice;
 
-  const recipientEmail = matchedPurchaseOrder?.supplier?.email
-  if (!recipientEmail) return toast.error("Supplier email not found");
-
-  const canPost = goodsReceipt.status === "DRAFT";
+  const recipientEmail = matchedPurchaseOrder?.supplier?.email ?? "";
+const canPost = goodsReceipt.status === "DRAFT";
 
   const handleDelete = async () => {
     const id = goodsReceipt?.id?.trim();
@@ -93,27 +91,35 @@ export function GoodsReceiptAction({
   };
 
 
-  const handleEmailGoodsReceipt = async () => {
-    const toastId = toast.loading(`Emailing ${title}...`)
-
-    try {
-      await sendEmail({
-        docType: "goods-receipt",
-        docId: goodsReceipt.id,
-        docNumber: goodsReceipt.grnNumber,
-        recipientEmail,
-      })
-      toast.success(`Successfully emailed ${title}, to ${recipientEmail},`, { id: toastId})
-    } catch (error: any) {
-      toast.error(error?.message || `Failed to email ${title} to ${recipientEmail}`, { id: toastId })
-    }
+const handleEmailGoodsReceipt = async () => {
+  if (!recipientEmail) {
+    toast.error("Supplier email not found");
+    return;
   }
 
+  const toastId = toast.loading(`Emailing ${title}...`);
+
+  try {
+    await sendEmail({
+      docType: "goods-receipt",
+      docId: goodsReceipt.id,
+      docNumber: goodsReceipt.grnNumber,
+      recipientEmail,
+    });
+
+    toast.success(`Successfully emailed ${title} to ${recipientEmail}`, {
+      id: toastId,
+    });
+  } catch (error: any) {
+    toast.error(error?.message || `Failed to email ${title} to ${recipientEmail}`, {
+      id: toastId,
+    });
+  }
+};
   async function handlePostGRN() {
     const toastId = toast.loading(`Posting ${title}...`);
     try {
       const result = await postGoodsReceipt({ id: goodsReceipt.id }).unwrap();
-      console.log("Post GRN result:", result);
       
       toast.success(`Successfully posted ${title}`, { id: toastId });
       
@@ -233,10 +239,11 @@ export function GoodsReceiptAction({
       disabled: goodsReceipt.status !== "DRAFT",
     },
     {
-      label: "Email Supplier",
-      onSelect: handleEmailGoodsReceipt,
-      variant: "normal",
-    },
+  label: "Email Supplier",
+  onSelect: handleEmailGoodsReceipt,
+  variant: "normal",
+  disabled: !recipientEmail || isEmailing,
+},
     {
       label: "Download Goods Receipt",
       onSelect: handleDownloadGoodsReceipt,

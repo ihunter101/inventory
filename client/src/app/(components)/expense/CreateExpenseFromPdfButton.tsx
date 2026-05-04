@@ -82,7 +82,6 @@ export default function CreateExpenseFromPdfButton() {
 
   async function handleUploadComplete(res: any[]) {
     try {
-      console.log("UploadThing client result:", res);
 
       const uploadedFile = res?.[0];
 
@@ -90,10 +89,6 @@ export default function CreateExpenseFromPdfButton() {
         console.error("No uploaded file returned from UploadThing.");
         return;
       }
-
-      console.log("Uploaded file:", uploadedFile);
-      console.log("Server data:", uploadedFile.serverData);
-
       const serverData = uploadedFile.serverData;
 
       const created = await createExpenseDocument({
@@ -110,14 +105,10 @@ export default function CreateExpenseFromPdfButton() {
         sizeBytes: serverData?.sizeBytes ?? uploadedFile.size,
       }).unwrap();
 
-      console.log("Created ExpenseDocument:", created);
-
       const newDocumentId = created.document.documentId;
       setDocumentId(newDocumentId);
 
       const extracted = await extractExpenseDocument(newDocumentId).unwrap();
-
-      console.log("AI extracted data:", extracted);
 
       setAiReviewData(extracted.extractedData);
 

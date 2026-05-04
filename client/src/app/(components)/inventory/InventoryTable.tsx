@@ -91,13 +91,13 @@ export const InventoryTable: React.FC<Props> = ({
           "A manufacturer or supplier batch identifier used to trace a specific production or receipt batch for quality control, recalls, and expiry tracking.",
         minWidth: 200,
         flex: 1,
-        renderCell: (p) => (
+        renderCell: (params) => (
           <Box sx={{ width: "100%", textAlign: "left", pr: 0.5 }}>
             <Typography
               sx={{ whiteSpace: "nowrap" }}
               className="text-foreground"
             >
-              {p.row.lotNumber ?? "N/A"}
+              {params.row.lotNumber ?? "N/A"}
             </Typography>
           </Box>
         ),
@@ -109,19 +109,19 @@ export const InventoryTable: React.FC<Props> = ({
         flex: 0.7,
         headerAlign: "center",
         align: "center",
-        renderCell: (p) => (
+        renderCell: (params) => (
           <Box sx={{ width: "100%", textAlign: "center", pr: 0.5 }}>
             <Typography
               sx={{ fontWeight: 700, whiteSpace: "nowrap" }}
               className="text-foreground"
             >
-              {formatNumber(p.row.stockQuantity)}{" "}
+              {formatNumber(params.row.stockQuantity)}{" "}
               <Typography
                 component="span"
                 sx={{ fontWeight: 500 }}
                 className="text-muted-foreground"
               >
-                {p.row.unit ?? "pcs"}
+                {params.row.unit ?? "pcs"}
               </Typography>
             </Typography>
             <Typography
@@ -133,9 +133,9 @@ export const InventoryTable: React.FC<Props> = ({
                 whiteSpace: "nowrap",
               }}
             >
-              Min: {formatNumber(p.row.minQuantity)} {p.row.unit ?? "pcs"}
-              {typeof p.row.reorderPoint === "number" && (
-                <> • RP: {formatNumber(p.row.reorderPoint)}</>
+              Min: {formatNumber(params.row.minQuantity)} {params.row.unit ?? "pcs"}
+              {typeof params.row.reorderPoint === "number" && (
+                <> • RP: {formatNumber(params.row.reorderPoint)}</>
               )}
             </Typography>
           </Box>
@@ -150,8 +150,8 @@ export const InventoryTable: React.FC<Props> = ({
         align: "center",
         minWidth: 130,
         flex: 0.6,
-        renderCell: (p) => {
-          const iso = p.row.expiryDate ?? "";
+        renderCell: (params) => {
+          const iso = params.row.expiryDate ?? "";
           if (!iso) {
             return (
               <Typography variant="caption" className="text-muted-foreground">

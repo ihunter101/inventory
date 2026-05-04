@@ -94,12 +94,14 @@ export default function PurchasesPage() {
 
   // queries
   const {
-    data: purchaseOrders = [],
+    data: purchaseOrdersResponse,
     isLoading: poLoading,
     isError: poError,
     refetch: refetchPOs,
   } = useGetPurchaseOrdersQuery(
     {
+      page: 1,
+      limit: 10,
       q: searchTerm,
       status:
         activeTab === "purchases" || activeTab === "match"
@@ -108,6 +110,8 @@ export default function PurchasesPage() {
     },
     { refetchOnMountOrArgChange: true }
   );
+
+  const purchaseOrders = purchaseOrdersResponse?.data ?? []
 
   const {
     data: invoices = [],

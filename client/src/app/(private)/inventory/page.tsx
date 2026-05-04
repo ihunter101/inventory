@@ -94,7 +94,6 @@ export default function InventoryPage() {
     try {
       await adjustInventory({ productId: row.productId, delta, reason })
         .unwrap()
-        .then((payload) => console.log("fulfilled", payload));
     } catch (e) {
       console.error("Adjust inventory failed:", e);
     }

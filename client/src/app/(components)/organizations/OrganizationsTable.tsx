@@ -35,7 +35,6 @@ export function OrganizationsTable() {
         org.customer?.totalBalance ??
         0,
     }));
- //console.log("remaining blance: ", organizations[3]?.customer)
 
   const columns: GridColDef[] = [
     {

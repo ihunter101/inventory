@@ -62,7 +62,6 @@ const { data: linkedPO, isFetching: poFetching } =
         id,
         ...updateData,
       }).unwrap()
-      .then((payload) => (console.log("fullfilled", payload)))
       .catch((error) => console.log("rejected", error));
 
       // if (!results?.invoice?.id){
