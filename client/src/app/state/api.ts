@@ -303,18 +303,29 @@ export type ExpenseGroup =
   "LOGISTICS_OVERHEAD";
 
   
-export interface Expense {
+export type Expense = {
   expenseId: string;
+  companyName?: string | null;
+  vendorName?: string | null;
   category: string;
-  group: ExpenseGroup;
   amount: number;
-  //date: string;
-  createdAt: string;
+  currency: string;
+  description?: string | null;
   status: "PENDING" | "APPROVED" | "PAID" | "VOID";
-  description?: string; 
-  title?: string
-  // sourceType?: "PurchaseOrder" | "Manual";
-  // sourceId?: string;
+  group: "CLINICAL" | "EQUIPMENT_INFRASTRUCTURE" | "LOGISTICS_OVERHEAD";
+  invoiceNumber?: string | null;
+  referenceNo?: string | null;
+  expenseDate?: string | null;
+  dueDate?: string | null;
+  paidAt?: string | null;
+  paymentMethod?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+
+  chequeDraftId?: string | null;
+  chequeDraft?: ChequeDraft | null;
+  document?: ExpenseDocument[];
 };
 export type UpdateExpenseStatusRequest = {
   expenseId: string;
@@ -1146,7 +1157,8 @@ export interface ExtractedExpenseData {
   group: ExpenseGroup;
   notes: string | null;
 
-  supplierName: string | null;
+  companyName: string | null;
+  vendorName: string | null;
   invoiceNumber: string | null;
   invoiceDate: string | null;
   dueDate: string | null;
@@ -1186,13 +1198,19 @@ export interface ExtractExpenseDocumentResponse {
 }
 
 
-export interface SaveExpenseFromDocumentBody {
+export type SaveExpenseFromDocumentBody = {
+  companyName?: string;
+  vendorName?: string;
+  invoiceNumber?: string;
+  expenseDate?: string;
+  dueDate?: string;
+
   category: string;
   amount: number;
-  description?: string | null;
+  description?: string;
   group: ExpenseGroup;
-  notes?: string | null;
-}
+  notes?: string;
+};
 
 export interface SaveExpenseFromDocumentResponse {
   message: string;
@@ -1212,6 +1230,68 @@ export interface CreateExpenseDocumentResponse {
   message: string;
   document: ExpenseDocument;
 }
+
+export type ChequeDraftStatus = "DRAFT" | "READY_FOR_QB" | "MATCHED" | "VOID";
+
+export type ChequePaymentStatus = "ISSUED" | "CLEARED" | "VOID" | "UNKNOWN";
+
+
+export type ChequePayment = {
+  chequePaymentId: string;
+  qbTxnId?: string | null;
+  qbEditSequence?: string | null;
+  payeeName: string;
+  chequeNumber?: string | null;
+  chequeDate?: string | null;
+  amount: string | number;
+  accountName?: string | null;
+  memo?: string | null;
+  status: ChequePaymentStatus;
+  source: string;
+  rawJson?: string | null;
+  lastSyncedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ChequeDraft = {
+  chequeDraftId: string;
+  payeeName: string;
+  amount: string | number;
+  currency: string;
+  chequeDate: string;
+  memo?: string | null;
+  status: ChequeDraftStatus;
+  chequePaymentId?: string | null;
+  chequePayment?: ChequePayment | null;
+  expenses?: Expense[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ChequeDraftExpenseGroup = {
+  payeeName: string;
+  totalAmount: number;
+  expenseCount: number;
+  expenses: Expense[];
+};
+
+export type CreateChequeDraftBody = {
+  payeeName: string;
+  expenseIds: string[];
+  chequeDate?: string;
+  memo?: string;
+};
+
+export type CreateChequeDraftResponse = {
+  message: string;
+  chequeDraft: ChequeDraft;
+};
+
+export type VoidChequeDraftResponse = {
+  message: string;
+  chequeDraft: ChequeDraft;
+};
 
 // ----------------------
 // API Setup
@@ -1236,7 +1316,7 @@ export const api = createApi({
     "SalesAnalytics", "TodaySale", "Sales", "Matches", "InvoicePayments", 
     "PoPaymentSummary", "QuarterlyReport", "PendingAccess", "SuppliersAnalytics",
     "Organizations", "AvailableCustomers", "ClientDashboard", "ClientInvoices",
-    "Invites", "ExpenseDocuments"
+    "Invites", "ExpenseDocuments", "ChequeDrafts"
   ],
   endpoints: (build) => ({
     // Dashboard Metrics
@@ -1479,6 +1559,12 @@ notifyPendingAccess: build.mutation<{ message: string }, void>({
     },
   providesTags: ["Expenses", "DashboardMetrics"],
   }),
+  getExpenseById: build.query<Expense, string>({
+  query: (expenseId) => `/expenses/${expenseId}`,
+  providesTags: (result, error, expenseId) => [
+    { type: "Expenses", id: expenseId },
+  ],
+}),
   updateExpenseStatus: build.mutation<Expense, { expenseId: string; status: Expense["status"] }>({
     query: ({ expenseId, status }) => ({
       url: `/expenses/${expenseId}/status`,
@@ -2108,6 +2194,57 @@ createExpenseDocument: build.mutation<CreateExpenseDocumentResponse, CreateExpen
     { type: "ExpenseDocuments", id: "LIST" },
   ],
 }),
+getChequeDraftExpenseGroups: build.query<
+  ChequeDraftExpenseGroup[],
+  { from?: string; end?: string } | void
+>({
+  query: (params) => ({
+    url: "/cheque-drafts/expense-groups",
+    params: params ?? {},
+  }),
+  providesTags: [
+    { type: "ChequeDrafts", id: "EXPENSE_GROUPS" },
+    { type: "Expenses", id: "LIST" },
+  ],
+}),
+
+getChequeDrafts: build.query<ChequeDraft[], void>({
+  query: () => "/cheque-drafts",
+  providesTags: [{ type: "ChequeDrafts", id: "LIST" }],
+}),
+
+getChequeDraftById: build.query<ChequeDraft, string>({
+  query: (chequeDraftId) => `/cheque-drafts/${chequeDraftId}`,
+  providesTags: (result, error, chequeDraftId) => [
+    { type: "ChequeDrafts", id: chequeDraftId },
+  ],
+}),
+
+createChequeDraft: build.mutation<CreateChequeDraftResponse, CreateChequeDraftBody>({
+  query: (body) => ({
+    url: "/cheque-drafts",
+    method: "POST",
+    body,
+  }),
+  invalidatesTags: [
+    { type: "ChequeDrafts", id: "LIST" },
+    { type: "ChequeDrafts", id: "EXPENSE_GROUPS" },
+    { type: "Expenses", id: "LIST" },
+  ],
+}),
+
+voidChequeDraft: build.mutation<VoidChequeDraftResponse, string>({
+  query: (chequeDraftId) => ({
+    url: `/cheque-drafts/${chequeDraftId}/void`,
+    method: "PATCH",
+  }),
+  invalidatesTags: (result, error, chequeDraftId) => [
+    { type: "ChequeDrafts", id: chequeDraftId },
+    { type: "ChequeDrafts", id: "LIST" },
+    { type: "ChequeDrafts", id: "EXPENSE_GROUPS" },
+    { type: "Expenses", id: "LIST" },
+  ],
+}),
   }),
 });
 
@@ -2150,6 +2287,7 @@ export const {
   useGetExpensesQuery,
   useCreateExpenseMutation,
   useUpdateExpenseStatusMutation,
+  useGetExpenseByIdQuery,
 
  useGetSuppliersQuery,
  useGetSuppliersAnalyticsQuery,
@@ -2239,6 +2377,9 @@ export const {
   useExtractExpenseDocumentMutation,
   useSaveExpenseFromDocumentMutation,
    useCreateExpenseDocumentMutation,
+
+   useCreateChequeDraftMutation,
+   useGetChequeDraftExpenseGroupsQuery,
 } = api;
 
 

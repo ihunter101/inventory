@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Filter,
   MoreHorizontal,
@@ -13,6 +14,7 @@ import {
   Clock3,
   BadgeCheck,
   Ban,
+  Eye,
 } from "lucide-react";
 import { Expense, useUpdateExpenseStatusMutation } from "@/app/state/api";
 import { getCategoryColor } from "@/utils/categoryColors";
@@ -29,14 +31,28 @@ type Props = {
   expenses: Expense[];
 };
 
-type SortKey = "date" | "amount" | "title";
+type SortKey = "date" | "amount" | "description" | "company";
 type StatusFilter = "all" | "pending" | "approved" | "paid" | "void";
 
-const formatCurrency = (amount: number) =>
-  `$${amount.toLocaleString(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+const formatCurrency = (amount: number, currency = "XCD") =>
+  `${currency} ${Number(amount || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   })}`;
+
+const formatDate = (date?: string | null) => {
+  if (!date) return "—";
+
+  const parsed = new Date(date);
+
+  if (Number.isNaN(parsed.getTime())) return "—";
+
+  return parsed.toLocaleDateString("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  });
+};
 
 const getStatusColorClasses = (status: string = "") => {
   switch (status.toLowerCase()) {
@@ -102,13 +118,20 @@ const RecentTransactionsTable = ({ expenses }: Props) => {
     expenseId: string,
     status: Expense["status"]
   ) => {
-    const toastId = toast.loading("Updating expense status..." , {id: status})
+    const toastId = toast.loading("Updating expense status...");
+
     try {
       await updateExpenseStatus({ expenseId, status }).unwrap();
-      toast.success('Successfully Updated Expense', {id: toastId})
+
+      toast.success("Successfully updated expense.", {
+        id: toastId,
+      });
     } catch (error) {
       console.error("Failed to update expense status:", error);
-      toast.error("Failed to update Expense to:", {id: toastId})
+
+      toast.error("Failed to update expense status.", {
+        id: toastId,
+      });
     }
   };
 
@@ -117,11 +140,14 @@ const RecentTransactionsTable = ({ expenses }: Props) => {
 
     if (search.trim()) {
       const q = search.toLowerCase();
+
       data = data.filter(
         (e) =>
-          e.category?.toLowerCase().includes(q) ||
+          e.companyName?.toLowerCase().includes(q) ||
+          e.vendorName?.toLowerCase().includes(q) ||
           e.description?.toLowerCase().includes(q) ||
-          e.expenseId?.toLowerCase().includes(q) ||
+          e.category?.toLowerCase().includes(q) ||
+          e.invoiceNumber?.toLowerCase().includes(q) ||
           e.status?.toLowerCase().includes(q)
       );
     }
@@ -140,16 +166,26 @@ const RecentTransactionsTable = ({ expenses }: Props) => {
       }
 
       if (sortKey === "date") {
-        const da = new Date(a.createdAt).getTime();
-        const db = new Date(b.createdAt).getTime();
+        const da = new Date(a.expenseDate || a.createdAt).getTime();
+        const db = new Date(b.expenseDate || b.createdAt).getTime();
+
         return sortDir === "asc" ? da - db : db - da;
       }
 
-      const ta = (a.description || a.category || "").toLowerCase();
-      const tb = (b.description || b.category || "").toLowerCase();
+      if (sortKey === "company") {
+        const ca = (a.companyName || a.vendorName || "").toLowerCase();
+        const cb = (b.companyName || b.vendorName || "").toLowerCase();
 
-      if (ta < tb) return sortDir === "asc" ? -1 : 1;
-      if (ta > tb) return sortDir === "asc" ? 1 : -1;
+        if (ca < cb) return sortDir === "asc" ? -1 : 1;
+        if (ca > cb) return sortDir === "asc" ? 1 : -1;
+        return 0;
+      }
+
+      const da = (a.description || a.category || "").toLowerCase();
+      const db = (b.description || b.category || "").toLowerCase();
+
+      if (da < db) return sortDir === "asc" ? -1 : 1;
+      if (da > db) return sortDir === "asc" ? 1 : -1;
       return 0;
     });
 
@@ -177,16 +213,23 @@ const RecentTransactionsTable = ({ expenses }: Props) => {
   return (
     <div className="rounded-2xl border border-border/60 bg-card shadow-sm">
       <div className="flex flex-col gap-3 border-b border-border/60 px-6 py-4 md:flex-row md:items-center md:justify-between">
-        <h3 className="text-lg font-semibold text-foreground">
-          Manage Expenses
-        </h3>
+        <div>
+          <h3 className="text-lg font-semibold text-foreground">
+            Expense Ledger
+          </h3>
+
+          <p className="mt-1 text-xs text-muted-foreground">
+            Review vendor expenses, invoices, statuses, and linked documents.
+          </p>
+        </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="flex w-full items-center rounded-full border border-border/60 bg-muted/30 px-3 py-1.5 sm:w-64">
+          <div className="flex w-full items-center rounded-full border border-border/60 bg-muted/30 px-3 py-1.5 sm:w-80">
             <Search className="mr-2 h-4 w-4 text-muted-foreground" />
+
             <input
               className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-              placeholder="Search title, category, ID, or status..."
+              placeholder="Search company, description, invoice, category, or status..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -194,14 +237,19 @@ const RecentTransactionsTable = ({ expenses }: Props) => {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setStatusFilter((prev) => getNextStatusFilter(prev))}
+              onClick={() =>
+                setStatusFilter((prev) => getNextStatusFilter(prev))
+              }
               className="inline-flex items-center rounded-full border border-border/60 bg-muted/40 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/60"
             >
               <Filter className="mr-1 h-3 w-3" />
               {getStatusFilterLabel(statusFilter)}
             </button>
 
-            <button className="inline-flex items-center rounded-full border border-border/60 bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/40">
+            <button
+              type="button"
+              className="inline-flex items-center rounded-full border border-border/60 bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/40"
+            >
               <Download className="mr-1 h-3 w-3" />
               Export
             </button>
@@ -216,12 +264,23 @@ const RecentTransactionsTable = ({ expenses }: Props) => {
               <th className="px-6 py-3 text-left">
                 <button
                   className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
-                  onClick={() => handleSortClick("title")}
+                  onClick={() => handleSortClick("company")}
                 >
-                  Title
+                  Company
                   <ArrowUpDown className="h-3 w-3" />
                 </button>
               </th>
+
+              <th className="px-6 py-3 text-left">
+                <button
+                  className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+                  onClick={() => handleSortClick("description")}
+                >
+                  Description
+                  <ArrowUpDown className="h-3 w-3" />
+                </button>
+              </th>
+
               <th className="px-6 py-3 text-left">
                 <button
                   className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
@@ -231,6 +290,7 @@ const RecentTransactionsTable = ({ expenses }: Props) => {
                   <ArrowUpDown className="h-3 w-3" />
                 </button>
               </th>
+
               <th className="px-6 py-3 text-left">
                 <button
                   className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
@@ -240,9 +300,9 @@ const RecentTransactionsTable = ({ expenses }: Props) => {
                   <ArrowUpDown className="h-3 w-3" />
                 </button>
               </th>
+
               <th className="px-6 py-3 text-left">Category</th>
               <th className="px-6 py-3 text-left">Status</th>
-              <th className="px-6 py-3 text-left">ID</th>
               <th className="px-6 py-3 text-right">Actions</th>
             </tr>
           </thead>
@@ -251,6 +311,8 @@ const RecentTransactionsTable = ({ expenses }: Props) => {
             {pageData.map((expense) => {
               const categoryColor = getCategoryColor(expense.category);
               const categoryBg = `${categoryColor}22`;
+              const company =
+                expense.companyName || expense.vendorName || "Unknown company";
 
               return (
                 <tr
@@ -258,7 +320,29 @@ const RecentTransactionsTable = ({ expenses }: Props) => {
                   className="text-sm transition-colors hover:bg-muted/30"
                 >
                   <td className="whitespace-nowrap px-6 py-3 text-foreground">
-                    {expense.description || expense.category || "Untitled expense"}
+                    <div className="flex flex-col">
+                      <span className="font-medium">{company}</span>
+
+                      {expense.invoiceNumber && (
+                        <span className="text-xs text-muted-foreground">
+                          Invoice #{expense.invoiceNumber}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+
+                  <td className="min-w-[260px] px-6 py-3 text-foreground">
+                    <div className="flex flex-col">
+                      <span className="font-medium">
+                        {expense.description || "No description"}
+                      </span>
+
+                      {expense.notes && (
+                        <span className="line-clamp-1 text-xs text-muted-foreground">
+                          {expense.notes}
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   <td className="whitespace-nowrap px-6 py-3 text-foreground">
@@ -266,18 +350,18 @@ const RecentTransactionsTable = ({ expenses }: Props) => {
                       <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border/60 bg-muted/40 text-muted-foreground">
                         <DollarSign className="h-3 w-3" />
                       </span>
+
                       <span className="font-medium">
-                        {formatCurrency(Number(expense.amount || 0))}
+                        {formatCurrency(
+                          Number(expense.amount || 0),
+                          expense.currency || "XCD"
+                        )}
                       </span>
                     </div>
                   </td>
 
                   <td className="whitespace-nowrap px-6 py-3 text-muted-foreground">
-                    {new Date(expense.createdAt).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "2-digit",
-                      year: "numeric",
-                    })}
+                    {formatDate(expense.expenseDate || expense.createdAt)}
                   </td>
 
                   <td className="whitespace-nowrap px-6 py-3">
@@ -302,19 +386,6 @@ const RecentTransactionsTable = ({ expenses }: Props) => {
                     </span>
                   </td>
 
-                  <td className="whitespace-nowrap px-6 py-3 text-muted-foreground">
-                    <button
-                      className="inline-flex items-center gap-1 text-xs transition-colors hover:text-foreground"
-                      type="button"
-                      onClick={() =>
-                        navigator.clipboard?.writeText(expense.expenseId || "")
-                      }
-                    >
-                      <Copy className="h-3 w-3" />
-                      <span>{expense.expenseId}</span>
-                    </button>
-                  </td>
-
                   <td className="whitespace-nowrap px-6 py-3 text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -329,6 +400,24 @@ const RecentTransactionsTable = ({ expenses }: Props) => {
                       </DropdownMenuTrigger>
 
                       <DropdownMenuContent align="end" className="w-52">
+                        <DropdownMenuItem asChild>
+                          <Link href={`/expenses/${expense.expenseId}`}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Expense
+                          </Link>
+                        </DropdownMenuItem>
+
+                        <DropdownMenuItem
+                          onClick={() =>
+                            navigator.clipboard?.writeText(
+                              expense.expenseId || ""
+                            )
+                          }
+                        >
+                          <Copy className="mr-2 h-4 w-4" />
+                          Copy Expense ID
+                        </DropdownMenuItem>
+
                         <DropdownMenuItem
                           onClick={() =>
                             handleStatusChange(expense.expenseId, "PENDING")
@@ -390,10 +479,13 @@ const RecentTransactionsTable = ({ expenses }: Props) => {
         <span>
           Showing{" "}
           <span className="font-medium text-foreground">
-            {processed.length === 0 ? 0 : startIdx + 1}-{startIdx + pageData.length}
+            {processed.length === 0 ? 0 : startIdx + 1}-
+            {startIdx + pageData.length}
           </span>{" "}
           of{" "}
-          <span className="font-medium text-foreground">{processed.length}</span>{" "}
+          <span className="font-medium text-foreground">
+            {processed.length}
+          </span>{" "}
           expenses
         </span>
 
@@ -407,7 +499,8 @@ const RecentTransactionsTable = ({ expenses }: Props) => {
           </button>
 
           <span>
-            Page <span className="font-medium text-foreground">{currentPage}</span>{" "}
+            Page{" "}
+            <span className="font-medium text-foreground">{currentPage}</span>{" "}
             of <span className="font-medium text-foreground">{totalPages}</span>
           </span>
 

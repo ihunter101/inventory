@@ -32,6 +32,11 @@ type ExpenseGroup =
   | "LOGISTICS_OVERHEAD";
 
 type FormState = {
+  companyName: string;
+  vendorName: string;
+  invoiceNumber: string;
+  expenseDate: string;
+  dueDate: string;
   category: string;
   amount: number;
   description: string;
@@ -40,6 +45,11 @@ type FormState = {
 };
 
 const initialFormState: FormState = {
+  companyName: "",
+  vendorName: "",
+  invoiceNumber: "",
+  expenseDate: "",
+  dueDate: "",
   category: "",
   amount: 0,
   description: "",
@@ -112,8 +122,17 @@ export default function CreateExpenseFromPdfButton() {
       setAiReviewData(extracted.extractedData);
 
       setFormData({
+        companyName: extracted.extractedData.companyName ?? "",
+        vendorName: extracted.extractedData.vendorName ?? "",
+        invoiceNumber: extracted.extractedData.invoiceNumber ?? "",
+        expenseDate: extracted.extractedData.invoiceDate ?? "",
+        dueDate: extracted.extractedData.dueDate ?? "",
         category: extracted.extractedData.category ?? "",
-        amount: extracted.extractedData.amount ?? 0,
+        amount:
+          extracted.extractedData.total ??
+          extracted.extractedData.amount ??
+          extracted.extractedData.subtotal ??
+          0,
         description: extracted.extractedData.description ?? "",
         group: extracted.extractedData.group ?? "CLINICAL",
         notes: extracted.extractedData.notes ?? "",
@@ -141,12 +160,17 @@ export default function CreateExpenseFromPdfButton() {
       await saveExpenseFromDocument({
         documentId,
         body: {
-          category: formData.category,
-          amount: Number(formData.amount),
-          description: formData.description,
-          group: formData.group,
-          notes: formData.notes,
-        },
+        companyName: formData.companyName,
+        vendorName: formData.vendorName,
+        invoiceNumber: formData.invoiceNumber,
+        expenseDate: formData.expenseDate || undefined,
+        dueDate: formData.dueDate || undefined,
+        category: formData.category,
+        amount: Number(formData.amount),
+        description: formData.description,
+        group: formData.group,
+        notes: formData.notes,
+      },
       }).unwrap();
 
       setOpen(false);
@@ -251,9 +275,9 @@ export default function CreateExpenseFromPdfButton() {
 
               <div className="grid gap-3 text-sm md:grid-cols-2">
                 <div>
-                  <p className="text-muted-foreground">Supplier</p>
+                  <p className="text-muted-foreground">Company / Payee</p>
                   <p className="font-medium">
-                    {aiReviewData.supplierName || "Not found"}
+                    {aiReviewData.companyName || aiReviewData.vendorName || "Not found"}
                   </p>
                 </div>
 
@@ -365,6 +389,65 @@ export default function CreateExpenseFromPdfButton() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-1">
+                  <div className="space-y-1">
+                  <label className="text-sm font-medium">Company / Payee</label>
+                  <input
+                    value={formData.companyName}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        companyName: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                    placeholder="Company billing us"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Invoice Number</label>
+                  <input
+                    value={formData.invoiceNumber}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        invoiceNumber: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                    placeholder="INV-0001"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Expense Date</label>
+                  <input
+                    type="date"
+                    value={formData.expenseDate}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        expenseDate: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Due Date</label>
+                  <input
+                    type="date"
+                    value={formData.dueDate}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        dueDate: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  />
+                </div>
                   <label className="text-sm font-medium">Category</label>
                   <input
                     value={formData.category}

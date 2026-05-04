@@ -15,7 +15,8 @@ export type ExtractedExpenseData = {
   group: "CLINICAL" | "EQUIPMENT_INFRASTRUCTURE" | "LOGISTICS_OVERHEAD";
   notes: string | null;
 
-  supplierName: string | null;
+  companyName: string | null;
+  vendorName: string | null;
   invoiceNumber: string | null;
   invoiceDate: string | null;
   dueDate: string | null;
@@ -34,7 +35,6 @@ export type ExtractedExpenseData = {
     total: number | null;
   }[];
 };
-
 const expenseExtractionSchema = {
   type: "object",
   additionalProperties: false,
@@ -65,7 +65,7 @@ const expenseExtractionSchema = {
         "Important review notes for the admin, especially if some fields are uncertain.",
     },
 
-    supplierName: {
+    companyName: {
       type: ["string", "null"],
     },
     invoiceNumber: {
@@ -130,7 +130,7 @@ const expenseExtractionSchema = {
     "description",
     "group",
     "notes",
-    "supplierName",
+    "companyName",
     "invoiceNumber",
     "invoiceDate",
     "dueDate",
@@ -241,7 +241,7 @@ export async function extractExpenseDataFromPdf(
               text:
                 "Extract the invoice data for an expense form. " +
                 "The final form fields are category, amount, description, group, and notes. " +
-                "Also extract supplierName, invoiceNumber, invoiceDate, dueDate, subtotal, tax, total, and lineItems if visible.",
+                "Also extract companyName, invoiceNumber, invoiceDate, dueDate, subtotal, tax, total, and lineItems if visible.",
             },
           ],
         },

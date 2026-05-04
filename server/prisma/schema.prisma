@@ -444,8 +444,11 @@ model ChequePayment {
   rawJson      String?
   lastSyncedAt DateTime?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  //chequeDrafts ChequeDraft[]
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  chequeDrafts ChequeDraft[]
 
   @@index([payeeName])
   @@index([chequeDate])
@@ -503,24 +506,49 @@ model Purchases {
 }
 
 model Expenses {
-  expenseId   String        @id @default(uuid())
+  expenseId String @id @default(uuid())
+
+  // Who is billing you?
+  companyName String?
+  vendorName  String?
+
+  // What is the expense?
   category    String
-  amount      Float
   description String?
-  status      ExpenseStatus @default(PENDING)
-  //add group TODO and check report contoller 
-  group       ExpenseGroup  @default(CLINICAL)
-  notes       String?
+
+  // Money
+  amount   Float
+  currency String @default("XCD")
+
+  // Workflow
+  status ExpenseStatus @default(PENDING)
+  group  ExpenseGroup  @default(CLINICAL)
+
+  // Useful ERP fields
+  invoiceNumber String?
+  referenceNo   String?
+  expenseDate   DateTime?
+  dueDate       DateTime?
+  paidAt        DateTime?
+
+  paymentMethod String?
+  notes         String?
+
+  chequeDraftId String?
+  chequeDraft   ChequeDraft? @relation(fields: [chequeDraftId], references: [chequeDraftId])
 
   document ExpenseDocument[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([chequeDraftId])
   @@index([status])
   @@index([group])
   @@index([category])
+  @@index([companyName])
   @@index([createdAt])
+  @@index([expenseDate])
   @@index([status, createdAt])
   @@index([group, createdAt])
 }
@@ -567,11 +595,45 @@ model ExpenseDocument {
 
 enum ExpenseDocumentStatus {
   UPLOADED
-  PROCESSESING
+  PROCESSING
   AI_EXTRACTED
   REVIEWED
   SAVED
   FAILED
+}
+
+model ChequeDraft {
+  chequeDraftId String @id @default(uuid())
+
+  payeeName String
+  amount    Decimal @db.Decimal(12, 2)
+  currency  String  @default("XCD")
+
+  chequeDate DateTime          @default(now())
+  memo       String?
+  status     ChequeDraftStatus @default(DRAFT)
+
+  // Later, when QuickBooks cheque gets synced,
+  // you can optionally match the app draft to the real QB cheque.
+  chequePaymentId String?
+  chequePayment   ChequePayment? @relation(fields: [chequePaymentId], references: [chequePaymentId])
+
+  expenses Expenses[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([payeeName])
+  @@index([status])
+  @@index([chequeDate])
+  @@index([chequePaymentId])
+}
+
+enum ChequeDraftStatus {
+  DRAFT
+  READY_FOR_QB
+  MATCHED
+  VOID
 }
 
 model SalesSummary {
