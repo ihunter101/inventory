@@ -7,6 +7,7 @@ import {
   getQuickBooksSummary,
   getQuickBooksInvoiceById,
   getQuickBooksCustomerById,
+  forceQuickBooksInvoiceBackfill,
 } from "../controllers/quickbooksController";
 import { PERMS } from "@lab/shared";
 import { must } from "../middleware/auth"
@@ -20,6 +21,7 @@ router.get("/customers/:customerId", getQuickBooksCustomerById);
 
 router.get("/invoices", ...must(PERMS.READ_PURCHASE_ORDERS), getQuickBooksInvoices);
 router.get("/invoices/:invoiceId", ...must(PERMS.READ_PURCHASE_ORDERS), getQuickBooksInvoiceById);
+router.post("/invoices/force-backfill", ...must(PERMS.READ_PURCHASE_ORDERS), forceQuickBooksInvoiceBackfill);
 
 router.get("/payments", ...must(PERMS.READ_PURCHASE_ORDERS),  getQuickBooksPayments);
 router.get("/cheques", ...must(PERMS.READ_PURCHASE_ORDERS), getQuickBooksCheques);

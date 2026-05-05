@@ -827,14 +827,6 @@ model SupplierInvoiceItem {
   @@index([productId])
 }
 
-model QuickBooksSyncState {
-  entity               String    @id
-  fullBackfillComplete Boolean   @default(false)
-  lastModifiedSyncAt   DateTime?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-}
-
 model GoodsReceipt {
   id        String             @id @default(cuid())
   grnNumber String             @unique
@@ -895,6 +887,16 @@ model GrnCounter {
   next      Int      @default(1)
   updatedAt DateTime @updatedAt
 }
+
+model QuickBooksSyncState {
+  entity               String    @id
+  fullBackfillComplete Boolean   @default(false)
+  lastModifiedSyncAt   DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}
+
+
 
 model StockLedger {
   id         String   @id @default(cuid())

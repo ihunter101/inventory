@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, FileText, User, CalendarDays, DollarSign } from "lucide-react";
-import { useGetQuickBooksInvoiceByIdQuery } from "@/app/state/api";
+import { useForceQuickBooksInvoiceBackfillMutation, useGetQuickBooksInvoiceByIdQuery } from "@/app/state/api";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
 
 function money(value: unknown) {
   return `$${Number(value ?? 0).toFixed(2)}`;
@@ -53,6 +54,10 @@ export default function QuickBooksInvoiceDetailPage() {
   } = useGetQuickBooksInvoiceByIdQuery(invoiceId, {
     skip: !invoiceId,
   });
+
+  const [forceBackfill, { isLoading: isChecking }] =
+  useForceQuickBooksInvoiceBackfillMutation();
+
 
   if (isLoading) {
     return (
@@ -140,6 +145,17 @@ export default function QuickBooksInvoiceDetailPage() {
             <CardDescription>
               Services, classes, quantities, rates, and amounts pulled from QuickBooks.
             </CardDescription>
+
+            <Button
+            disabled={isChecking}
+            onClick={async () => {
+              await forceBackfill().unwrap();
+              toast.success("Invoice backfill reset. Run QuickBooks Web Connector.");
+            }}
+          >
+            {isLoading ? "Resetting..." : "Force Invoice Resync"}
+          </Button>
+
           </CardHeader>
 
           <CardContent>

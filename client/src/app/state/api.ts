@@ -2100,6 +2100,13 @@ getQuickBooksInvoiceById: build.query<any, string>({
   }),
 }),
 
+forceQuickBooksInvoiceBackfill: build.mutation<{ message: string }, void>({
+  query: () => ({
+    url: "/quickbooks/invoices/force-backfill",
+    method: "POST",
+  }),
+}),
+
 getOrganizations: build.query<{ organizations: Organization[] }, void>({
   query: () => ({
     url: "/organizations",
@@ -2421,6 +2428,8 @@ export const {
 
   useGetQuickBooksPaymentsQuery,
   useGetQuickBooksChequesQuery,
+
+  useForceQuickBooksInvoiceBackfillMutation,
 
    useGetOrganizationsQuery,
   useGetAvailableOrganizationCustomersQuery,

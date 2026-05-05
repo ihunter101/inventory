@@ -336,3 +336,27 @@ export async function getQuickBooksCheques(req: Request, res: Response) {
 
   res.json(paginatedResponse({ data: cheques, total, page, limit }));
 }
+
+export async function forceQuickBooksInvoiceBackfill(req: Request, res: Response) {
+  try {
+    await prisma.quickBooksSyncState.update({
+      where: {
+        entity: "invoices",
+      },
+      data: {
+        fullBackfillComplete: false,
+        lastModifiedSyncAt: null,
+      },
+    });
+
+    return res.json({
+      message: "Invoice backfill reset. Run QuickBooks Web Connector now.",
+    });
+  } catch (error) {
+    console.error("Failed to reset invoice backfill:", error);
+
+    return res.status(500).json({
+      message: "Failed to reset invoice backfill",
+    });
+  }
+}

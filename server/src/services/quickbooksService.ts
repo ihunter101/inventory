@@ -231,37 +231,37 @@ async function saveCustomerInvoices(invoices: any[]) {
       },
     });
 
-    const lines = asArray(invoice.InvoiceLineRet);
-
     await prisma.customerInvoiceLine.deleteMany({
       where: {
         invoiceId: savedInvoice.invoiceId,
       },
     });
 
-    if (lines.length) {
-      await prisma.customerInvoiceLine.createMany({
-        data: lines.map((line: any) => ({
+    const lines = asArray(invoice.InvoiceLineRet);
+
+    for (const line of lines) {
+      await prisma.customerInvoiceLine.create({
+        data: {
           invoiceId: savedInvoice.invoiceId,
 
-          qbTxnLineId: line.TxnLineID || null,
+          qbTxnLineId: line.TxnLineID ?? null,
 
-          itemListId: line.ItemRef?.ListID || null,
-          itemName: line.ItemRef?.FullName || null,
+          itemListId: line.ItemRef?.ListID ?? null,
+          itemName: line.ItemRef?.FullName ?? null,
 
-          description: line.Desc || null,
+          description: line.Desc ?? null,
 
-          classListId: line.ClassRef?.ListID || null,
-          className: line.ClassRef?.FullName || null,
+          classListId: line.ClassRef?.ListID ?? null,
+          className: line.ClassRef?.FullName ?? null,
 
-          quantity: line.Quantity ? toDecimalString(line.Quantity) : null,
-          rate: line.Rate ? toDecimalString(line.Rate) : null,
-          amount: line.Amount ? toDecimalString(line.Amount) : null,
+          quantity: line.Quantity ? Number(line.Quantity) : null,
+          rate: line.Rate ? Number(line.Rate) : null,
+          amount: line.Amount ? Number(line.Amount) : null,
 
           serviceDate: toDate(line.ServiceDate),
 
           rawJson: stringifyRaw(line),
-        })),
+        },
       });
     }
   }
