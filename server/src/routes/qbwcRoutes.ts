@@ -379,7 +379,7 @@ console.log("QBWC initial stage:", initialStage);
       );
     }
 
-    if (xml.includes("<sendRequestXML")) {
+    if (xml.includes("sendRequestXML")) {
   const ticket = getTagValue(xml, "ticket");
   const session = getSession(ticket);
 
@@ -435,7 +435,7 @@ console.log("QBXML SENT TO QUICKBOOKS:\n", qbxml);
   );
 }
 
-    if (xml.includes("<receiveResponseXML")) {
+    if (xml.includes("receiveResponseXML")) {
       const ticket = getTagValue(xml, "ticket");
       const responseXml = getTagValue(xml, "response");
       //console.log("SOAP RESPONSE TAG LENGTH:", responseXml.length);
@@ -443,6 +443,10 @@ console.log("QBXML SENT TO QUICKBOOKS:\n", qbxml);
 
 const hresult = getTagValue(xml, "hresult");
 const message = getTagValue(xml, "message");
+
+console.log("QB HRESULT:", hresult);
+console.log("QB MESSAGE:", message);
+console.log("QB RESPONSE LENGTH:", responseXml?.length);
 
 // console.log("SOAP RESPONSE TAG LENGTH:", responseXml.length);
 // console.log("SOAP RESPONSE TAG PREVIEW:", responseXml.slice(0, 300));

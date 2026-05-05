@@ -54,7 +54,7 @@ function buildModifiedDateFilter(options: QueryOptions) {
 function buildStartQuery(tag: string, requestID: string, innerBody: string) {
   return `${header}
     <${tag} requestID="${requestID}" iterator="Start">
-      <MaxReturned>100</MaxReturned>${innerBody}
+      <MaxReturned>10</MaxReturned>${innerBody}
     </${tag}>
 ${footer}`;
 }
@@ -62,7 +62,7 @@ ${footer}`;
 function buildContinueQuery(tag: string, requestID: string, iteratorID: string) {
   return `${header}
     <${tag} requestID="${requestID}" iterator="Continue" iteratorID="${escapeXmlAttr(iteratorID)}">
-      <MaxReturned>100</MaxReturned>
+      <MaxReturned>10</MaxReturned>
     </${tag}>
 ${footer}`;
 }
