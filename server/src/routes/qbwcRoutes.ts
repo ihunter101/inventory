@@ -448,6 +448,20 @@ console.log("QB HRESULT:", hresult);
 console.log("QB MESSAGE:", message);
 console.log("QB RESPONSE LENGTH:", responseXml?.length);
 
+if (hresult || message) {
+  console.error("QuickBooks returned an error:", {
+    hresult,
+    message,
+  });
+
+  return res.send(
+    soapEnvelope(`
+<receiveResponseXMLResponse xmlns="http://developer.intuit.com/">
+  <receiveResponseXMLResult>-1</receiveResponseXMLResult>
+</receiveResponseXMLResponse>`)
+  );
+}
+
 // console.log("SOAP RESPONSE TAG LENGTH:", responseXml.length);
 // console.log("SOAP RESPONSE TAG PREVIEW:", responseXml.slice(0, 300));
 // console.log("QB HRESULT:", hresult);

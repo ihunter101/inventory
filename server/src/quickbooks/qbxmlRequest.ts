@@ -51,6 +51,7 @@ function buildModifiedDateFilter(options: QueryOptions) {
       </ModifiedDateRangeFilter>`;
 }
 
+
 function buildStartQuery(tag: string, requestID: string, innerBody: string) {
   return `${header}
     <${tag} requestID="${requestID}" iterator="Start">
@@ -82,7 +83,8 @@ export const queries = {
       "customers_001",
       `
       <ActiveStatus>All</ActiveStatus>
-      ${buildModifiedDateFilter(options)}`
+      ${buildModifiedDateFilter(options)}
+      `
     );
   },
 
@@ -100,8 +102,8 @@ export const queries = {
     "InvoiceQueryRq",
     "invoices_001",
     `
-      <IncludeLineItems>true</IncludeLineItems>
       ${buildModifiedDateFilter(options)}
+      <IncludeLineItems>true</IncludeLineItems>
     `
   );
 },
