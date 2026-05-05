@@ -231,17 +231,21 @@ async function saveCustomerInvoices(invoices: any[]) {
       },
     });
 
+    const lines = asArray(invoice.InvoiceLineRet);
+
+    console.log(
+      `Saving ${lines.length} lines for invoice ${invoice.RefNumber}`
+    );
+
     await prisma.customerInvoiceLine.deleteMany({
       where: {
         invoiceId: savedInvoice.invoiceId,
       },
     });
 
-    const lines = asArray(invoice.InvoiceLineRet);
-
-    for (const line of lines) {
-      await prisma.customerInvoiceLine.create({
-        data: {
+    if (lines.length > 0) {
+      await prisma.customerInvoiceLine.createMany({
+        data: lines.map((line) => ({
           invoiceId: savedInvoice.invoiceId,
 
           qbTxnLineId: line.TxnLineID ?? null,
@@ -261,7 +265,7 @@ async function saveCustomerInvoices(invoices: any[]) {
           serviceDate: toDate(line.ServiceDate),
 
           rawJson: stringifyRaw(line),
-        },
+        })),
       });
     }
   }
