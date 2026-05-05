@@ -89,13 +89,14 @@ export const queries = {
   },
 
 
-  invoices: (options: QueryOptions = {}) => {
+invoices: (options: QueryOptions = {}) => {
   if (options.iterator === "Continue" && options.iteratorID) {
-    return buildContinueQuery(
-      "InvoiceQueryRq",
-      "invoices_001",
-      options.iteratorID
-    );
+    return `${header}
+    <InvoiceQueryRq requestID="invoices_001" iterator="Continue" iteratorID="${escapeXmlAttr(options.iteratorID)}">
+      <MaxReturned>10</MaxReturned>
+      <IncludeLineItems>true</IncludeLineItems>
+    </InvoiceQueryRq>
+${footer}`;
   }
 
   return buildStartQuery(
