@@ -6,6 +6,7 @@ import { parseAppSegmentConfig } from "next/dist/build/segment-config/app/app-se
 import { Role } from "@lab/shared/userRolesUtils";
 import { getClerkToken } from "@/lib/clerkTokenGetter";
 import { string } from "zod";
+import { AnyFileRoute } from "uploadthing/types";
 
 // ----------------------
 // Interfaces
@@ -1010,6 +1011,8 @@ type PaginationArgs = {
   page?: number;
   limit?: number;
   search?: string;
+  startDate?: string;
+  endDate?: string;
 };
 
 export interface PaginatedResponse<T> {
@@ -1022,8 +1025,9 @@ export interface PaginatedResponse<T> {
   hasNextPage: boolean;
   hasPrevPage: boolean;
   }
-
 }
+
+
 
 export interface Organization {
   organizationId: string;
@@ -2070,13 +2074,15 @@ getQuickBooksCustomerById: build.query<any, string>({
   query: (customerId) => `/quickbooks/customers/${customerId}`,
 }),
 
-getQuickBooksInvoices: build.query<PaginatedResponse<any>, PaginationArgs>({
-  query: ({ page = 1, limit = 10, search = "" }) => ({
+getQuickBooksInvoices: build.query<any, PaginationArgs>({
+  query: ({ page = 1, limit = 10, search = "", endDate, startDate }) => ({
     url: "/quickbooks/invoices",
     params: {
       page,
       limit,
       search,
+      endDate, 
+      startDate,
     },
   }),
 }),
@@ -2088,10 +2094,16 @@ getQuickBooksPayments: build.query<PaginatedResponse<any>, PaginationArgs>({
   }),
 }),
 
-getQuickBooksCheques: build.query<PaginatedResponse<any>, PaginationArgs>({
-  query: ({ page = 1, limit = 10, search = "" }) => ({
+getQuickBooksCheques: build.query<any, PaginationArgs>({
+  query: ({ page = 1, limit = 10, search = "", startDate, endDate }) => ({
     url: "/quickbooks/cheques",
-    params: { limit, search, page },
+    params: {
+      page,
+      limit,
+      search,
+      startDate,
+      endDate,
+    },
   }),
 }),
 getQuickBooksInvoiceById: build.query<any, string>({

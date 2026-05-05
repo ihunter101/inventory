@@ -205,8 +205,16 @@ export async function getQuickBooksInvoices(req: Request, res: Response) {
 
   const search = String(req.query.search ?? "").trim();
 
-  const where = search 
-    ? {
+  const startDate = req.query.startDate ? new Date(String(req.query.startDate)) : null;
+
+  const endDate = req.query.endDate ? new Date(String(req.query.startDate)) : null;
+
+  const where: any = { 
+    AND: []
+  }
+
+  if (search) {
+    where.AND.push({
       OR: [
         { customerName: { contains: search, mode: "insensitive" as const } },
         { invoiceNumber: { contains: search, mode: "insensitive" as const } },
@@ -215,27 +223,63 @@ export async function getQuickBooksInvoices(req: Request, res: Response) {
         { customerDetail3: { contains: search, mode: "insensitive" as const } },
         { subClientName: { contains: search, mode: "insensitive" as const } },
       ],
-    }
-    : undefined
-
-  const [invoices, total] = await Promise.all([
-    prisma.customerInvoice.findMany({
-      where,
-      orderBy: { invoiceDate: "desc" },
-      skip,
-      take: limit,
-      include: {
-        customer: true,
-        payments: true,
-        lines: true,
+    })
+  }
+  
+  if (startDate || endDate ) {
+    where.AND.push({
+      invoiceDate: {
+        ...(startDate ? { gte: startDate} : {}),
+        ...(endDate ? { lte: endDate } : {})
       },
-    }),
-    prisma.customerInvoice.count({
-      where,
-    }),
-  ]);
+    })
+  }
 
-  res.json(paginatedResponse({ data: invoices, total, page, limit }));
+  const finalWhere = where.AND.length > 0 ? where : undefined;
+
+
+  const [invoices, total, totals] = await Promise.all([
+  prisma.customerInvoice.findMany({
+    where: finalWhere,
+    orderBy: { invoiceDate: "desc" },
+    skip,
+    take: limit,
+    include: {
+      customer: true,
+      payments: true,
+      lines: true,
+    },
+  }),
+
+  prisma.customerInvoice.count({
+    where: finalWhere,
+  }),
+
+  prisma.customerInvoice.aggregate({
+    where: finalWhere,
+    _sum: {
+      totalAmount: true,
+      amountPaid: true,
+      balanceRemaining: true,
+    },
+  }),
+]);
+
+const response = paginatedResponse({
+  data: invoices,
+  total,
+  page,
+  limit,
+});
+
+res.json({
+  ...response,
+  summary: {
+    totalInvoiceAmount: Number(totals._sum.totalAmount ?? 0),
+    totalAmountPaid: Number(totals._sum.amountPaid ?? 0),
+    totalBalanceRemaining: Number(totals._sum.balanceRemaining ?? 0),
+  },
+});
 }
 
 export async function getQuickBooksInvoiceById(req: Request, res: Response) {
@@ -310,31 +354,73 @@ export async function getQuickBooksCheques(req: Request, res: Response) {
   const { page, limit, skip } = getPagination(req);
   const search = String(req.query.search ?? "").trim();
 
+  const startDate = req.query.startDate
+    ? new Date(String(req.query.startDate))
+    : null;
 
-  const where = search 
-    ? {
+  const endDate = req.query.endDate
+    ? new Date(String(req.query.endDate))
+    : null;
+
+  const where: any = {
+    AND: [],
+  };
+
+  if (search) {
+    where.AND.push({
       OR: [
-        { payeeName: { contains: search, mode: "insensitive" as const} },
-        { chequeNumber: { contains: search, mode: "insensitive" as const} },
+        { payeeName: { contains: search, mode: "insensitive" as const } },
+        { chequeNumber: { contains: search, mode: "insensitive" as const } },
         { accountName: { contains: search, mode: "insensitive" as const } },
         { memo: { contains: search, mode: "insensitive" as const } },
       ],
-    }
-    : undefined;
+    });
+  }
 
-  const [cheques, total] = await Promise.all([
+  if (startDate || endDate) {
+    where.AND.push({
+      chequeDate: {
+        ...(startDate ? { gte: startDate } : {}),
+        ...(endDate ? { lte: endDate } : {}),
+      },
+    });
+  }
+
+  const finalWhere = where.AND.length > 0 ? where : undefined;
+
+  const [cheques, total, totals] = await Promise.all([
     prisma.chequePayment.findMany({
-      where,
+      where: finalWhere,
       orderBy: { chequeDate: "desc" },
       skip,
       take: limit,
     }),
+
     prisma.chequePayment.count({
-      where
+      where: finalWhere,
+    }),
+
+    prisma.chequePayment.aggregate({
+      where: finalWhere,
+      _sum: {
+        amount: true,
+      },
     }),
   ]);
 
-  res.json(paginatedResponse({ data: cheques, total, page, limit }));
+  const response = paginatedResponse({
+    data: cheques,
+    total,
+    page,
+    limit,
+  });
+
+  res.json({
+    ...response,
+    summary: {
+      totalChequePayment: Number(totals._sum.amount ?? 0),
+    },
+  });
 }
 
 export async function forceQuickBooksInvoiceBackfill(req: Request, res: Response) {

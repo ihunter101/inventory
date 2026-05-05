@@ -86,24 +86,25 @@ export const queries = {
     );
   },
 
-  invoices: (options: QueryOptions = {}) => {
-    if (options.iterator === "Continue" && options.iteratorID) {
-      return buildContinueQuery(
-        "InvoiceQueryRq",
-        "invoices_001",
-        options.iteratorID
-      );
-    }
 
-    return buildStartQuery(
+  invoices: (options: QueryOptions = {}) => {
+  if (options.iterator === "Continue" && options.iteratorID) {
+    return buildContinueQuery(
       "InvoiceQueryRq",
       "invoices_001",
-      `
-      ${buildModifiedDateFilter(options)}
-      <IncludeLineItems>true</IncludeLineItems>
-      `
+      options.iteratorID
     );
-  },
+  }
+
+  return buildStartQuery(
+    "InvoiceQueryRq",
+    "invoices_001",
+    `
+      <IncludeLineItems>true</IncludeLineItems>
+      ${buildModifiedDateFilter(options)}
+    `
+  );
+},
 
   receivePayments: (options: QueryOptions = {}) => {
     if (options.iterator === "Continue" && options.iteratorID) {

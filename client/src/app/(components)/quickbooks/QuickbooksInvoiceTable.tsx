@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { MoreHorizontal, SearchIcon, Eye, ListOrdered } from "lucide-react";
+import { MoreHorizontal, SearchIcon, Eye, ListOrdered, CalendarDays } from "lucide-react";
 import { useGetQuickBooksInvoicesQuery } from "@/app/state/api";
 
 import {
@@ -12,6 +12,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableFooter,
 } from "@/components/ui/table";
 
 import { Badge } from "@/components/ui/badge";
@@ -55,16 +56,23 @@ function statusVariant(status?: string) {
 export default function QuickbooksInvoiceTable() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
   const limit = 10;
 
   const { data, isLoading, isError } = useGetQuickBooksInvoicesQuery({
     page,
     limit,
     search,
+    startDate,
+    endDate,
   });
 
   const invoices = data?.data ?? [];
   const meta = data?.meta;
+  const summary = data?.summary;
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Loading invoices...</p>;
@@ -84,17 +92,70 @@ export default function QuickbooksInvoiceTable() {
           </CardDescription>
         </div>
 
-        <div className="relative w-full max-w-md">
-          <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by Inv #, Company Name, or Client Name..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            className="pl-9"
-          />
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="relative w-full max-w-md">
+            <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by Inv #, Company Name, or Client Name..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="pl-9"
+            />
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">
+                Start date
+              </label>
+              <div className="relative">
+                <CalendarDays className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setPage(1);
+                  }}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">
+                End date
+              </label>
+              <div className="relative">
+                <CalendarDays className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setPage(1);
+                  }}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+
+            {(startDate || endDate) && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setStartDate("");
+                  setEndDate("");
+                  setPage(1);
+                }}
+              >
+                Clear dates
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
 
@@ -190,16 +251,67 @@ export default function QuickbooksInvoiceTable() {
                 </TableRow>
               )}
             </TableBody>
+
+            {summary && invoices.length > 0 && (
+              <TableFooter>
+                <TableRow>
+                  <TableCell colSpan={4} className="font-semibold">
+                    Filtered Totals
+                  </TableCell>
+
+                  <TableCell className="text-right font-semibold">
+                    {money(summary.totalInvoiceAmount)}
+                  </TableCell>
+
+                  <TableCell className="text-right font-semibold">
+                    {money(summary.totalAmountPaid)}
+                  </TableCell>
+
+                  <TableCell className="text-right font-semibold">
+                    {money(summary.totalBalanceRemaining)}
+                  </TableCell>
+
+                  <TableCell colSpan={2} />
+                </TableRow>
+              </TableFooter>
+            )}
           </Table>
         </div>
 
+        {summary && (
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="text-sm text-muted-foreground">Total Invoice Amount</p>
+              <p className="mt-2 text-2xl font-bold">
+                {money(summary.totalInvoiceAmount)}
+              </p>
+            </div>
+
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="text-sm text-muted-foreground">Total Paid</p>
+              <p className="mt-2 text-2xl font-bold">
+                {money(summary.totalAmountPaid)}
+              </p>
+            </div>
+
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="text-sm text-muted-foreground">Total Balance Remaining</p>
+              <p className="mt-2 text-2xl font-bold">
+                {money(summary.totalBalanceRemaining)}
+              </p>
+            </div>
+          </div>
+        )}
+
         {meta && (
-          <QuickbooksPagination
-            page={meta.page}
-            totalPages={meta.totalPages}
-            total={meta.total}
-            onPageChange={setPage}
-          />
+          <div className="mt-6">
+            <QuickbooksPagination
+              page={meta.page}
+              totalPages={meta.totalPages}
+              total={meta.total}
+              onPageChange={setPage}
+            />
+          </div>
         )}
       </CardContent>
     </Card>
