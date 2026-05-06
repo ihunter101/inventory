@@ -58,7 +58,7 @@ import clientPortalRoutes from './routes/clientPortalRoutes';
 import  organizationRoutes  from './routes/organizationRoutes';
 import inviteRoutes from "./routes/inviteRoutes";
 import expenseDocumentRoutes from "./routes/expenseDocumentRoutes";
-
+import quickBooksPaymentSyncRoutes from "./routes/quickbooksPaymentSyncRoutes";
 
 process.on('uncaughtException', (err) => {
   console.error('💥 Uncaught Exception:', err);
@@ -139,6 +139,8 @@ protectedRouter.use("/expense-documents", expenseDocumentRoutes);
 app.use("/qbwc", express.text({ type: "*/*", limit: "20mb" }));
 app.use("/qbwc", qbwcRoutes);
 app.use("/quickbooks", quickbooksRoutes);
+app.use("/quickbooks/payment-sync", quickBooksPaymentSyncRoutes);
+
 protectedRouter.use("/invites", inviteRoutes);
 // Mount the protected router
 app.use(protectedRouter);

@@ -41,3 +41,12 @@ export function getTagValue(xml: string, tag: string): string {
 
   return "";
 }
+
+export function escapeXml(value: string | number | null | undefined) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}

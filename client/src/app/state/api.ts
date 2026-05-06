@@ -7,6 +7,7 @@ import { Role } from "@lab/shared/userRolesUtils";
 import { getClerkToken } from "@/lib/clerkTokenGetter";
 import { string } from "zod";
 import { AnyFileRoute } from "uploadthing/types";
+import { BatchMarkInvoicesPaidRequest, BatchMarkInvoicesPaidResponse, GetQuickBooksPaymentSyncJobsResponse, QueueInvoicePaymentRequest, QueueInvoicePaymentResponse, RetryQuickBooksPaymentSyncJobResponse } from "../types/quickbooksPaymentSync";
 
 // ----------------------
 // Interfaces
@@ -1390,7 +1391,8 @@ export const api = createApi({
     "SalesAnalytics", "TodaySale", "Sales", "Matches", "InvoicePayments", 
     "PoPaymentSummary", "QuarterlyReport", "PendingAccess", "SuppliersAnalytics",
     "Organizations", "AvailableCustomers", "ClientDashboard", "ClientInvoices",
-    "Invites", "ExpenseDocuments", "ChequeDrafts"
+    "Invites", "ExpenseDocuments", "ChequeDrafts", "QuickBooksInvoices",
+  "QuickBooksPaymentSyncJobs",
   ],
   endpoints: (build) => ({
     // Dashboard Metrics
@@ -2329,6 +2331,63 @@ voidChequeDraft: build.mutation<VoidChequeDraftResponse, string>({
     { type: "Expenses", id: "LIST" },
   ],
 }),
+getQuickBooksPaymentSyncJobs: build.query<
+  GetQuickBooksPaymentSyncJobsResponse,
+  { status?: string } | void
+>({
+  query: (params) => {
+    const searchParams = new URLSearchParams();
+
+    if (params?.status) {
+      searchParams.set("status", params.status);
+    }
+
+    const queryString = searchParams.toString();
+
+    return {
+      url: `/quickbooks/payment-sync/jobs${
+        queryString ? `?${queryString}` : ""
+      }`,
+      method: "GET",
+    };
+  },
+  providesTags: ["QuickBooksPaymentSyncJobs"],
+}),
+
+queueQuickBooksInvoicePayment: build.mutation<
+  QueueInvoicePaymentResponse,
+  { invoiceId: string; body: QueueInvoicePaymentRequest }
+>({
+  query: ({ invoiceId, body }) => ({
+    url: `/quickbooks/payment-sync/invoices/${invoiceId}/payments`,
+    method: "POST",
+    body,
+  }),
+  invalidatesTags: ["QuickBooksPaymentSyncJobs", "QuickBooksInvoices"],
+}),
+
+batchMarkInvoicesPaidForQuickBooks: build.mutation<
+  BatchMarkInvoicesPaidResponse,
+  BatchMarkInvoicesPaidRequest
+>({
+  query: (body) => ({
+    url: `/quickbooks/payment-sync/invoices/batch-mark-paid`,
+    method: "POST",
+    body,
+  }),
+  invalidatesTags: ["QuickBooksPaymentSyncJobs", "QuickBooksInvoices"],
+}),
+
+retryQuickBooksPaymentSyncJob: build.mutation<
+  RetryQuickBooksPaymentSyncJobResponse,
+  string
+>({
+  query: (jobId) => ({
+    url: `/quickbooks/payment-sync/jobs/${jobId}/retry`,
+    method: "PATCH",
+  }),
+  invalidatesTags: ["QuickBooksPaymentSyncJobs"],
+}),
   }),
 });
 
@@ -2464,6 +2523,11 @@ export const {
 
    useCreateChequeDraftMutation,
    useGetChequeDraftExpenseGroupsQuery,
+
+  useGetQuickBooksPaymentSyncJobsQuery,
+  useQueueQuickBooksInvoicePaymentMutation,
+  useBatchMarkInvoicesPaidForQuickBooksMutation,
+  useRetryQuickBooksPaymentSyncJobMutation,
 } = api;
 
 

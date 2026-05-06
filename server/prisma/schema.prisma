@@ -346,7 +346,8 @@ model CustomerInvoice {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  customer Customer?             @relation(fields: [customerId], references: [customerId])
+  customer Customer? @relation(fields: [customerId], references: [customerId])
+
   payments CustomerPayment[]
   lines    CustomerInvoiceLine[]
 
@@ -418,6 +419,8 @@ model CustomerPayment {
 
   customer Customer?        @relation(fields: [customerId], references: [customerId])
   invoice  CustomerInvoice? @relation(fields: [customerInvoiceId], references: [invoiceId])
+
+  qbPaymentSyncJob QuickBooksPaymentSyncJob?
 
   @@index([customerId])
   @@index([customerInvoiceId])
@@ -896,8 +899,6 @@ model QuickBooksSyncState {
   updatedAt            DateTime  @updatedAt
 }
 
-
-
 model StockLedger {
   id         String   @id @default(cuid())
   productId  String
@@ -1074,4 +1075,40 @@ enum PaymentStatus {
   POSTED
   VOID
   PARTIALLY_PAID
+}
+
+//________________________________________________________________________________________________________________
+//quickbooks writes 
+//_______________________________________________________________________________________________________________
+model QuickBooksPaymentSyncJob {
+  id String @id @default(cuid())
+
+  status QBPaymentSyncStatus @default(PENDING)
+
+  localPaymentId String? @unique
+  payment        CustomerPayment? @relation(fields: [localPaymentId], references: [paymentId], onDelete: Cascade)
+
+  qbRequestId String @unique
+
+  qbCustomerListId String
+  qbInvoiceTxnId   String
+
+  qbPaymentTxnId        String?
+  qbPaymentEditSequence String?
+
+  responseJson String?
+  errorMessage String?
+
+  attempts Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  syncedAt  DateTime?
+}
+
+enum QBPaymentSyncStatus {
+  PENDING
+  SENT
+  SUCCESS
+  FAILED
 }
