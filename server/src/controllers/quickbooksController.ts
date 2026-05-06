@@ -201,85 +201,106 @@ export async function getQuickBooksCustomerById(req: Request, res: Response) {
 }
 
 export async function getQuickBooksInvoices(req: Request, res: Response) {
-  const { page, limit, skip } = getPagination(req);
+  try {
+    const { page, limit, skip } = getPagination(req);
 
-  const search = String(req.query.search ?? "").trim();
+    const search = String(req.query.search ?? "").trim();
 
-  const startDate = req.query.startDate ? new Date(String(req.query.startDate)) : null;
+    const startDate = req.query.startDate
+      ? new Date(String(req.query.startDate))
+      : null;
 
-  const endDate = req.query.endDate ? new Date(String(req.query.startDate)) : null;
+    const endDate = req.query.endDate
+      ? new Date(String(req.query.endDate))
+      : null;
 
-  const where: any = { 
-    AND: []
-  }
+    // Make end date inclusive.
+    // Example: 2026-04-30 becomes filter < 2026-05-01
+    if (endDate) {
+      endDate.setDate(endDate.getDate() + 1);
+    }
 
-  if (search) {
-    where.AND.push({
-      OR: [
-        { customerName: { contains: search, mode: "insensitive" as const } },
-        { invoiceNumber: { contains: search, mode: "insensitive" as const } },
-        { customerDetail1: { contains: search, mode: "insensitive"  as const } },
-        { customerDetail2: { contains: search, mode: "insensitive" as const } },
-        { customerDetail3: { contains: search, mode: "insensitive" as const } },
-        { subClientName: { contains: search, mode: "insensitive" as const } },
-      ],
-    })
-  }
-  
-  if (startDate || endDate ) {
-    where.AND.push({
-      invoiceDate: {
-        ...(startDate ? { gte: startDate} : {}),
-        ...(endDate ? { lte: endDate } : {})
+    const where: any = {
+      AND: [],
+    };
+
+    if (search) {
+      where.AND.push({
+        OR: [
+          { customerName: { contains: search, mode: "insensitive" as const } },
+          { invoiceNumber: { contains: search, mode: "insensitive" as const } },
+          { customerDetail1: { contains: search, mode: "insensitive" as const } },
+          { customerDetail2: { contains: search, mode: "insensitive" as const } },
+          { customerDetail3: { contains: search, mode: "insensitive" as const } },
+          { customerDetail4: { contains: search, mode: "insensitive" as const } },
+          { customerDetail5: { contains: search, mode: "insensitive" as const } },
+          { subClientName: { contains: search, mode: "insensitive" as const } },
+        ],
+      });
+    }
+
+    if (startDate || endDate) {
+      where.AND.push({
+        invoiceDate: {
+          ...(startDate ? { gte: startDate } : {}),
+          ...(endDate ? { lt: endDate } : {}),
+        },
+      });
+    }
+
+    const finalWhere = where.AND.length > 0 ? where : undefined;
+
+    const [invoices, total, totals] = await Promise.all([
+      prisma.customerInvoice.findMany({
+        where: finalWhere,
+        orderBy: {
+          invoiceDate: "desc",
+        },
+        skip,
+        take: limit,
+        include: {
+          customer: true,
+          payments: true,
+          lines: true,
+        },
+      }),
+
+      prisma.customerInvoice.count({
+        where: finalWhere,
+      }),
+
+      prisma.customerInvoice.aggregate({
+        where: finalWhere,
+        _sum: {
+          totalAmount: true,
+          amountPaid: true,
+          balanceRemaining: true,
+        },
+      }),
+    ]);
+
+    const response = paginatedResponse({
+      data: invoices,
+      total,
+      page,
+      limit,
+    });
+
+    return res.json({
+      ...response,
+      summary: {
+        totalInvoiceAmount: Number(totals._sum.totalAmount ?? 0),
+        totalAmountPaid: Number(totals._sum.amountPaid ?? 0),
+        totalBalanceRemaining: Number(totals._sum.balanceRemaining ?? 0),
       },
-    })
+    });
+  } catch (error) {
+    console.error("Failed to get QuickBooks invoices:", error);
+
+    return res.status(500).json({
+      message: "Failed to get QuickBooks invoices",
+    });
   }
-
-  const finalWhere = where.AND.length > 0 ? where : undefined;
-
-
-  const [invoices, total, totals] = await Promise.all([
-  prisma.customerInvoice.findMany({
-    where: finalWhere,
-    orderBy: { invoiceDate: "desc" },
-    skip,
-    take: limit,
-    include: {
-      customer: true,
-      payments: true,
-      lines: true,
-    },
-  }),
-
-  prisma.customerInvoice.count({
-    where: finalWhere,
-  }),
-
-  prisma.customerInvoice.aggregate({
-    where: finalWhere,
-    _sum: {
-      totalAmount: true,
-      amountPaid: true,
-      balanceRemaining: true,
-    },
-  }),
-]);
-
-const response = paginatedResponse({
-  data: invoices,
-  total,
-  page,
-  limit,
-});
-
-res.json({
-  ...response,
-  summary: {
-    totalInvoiceAmount: Number(totals._sum.totalAmount ?? 0),
-    totalAmountPaid: Number(totals._sum.amountPaid ?? 0),
-    totalBalanceRemaining: Number(totals._sum.balanceRemaining ?? 0),
-  },
-});
 }
 
 export async function getQuickBooksInvoiceById(req: Request, res: Response) {
@@ -362,6 +383,9 @@ export async function getQuickBooksCheques(req: Request, res: Response) {
     ? new Date(String(req.query.endDate))
     : null;
 
+     if (endDate) {
+      endDate.setDate(endDate.getDate() + 1);
+    }
   const where: any = {
     AND: [],
   };
@@ -381,7 +405,7 @@ export async function getQuickBooksCheques(req: Request, res: Response) {
     where.AND.push({
       chequeDate: {
         ...(startDate ? { gte: startDate } : {}),
-        ...(endDate ? { lte: endDate } : {}),
+        ...(endDate ? { lt: endDate } : {}),
       },
     });
   }
