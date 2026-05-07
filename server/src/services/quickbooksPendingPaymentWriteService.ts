@@ -1,9 +1,22 @@
 import { QBPaymentSyncStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma";
-import { buildReceivePaymentAddRq } from "../quickbooks/quickbooksPaymentQbxmlBuilder";
+import { buildReceivePaymentBatchAddRq } from "../quickbooks/quickbooksPaymentQbxmlBuilder";
 
-export async function getNextPendingQuickBooksPaymentWriteXML() {
-  const job = await prisma.quickBooksPaymentSyncJob.findFirst({
+const DEFAULT_BATCH_SIZE = 50;
+const MAX_BATCH_SIZE = 50;
+
+function getBatchSize() {
+  const raw = Number(process.env.QB_PAYMENT_WRITE_BATCH_SIZE ?? DEFAULT_BATCH_SIZE);
+
+  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_BATCH_SIZE;
+
+  return Math.min(Math.floor(raw), MAX_BATCH_SIZE);
+}
+
+export async function getPendingQuickBooksPaymentWriteBatchXML() {
+  const batchSize = getBatchSize();
+
+  const jobs = await prisma.quickBooksPaymentSyncJob.findMany({
     where: {
       status: QBPaymentSyncStatus.PENDING,
     },
@@ -13,35 +26,52 @@ export async function getNextPendingQuickBooksPaymentWriteXML() {
     orderBy: {
       createdAt: "asc",
     },
+    take: batchSize,
   });
 
-  if (!job) return null;
+  if (jobs.length === 0) return null;
 
-  if (!job.payment) {
-    await prisma.quickBooksPaymentSyncJob.update({
-      where: { id: job.id },
-      data: {
-        status: QBPaymentSyncStatus.FAILED,
-        errorMessage: "No CustomerPayment linked to this sync job.",
-      },
-    });
+  const validJobs = [];
 
-    return null;
+  for (const job of jobs) {
+    if (!job.payment) {
+      await prisma.quickBooksPaymentSyncJob.update({
+        where: {
+          id: job.id,
+        },
+        data: {
+          status: QBPaymentSyncStatus.FAILED,
+          errorMessage: "No CustomerPayment linked to this sync job.",
+        },
+      });
+
+      continue;
+    }
+
+    validJobs.push(job);
   }
 
-  const qbxml = buildReceivePaymentAddRq({
-    requestId: job.qbRequestId,
-    customerListId: job.qbCustomerListId,
-    invoiceTxnId: job.qbInvoiceTxnId,
-    paymentDate: job.payment.paymentDate,
-    amount: Number(job.payment.amount),
-    paymentMethod: job.payment.method,
-    referenceNumber: job.payment.referenceNumber,
-    memo: job.payment.notes,
-  });
+  if (validJobs.length === 0) return null;
 
-  await prisma.quickBooksPaymentSyncJob.update({
-    where: { id: job.id },
+  const qbxml = buildReceivePaymentBatchAddRq(
+    validJobs.map((job) => ({
+      requestId: job.qbRequestId,
+      customerListId: job.qbCustomerListId,
+      invoiceTxnId: job.qbInvoiceTxnId,
+      paymentDate: job.payment!.paymentDate,
+      amount: Number(job.payment!.amount),
+      paymentMethod: job.payment!.method,
+      referenceNumber: job.payment!.referenceNumber,
+      memo: job.payment!.notes,
+    }))
+  );
+
+  await prisma.quickBooksPaymentSyncJob.updateMany({
+    where: {
+      id: {
+        in: validJobs.map((job) => job.id),
+      },
+    },
     data: {
       status: QBPaymentSyncStatus.SENT,
       attempts: {
@@ -50,5 +80,16 @@ export async function getNextPendingQuickBooksPaymentWriteXML() {
     },
   });
 
-  return qbxml;
+  const remainingPendingCount = await prisma.quickBooksPaymentSyncJob.count({
+    where: {
+      status: QBPaymentSyncStatus.PENDING,
+    },
+  });
+
+  return {
+    qbxml,
+    sentCount: validJobs.length,
+    remainingPendingCount,
+    batchSize,
+  };
 }

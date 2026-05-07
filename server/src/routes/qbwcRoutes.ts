@@ -23,7 +23,8 @@ import {
   updateLastModifiedSyncAt,
   type QuickBooksEntity,
 } from "../services/quickbooksSyncState"
-import { getNextPendingQuickBooksPaymentWriteXML } from "../services/quickbooksPendingPaymentWriteService";
+import { getPendingQuickBooksPaymentWriteBatchXML } from "../services/quickbooksPendingPaymentWriteService";
+import { reconcilePaymentSyncJobsFromReceivePayments } from "../services/quickbooksPaymentReconciliationService";
 import { handleReceivePaymentAddResponse } from "../services/quickbooksPaymentWriteResponseService";
 
 const router = Router();
@@ -394,19 +395,28 @@ console.log("QBWC initial stage:", initialStage);
     );
   }
 
-  const paymentWriteXML = await getNextPendingQuickBooksPaymentWriteXML();
+  const paymentWriteBatch = await getPendingQuickBooksPaymentWriteBatchXML();
 
-  if (paymentWriteXML) {
-    console.log("========== QBWC WRITE REQUEST ==========");
-    console.log("QBXML WRITE SENT TO QUICKBOOKS:\n", paymentWriteXML);
+if (paymentWriteBatch) {
+  console.log("========== QBWC BATCH WRITE REQUEST ==========");
+  console.log("Payment batch size:", paymentWriteBatch.batchSize);
+  console.log("Payments sent in this batch:", paymentWriteBatch.sentCount);
+  console.log(
+    "Remaining pending after this batch:",
+    paymentWriteBatch.remainingPendingCount
+  );
+  console.log(
+    "QBXML BATCH WRITE SENT TO QUICKBOOKS:\n",
+    paymentWriteBatch.qbxml
+  );
 
-    return res.send(
-      soapEnvelope(`
+  return res.send(
+    soapEnvelope(`
 <sendRequestXMLResponse xmlns="http://developer.intuit.com/">
-  <sendRequestXMLResult>${xmlEscape(paymentWriteXML)}</sendRequestXMLResult>
+  <sendRequestXMLResult>${xmlEscape(paymentWriteBatch.qbxml)}</sendRequestXMLResult>
 </sendRequestXMLResponse>`)
-    );
-  }
+  );
+}
 
 
 const stage = session.stage as QuickBooksEntity;
@@ -512,10 +522,15 @@ if (hresult || message) {
 
 
         const parsed = await parseQBResponse(decodedResponseXml);
+
         //console.log("PARSED QB RESPONSE:\n", parsed);
 
-        if (parsed) {
+if (parsed) {
   await saveQuickBooksData(parsed.type, parsed.data);
+
+  if (parsed.type === "receivePayments") {
+    await reconcilePaymentSyncJobsFromReceivePayments(parsed.data);
+  }
 
   setIteratorState(
     ticket,
@@ -524,26 +539,25 @@ if (hresult || message) {
     parsed.remainingCount
   );
 
-if (parsed.remainingCount === 0) {
-  const syncState = await getSyncState(parsed.type);
+  if (parsed.remainingCount === 0) {
+    const syncState = await getSyncState(parsed.type);
 
-  if (!syncState.fullBackfillComplete) {
-    await markFullBackfillComplete(parsed.type);
-  } else {
-    const syncCheckpoint = session.syncStartedAt;
+    if (!syncState.fullBackfillComplete) {
+      await markFullBackfillComplete(parsed.type);
+    } else {
+      const syncCheckpoint = session.syncStartedAt;
 
-    await updateLastModifiedSyncAt(parsed.type, syncCheckpoint);
+      await updateLastModifiedSyncAt(parsed.type, syncCheckpoint);
+    }
+
+    resetIteratorState(ticket, parsed.type);
+    advanceStage(ticket);
   }
-
-  resetIteratorState(ticket, parsed.type);
-  advanceStage(ticket);
-}
 
   console.log(
     `Saved QuickBooks ${parsed.type}: ${parsed.data.length} rows, remaining=${parsed.remainingCount}`
   );
 }
-
         const updatedSession = getSession(ticket);
         const percent = updatedSession?.stage === "done" ? 100 : 50;
 

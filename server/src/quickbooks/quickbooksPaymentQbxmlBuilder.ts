@@ -34,7 +34,9 @@ function getPaymentMethodLabel(method?: PaymentMethod | null) {
   }
 }
 
-export function buildReceivePaymentAddRq(params: BuildReceivePaymentAddRqParams) {
+export function buildReceivePaymentAddRqInner(
+  params: BuildReceivePaymentAddRqParams
+) {
   const {
     requestId,
     customerListId,
@@ -49,10 +51,7 @@ export function buildReceivePaymentAddRq(params: BuildReceivePaymentAddRqParams)
   const safeAmount = amount.toFixed(2);
   const methodLabel = getPaymentMethodLabel(paymentMethod);
 
-  return `<?xml version="1.0" encoding="utf-8"?>
-<?qbxml version="13.0"?>
-<QBXML>
-  <QBXMLMsgsRq onError="stopOnError">
+  return `
     <ReceivePaymentAddRq requestID="${escapeXml(requestId)}">
       <ReceivePaymentAdd>
         <CustomerRef>
@@ -60,7 +59,11 @@ export function buildReceivePaymentAddRq(params: BuildReceivePaymentAddRqParams)
         </CustomerRef>
 
         <TxnDate>${escapeXml(formatQBDate(paymentDate))}</TxnDate>
-        ${referenceNumber ? `<RefNumber>${escapeXml(referenceNumber)}</RefNumber>` : ""}
+        ${
+          referenceNumber
+            ? `<RefNumber>${escapeXml(referenceNumber)}</RefNumber>`
+            : ""
+        }
         <TotalAmount>${safeAmount}</TotalAmount>
 
         <Memo>${escapeXml(`${memo} | Method: ${methodLabel}`)}</Memo>
@@ -74,7 +77,19 @@ export function buildReceivePaymentAddRq(params: BuildReceivePaymentAddRqParams)
           <PaymentAmount>${safeAmount}</PaymentAmount>
         </AppliedToTxnAdd>
       </ReceivePaymentAdd>
-    </ReceivePaymentAddRq>
+    </ReceivePaymentAddRq>`;
+}
+
+export function buildReceivePaymentBatchAddRq(
+  payments: BuildReceivePaymentAddRqParams[]
+) {
+  const requestBlocks = payments.map(buildReceivePaymentAddRqInner).join("\n");
+
+  return `<?xml version="1.0" encoding="utf-8"?>
+<?qbxml version="13.0"?>
+<QBXML>
+  <QBXMLMsgsRq onError="continueOnError">
+    ${requestBlocks}
   </QBXMLMsgsRq>
 </QBXML>`;
 }
