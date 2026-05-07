@@ -4,6 +4,7 @@ import { buildReceivePaymentBatchAddRq } from "../quickbooks/quickbooksPaymentQb
 
 const DEFAULT_BATCH_SIZE = 25;
 const MAX_BATCH_SIZE = 50;
+const MAX_ATTEMPTS = 3;
 
 function getBatchSize() {
   const raw = Number(
@@ -21,6 +22,9 @@ export async function countPendingQuickBooksPaymentSyncJobs() {
   return prisma.quickBooksPaymentSyncJob.count({
     where: {
       status: QBPaymentSyncStatus.PENDING,
+      attempts: {
+        lt: MAX_ATTEMPTS,
+      },
     },
   });
 }
@@ -31,9 +35,16 @@ export async function getPendingQuickBooksPaymentWriteBatchXML() {
   const jobs = await prisma.quickBooksPaymentSyncJob.findMany({
     where: {
       status: QBPaymentSyncStatus.PENDING,
+      attempts: {
+        lt: MAX_ATTEMPTS,
+      },
     },
     include: {
-      payment: true,
+      payment: {
+        include: {
+          invoice: true,
+        },
+      },
     },
     orderBy: {
       createdAt: "asc",
@@ -59,6 +70,57 @@ export async function getPendingQuickBooksPaymentWriteBatchXML() {
         },
       });
 
+      console.error("QB PAYMENT WRITE JOB FAILED BEFORE SEND:");
+      console.error({
+        jobId: job.id,
+        requestId: job.qbRequestId,
+        reason: "No CustomerPayment linked to this sync job.",
+      });
+
+      continue;
+    }
+
+    if (!job.qbCustomerListId) {
+      await prisma.quickBooksPaymentSyncJob.update({
+        where: {
+          id: job.id,
+        },
+        data: {
+          status: QBPaymentSyncStatus.FAILED,
+          errorMessage: "Missing QuickBooks customer ListID.",
+        },
+      });
+
+      console.error("QB PAYMENT WRITE JOB FAILED BEFORE SEND:");
+      console.error({
+        jobId: job.id,
+        requestId: job.qbRequestId,
+        invoiceNumber: job.payment.invoice?.invoiceNumber,
+        reason: "Missing QuickBooks customer ListID.",
+      });
+
+      continue;
+    }
+
+    if (!job.qbInvoiceTxnId) {
+      await prisma.quickBooksPaymentSyncJob.update({
+        where: {
+          id: job.id,
+        },
+        data: {
+          status: QBPaymentSyncStatus.FAILED,
+          errorMessage: "Missing QuickBooks invoice TxnID.",
+        },
+      });
+
+      console.error("QB PAYMENT WRITE JOB FAILED BEFORE SEND:");
+      console.error({
+        jobId: job.id,
+        requestId: job.qbRequestId,
+        invoiceNumber: job.payment.invoice?.invoiceNumber,
+        reason: "Missing QuickBooks invoice TxnID.",
+      });
+
       continue;
     }
 
@@ -67,6 +129,21 @@ export async function getPendingQuickBooksPaymentWriteBatchXML() {
 
   if (validJobs.length === 0) {
     return null;
+  }
+
+  console.log("QB PAYMENT WRITE BATCH ITEMS:");
+  for (const job of validJobs) {
+    console.log({
+      jobId: job.id,
+      requestId: job.qbRequestId,
+      invoiceNumber: job.payment?.invoice?.invoiceNumber,
+      invoiceId: job.payment?.customerInvoiceId,
+      qbInvoiceTxnId: job.qbInvoiceTxnId,
+      customerName: job.payment?.customerName,
+      referenceNumber: job.payment?.referenceNumber,
+      amount: String(job.payment?.amount),
+      attemptNumber: job.attempts + 1,
+    });
   }
 
   const qbxml = buildReceivePaymentBatchAddRq(
@@ -97,6 +174,13 @@ export async function getPendingQuickBooksPaymentWriteBatchXML() {
   });
 
   const remainingPendingCount = await countPendingQuickBooksPaymentSyncJobs();
+
+  console.log("QB PAYMENT WRITE BATCH SENT:");
+  console.log({
+    sentCount: validJobs.length,
+    batchSize,
+    remainingPendingCount,
+  });
 
   return {
     qbxml,

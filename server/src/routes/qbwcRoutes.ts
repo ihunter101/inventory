@@ -362,19 +362,14 @@ const pendingPaymentWriteCount =
   await countPendingQuickBooksPaymentSyncJobs();
 
 const initialStage =
-  pendingPaymentWriteCount > 0
-    ? "paymentWrites"
-    : !customerState.fullBackfillComplete
-      ? "customers"
-      : !invoiceState.fullBackfillComplete
-        ? "invoices"
-        : !paymentState.fullBackfillComplete
-          ? "receivePayments"
-          : !checkState.fullBackfillComplete
-            ? "checks"
-            : "invoices";
+  !customerState.fullBackfillComplete
+    ? "customers"
+    : "invoices";
 
 createSession(token, initialStage);
+
+console.log("QBWC initial stage:", initialStage);
+console.log("Pending payment writes:", pendingPaymentWriteCount);
 
 console.log("QBWC initial stage:", initialStage);
 console.log("Pending payment writes:", pendingPaymentWriteCount);
@@ -485,6 +480,8 @@ console.log("QBXML SENT TO QUICKBOOKS:\n", qbxml);
   );
 }
 
+
+
     if (xml.includes("receiveResponseXML")) {
       const ticket = getTagValue(xml, "ticket");
       const responseXml = getTagValue(xml, "response");
@@ -533,7 +530,7 @@ if (hresult || message) {
 
         const handledPaymentWrite = await handleReceivePaymentAddResponse(decodedResponseXml);
 
-        if (handledPaymentWrite) {
+  if (handledPaymentWrite) {
   const remainingPendingPaymentWrites =
     await countPendingQuickBooksPaymentSyncJobs();
 
@@ -544,11 +541,10 @@ if (hresult || message) {
   return res.send(
     soapEnvelope(`
 <receiveResponseXMLResponse xmlns="http://developer.intuit.com/">
-  <receiveResponseXMLResult>10</receiveResponseXMLResult>
+  <receiveResponseXMLResult>50</receiveResponseXMLResult>
 </receiveResponseXMLResponse>`)
   );
 }
-
 
         const parsed = await parseQBResponse(decodedResponseXml);
 

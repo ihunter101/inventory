@@ -101,9 +101,9 @@ export function advanceStage(token: string): void {
   if (!session) return;
 
   const order: SyncStage[] = [
-    "paymentWrites",
     "customers",
     "invoices",
+    "paymentWrites",
     "receivePayments",
     "checks",
     "done",

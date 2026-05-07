@@ -43,10 +43,29 @@ export async function handleReceivePaymentAddResponse(rawResponseXml: string) {
       where: {
         qbRequestId: requestId,
       },
+      include: {
+        payment: {
+          include: {
+            invoice: true,
+          },
+        },
+      },
     });
 
     if (!job) {
       console.warn(`No QuickBooksPaymentSyncJob found for requestID ${requestId}`);
+      continue;
+    }
+
+    if (job.status === QBPaymentSyncStatus.SUCCESS) {
+      console.log("QB PAYMENT WRITE ALREADY SUCCESS - SKIPPING:");
+      console.log({
+        requestId,
+        jobId: job.id,
+        localPaymentId: job.localPaymentId,
+        qbPaymentTxnId: job.qbPaymentTxnId,
+      });
+
       continue;
     }
 
@@ -64,8 +83,17 @@ export async function handleReceivePaymentAddResponse(rawResponseXml: string) {
         },
       });
 
-      console.error("QuickBooks payment write failed:", {
+      console.error("QB PAYMENT WRITE FAILED:");
+      console.error({
         requestId,
+        jobId: job.id,
+        localPaymentId: job.localPaymentId,
+        invoiceNumber: job.payment?.invoice?.invoiceNumber,
+        invoiceId: job.payment?.customerInvoiceId,
+        customerName: job.payment?.customerName,
+        referenceNumber: job.payment?.referenceNumber,
+        paymentAmount: String(job.payment?.amount),
+        qbInvoiceTxnId: job.qbInvoiceTxnId,
         statusCode,
         statusSeverity,
         statusMessage,
@@ -95,6 +123,14 @@ export async function handleReceivePaymentAddResponse(rawResponseXml: string) {
       });
 
       if (!job.localPaymentId || !qbPaymentTxnId) {
+        console.warn("QB payment write succeeded but local payment or QB TxnID is missing:");
+        console.warn({
+          requestId,
+          jobId: job.id,
+          localPaymentId: job.localPaymentId,
+          qbPaymentTxnId,
+        });
+
         return;
       }
 
@@ -113,32 +149,81 @@ export async function handleReceivePaymentAddResponse(rawResponseXml: string) {
       });
 
       if (!payment.invoice) {
+        console.warn("QB payment write succeeded but payment has no linked invoice:");
+        console.warn({
+          requestId,
+          jobId: job.id,
+          localPaymentId: job.localPaymentId,
+          qbPaymentTxnId,
+        });
+
         return;
       }
 
-      const invoice = payment.invoice;
+      console.log("QB PAYMENT WRITE SUCCESS:");
+      console.log({
+        invoiceNumber: payment.invoice.invoiceNumber,
+        invoiceId: payment.invoice.invoiceId,
+        customerName: payment.invoice.customerName,
+        localPaymentId: payment.paymentId,
+        referenceNumber: payment.referenceNumber,
+        paymentAmount: String(payment.amount),
+        qbInvoiceTxnId: job.qbInvoiceTxnId,
+        qbPaymentTxnId,
+        qbPaymentEditSequence,
+      });
 
-      const totalAmount = Number(invoice.totalAmount ?? 0);
-      const currentAmountPaid = Number(invoice.amountPaid ?? 0);
-      const paymentAmount = Number(payment.amount ?? 0);
+      const invoiceId = payment.invoice.invoiceId;
+      const totalAmount = Number(payment.invoice.totalAmount ?? 0);
 
-      const newAmountPaid = currentAmountPaid + paymentAmount;
-      const newBalanceRemaining = Math.max(totalAmount - newAmountPaid, 0);
+      const confirmedPayments = await tx.customerPayment.findMany({
+        where: {
+          customerInvoiceId: invoiceId,
+          qbTxnId: {
+            not: null,
+          },
+        },
+        select: {
+          amount: true,
+        },
+      });
+
+      const amountPaid = confirmedPayments.reduce((sum, p) => {
+        return sum + Number(p.amount ?? 0);
+      }, 0);
+
+      const balanceRemaining = Math.max(totalAmount - amountPaid, 0);
+
+      const newStatus =
+        balanceRemaining <= 0
+          ? CustomerInvoiceStatus.PAID
+          : amountPaid > 0
+            ? CustomerInvoiceStatus.PARTIALLY_PAID
+            : CustomerInvoiceStatus.UNPAID;
 
       await tx.customerInvoice.update({
         where: {
-          invoiceId: invoice.invoiceId,
+          invoiceId,
         },
         data: {
-          amountPaid: newAmountPaid,
-          balanceRemaining: newBalanceRemaining,
-          isPaid: newBalanceRemaining <= 0,
-          status:
-            newBalanceRemaining <= 0
-              ? CustomerInvoiceStatus.PAID
-              : CustomerInvoiceStatus.PARTIALLY_PAID,
+          amountPaid,
+          balanceRemaining,
+          isPaid: balanceRemaining <= 0,
+          status: newStatus,
           lastSyncedAt: new Date(),
         },
+      });
+
+      console.log("LOCAL INVOICE UPDATED AFTER QB SUCCESS:");
+      console.log({
+        invoiceNumber: payment.invoice.invoiceNumber,
+        invoiceId: payment.invoice.invoiceId,
+        customerName: payment.invoice.customerName,
+        oldAmountPaid: String(payment.invoice.amountPaid),
+        oldBalanceRemaining: String(payment.invoice.balanceRemaining),
+        newAmountPaid: amountPaid,
+        newBalanceRemaining: balanceRemaining,
+        newStatus,
       });
     });
   }
