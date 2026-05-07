@@ -21,11 +21,14 @@ export async function handleReceivePaymentAddResponse(rawResponseXml: string) {
     parsed?.QBXML?.QBXMLMsgsRs?.ReceivePaymentAddRs
   );
 
-  if (addResponses.length === 0) return false;
+  if (addResponses.length === 0) {
+    return false;
+  }
 
   for (const addRs of addResponses) {
     const requestId = addRs?.$?.requestID;
     const statusCode = String(addRs?.$?.statusCode ?? "");
+    const statusSeverity = addRs?.$?.statusSeverity;
     const statusMessage = addRs?.$?.statusMessage;
 
     if (!requestId) {
@@ -51,9 +54,18 @@ export async function handleReceivePaymentAddResponse(rawResponseXml: string) {
         },
         data: {
           status: QBPaymentSyncStatus.FAILED,
-          errorMessage: statusMessage || `QuickBooks failed with statusCode ${statusCode}.`,
+          errorMessage:
+            statusMessage ||
+            `QuickBooks failed with statusCode ${statusCode}.`,
           responseJson: rawResponseXml,
         },
+      });
+
+      console.error("QuickBooks payment write failed:", {
+        requestId,
+        statusCode,
+        statusSeverity,
+        statusMessage,
       });
 
       continue;

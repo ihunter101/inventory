@@ -2,15 +2,27 @@ import { QBPaymentSyncStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { buildReceivePaymentBatchAddRq } from "../quickbooks/quickbooksPaymentQbxmlBuilder";
 
-const DEFAULT_BATCH_SIZE = 50;
+const DEFAULT_BATCH_SIZE = 25;
 const MAX_BATCH_SIZE = 50;
 
 function getBatchSize() {
-  const raw = Number(process.env.QB_PAYMENT_WRITE_BATCH_SIZE ?? DEFAULT_BATCH_SIZE);
+  const raw = Number(
+    process.env.QB_PAYMENT_WRITE_BATCH_SIZE ?? DEFAULT_BATCH_SIZE
+  );
 
-  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_BATCH_SIZE;
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return DEFAULT_BATCH_SIZE;
+  }
 
   return Math.min(Math.floor(raw), MAX_BATCH_SIZE);
+}
+
+export async function countPendingQuickBooksPaymentSyncJobs() {
+  return prisma.quickBooksPaymentSyncJob.count({
+    where: {
+      status: QBPaymentSyncStatus.PENDING,
+    },
+  });
 }
 
 export async function getPendingQuickBooksPaymentWriteBatchXML() {
@@ -29,7 +41,9 @@ export async function getPendingQuickBooksPaymentWriteBatchXML() {
     take: batchSize,
   });
 
-  if (jobs.length === 0) return null;
+  if (jobs.length === 0) {
+    return null;
+  }
 
   const validJobs = [];
 
@@ -51,7 +65,9 @@ export async function getPendingQuickBooksPaymentWriteBatchXML() {
     validJobs.push(job);
   }
 
-  if (validJobs.length === 0) return null;
+  if (validJobs.length === 0) {
+    return null;
+  }
 
   const qbxml = buildReceivePaymentBatchAddRq(
     validJobs.map((job) => ({
@@ -80,11 +96,7 @@ export async function getPendingQuickBooksPaymentWriteBatchXML() {
     },
   });
 
-  const remainingPendingCount = await prisma.quickBooksPaymentSyncJob.count({
-    where: {
-      status: QBPaymentSyncStatus.PENDING,
-    },
-  });
+  const remainingPendingCount = await countPendingQuickBooksPaymentSyncJobs();
 
   return {
     qbxml,

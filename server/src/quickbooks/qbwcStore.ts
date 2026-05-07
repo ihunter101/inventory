@@ -1,11 +1,14 @@
 // server/src/quickbooks/qbwcStore.ts
 
 export type SyncStage =
+  | "paymentWrites"
   | "customers"
   | "invoices"
   | "receivePayments"
   | "checks"
   | "done";
+
+export type QuerySyncStage = Exclude<SyncStage, "paymentWrites" | "done">;
 
 type IteratorState = {
   iteratorID: string | null;
@@ -25,7 +28,11 @@ export interface QBWCSession {
    */
   syncStartedAt: Date;
 
-  iterators: Record<Exclude<SyncStage, "done">, IteratorState>;
+  /**
+   * Iterators only apply to QuickBooks query/read stages.
+   * paymentWrites does not use iteratorID / remainingCount.
+   */
+  iterators: Record<QuerySyncStage, IteratorState>;
 }
 
 const sessions = new Map<string, QBWCSession>();
@@ -54,9 +61,16 @@ export function getSession(token: string): QBWCSession | null {
   return sessions.get(token) ?? null;
 }
 
+export function setStage(token: string, stage: SyncStage): void {
+  const session = sessions.get(token);
+  if (!session) return;
+
+  session.stage = stage;
+}
+
 export function setIteratorState(
   token: string,
-  stage: Exclude<SyncStage, "done">,
+  stage: QuerySyncStage,
   iteratorID: string | null,
   remainingCount: number
 ): void {
@@ -71,7 +85,7 @@ export function setIteratorState(
 
 export function resetIteratorState(
   token: string,
-  stage: Exclude<SyncStage, "done">
+  stage: QuerySyncStage
 ): void {
   const session = sessions.get(token);
   if (!session) return;
@@ -87,6 +101,7 @@ export function advanceStage(token: string): void {
   if (!session) return;
 
   const order: SyncStage[] = [
+    "paymentWrites",
     "customers",
     "invoices",
     "receivePayments",
