@@ -16,7 +16,7 @@ function formatQBDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-function toQuickBooksPaymentMethod(method?: PaymentMethod | null) {
+function getPaymentMethodLabel(method?: PaymentMethod | null) {
   switch (method) {
     case PaymentMethod.CASH:
       return "Cash";
@@ -25,12 +25,12 @@ function toQuickBooksPaymentMethod(method?: PaymentMethod | null) {
     case PaymentMethod.DEBIT_CARD:
       return "Debit Card";
     case PaymentMethod.BANK_TRANSFER:
-      return "E-Check";
+      return "Bank Transfer";
     case PaymentMethod.CHEQUE:
-      return "Check";
+      return "Cheque";
     case PaymentMethod.OTHER:
     default:
-      return "Check";
+      return "Other";
   }
 }
 
@@ -47,7 +47,7 @@ export function buildReceivePaymentAddRq(params: BuildReceivePaymentAddRqParams)
   } = params;
 
   const safeAmount = amount.toFixed(2);
-  const qbPaymentMethod = toQuickBooksPaymentMethod(paymentMethod);
+  const methodLabel = getPaymentMethodLabel(paymentMethod);
 
   return `<?xml version="1.0" encoding="utf-8"?>
 <?qbxml version="13.0"?>
@@ -63,11 +63,7 @@ export function buildReceivePaymentAddRq(params: BuildReceivePaymentAddRqParams)
         ${referenceNumber ? `<RefNumber>${escapeXml(referenceNumber)}</RefNumber>` : ""}
         <TotalAmount>${safeAmount}</TotalAmount>
 
-        <PaymentMethodRef>
-          <FullName>${escapeXml(qbPaymentMethod)}</FullName>
-        </PaymentMethodRef>
-
-        <Memo>${escapeXml(memo)}</Memo>
+        <Memo>${escapeXml(`${memo} | Method: ${methodLabel}`)}</Memo>
 
         <DepositToAccountRef>
           <FullName>Undeposited Funds</FullName>
