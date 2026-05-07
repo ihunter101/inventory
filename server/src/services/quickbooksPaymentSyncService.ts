@@ -1,5 +1,4 @@
 import {
-  CustomerInvoiceStatus,
   PaymentMethod,
   QBPaymentSyncStatus,
 } from "@prisma/client";
@@ -13,6 +12,7 @@ type CreateQuickBooksPaymentSyncJobInput = {
   referenceNumber?: string;
   memo?: string;
 };
+
 type BatchCreateQuickBooksPaymentSyncJobsInput = {
   startDate: string;
   endDate: string;
@@ -25,7 +25,6 @@ type BatchCreateQuickBooksPaymentSyncJobsInput = {
   customerId?: string;
   customerSearch?: string;
 };
-
 
 export async function createQuickBooksPaymentSyncJob(
   input: CreateQuickBooksPaymentSyncJobInput
@@ -72,6 +71,24 @@ export async function createQuickBooksPaymentSyncJob(
     );
   }
 
+  const alreadyHasPendingSync =
+    await prisma.quickBooksPaymentSyncJob.findFirst({
+      where: {
+        status: {
+          in: [QBPaymentSyncStatus.PENDING, QBPaymentSyncStatus.SENT],
+        },
+        payment: {
+          customerInvoiceId: invoice.invoiceId,
+        },
+      },
+    });
+
+  if (alreadyHasPendingSync) {
+    throw new Error(
+      "Invoice already has a pending/sent QuickBooks payment sync job."
+    );
+  }
+
   const result = await prisma.$transaction(async (tx) => {
     const payment = await tx.customerPayment.create({
       data: {
@@ -97,28 +114,10 @@ export async function createQuickBooksPaymentSyncJob(
       },
     });
 
-    const newAmountPaid = Number(invoice.amountPaid ?? 0) + amount;
-    const newBalanceRemaining = Math.max(balanceRemaining - amount, 0);
-
-    const updatedInvoice = await tx.customerInvoice.update({
-      where: {
-        invoiceId: invoice.invoiceId,
-      },
-      data: {
-        amountPaid: newAmountPaid,
-        balanceRemaining: newBalanceRemaining,
-        isPaid: newBalanceRemaining === 0,
-        status:
-          newBalanceRemaining === 0
-            ? CustomerInvoiceStatus.PAID
-            : CustomerInvoiceStatus.PARTIALLY_PAID,
-      },
-    });
-
     return {
       payment,
       syncJob,
-      invoice: updatedInvoice,
+      invoice,
     };
   });
 
@@ -128,17 +127,17 @@ export async function createQuickBooksPaymentSyncJob(
 export async function batchCreateQuickBooksPaymentSyncJobs(
   input: BatchCreateQuickBooksPaymentSyncJobsInput
 ) {
- const {
-  startDate,
-  endDate,
-  paymentDate,
-  paymentMethod = PaymentMethod.CHEQUE,
-  referencePrefix = "BATCH-PAY",
-  memo = "Batch payment recorded from custom app",
-  dryRun = false,
-  customerId,
-  customerSearch,
-} = input;
+  const {
+    startDate,
+    endDate,
+    paymentDate,
+    paymentMethod = PaymentMethod.CHEQUE,
+    referencePrefix = "BATCH-PAY",
+    memo = "Batch payment recorded from custom app",
+    dryRun = false,
+    customerId,
+    customerSearch,
+  } = input;
 
   const start = new Date(startDate);
   const end = new Date(endDate);
@@ -153,64 +152,60 @@ export async function batchCreateQuickBooksPaymentSyncJobs(
   }
 
   const invoices = await prisma.customerInvoice.findMany({
-  where: {
-    invoiceDate: {
-      gte: start,
-      lte: end,
-    },
-    status: {
-      in: [
-        CustomerInvoiceStatus.UNPAID,
-        CustomerInvoiceStatus.PARTIALLY_PAID,
-        CustomerInvoiceStatus.OVERDUE,
-      ],
-    },
-    balanceRemaining: {
-      gt: 0,
-    },
+    where: {
+      invoiceDate: {
+        gte: start,
+        lte: end,
+      },
+      status: {
+        in: ["UNPAID", "PARTIALLY_PAID", "OVERDUE"],
+      },
+      balanceRemaining: {
+        gt: 0,
+      },
 
-    ...(customerId
-      ? {
-          customerId,
-        }
-      : {}),
+      ...(customerId
+        ? {
+            customerId,
+          }
+        : {}),
 
-    ...(!customerId && customerSearch
-      ? {
-          OR: [
-            {
-              customerName: {
-                contains: customerSearch,
-                mode: "insensitive",
-              },
-            },
-            {
-              customer: {
-                name: {
+      ...(!customerId && customerSearch
+        ? {
+            OR: [
+              {
+                customerName: {
                   contains: customerSearch,
                   mode: "insensitive",
                 },
               },
-            },
-            {
-              customer: {
-                companyName: {
-                  contains: customerSearch,
-                  mode: "insensitive",
+              {
+                customer: {
+                  name: {
+                    contains: customerSearch,
+                    mode: "insensitive",
+                  },
                 },
               },
-            },
-          ],
-        }
-      : {}),
-  },
-  include: {
-    customer: true,
-  },
-  orderBy: {
-    invoiceDate: "asc",
-  },
-});
+              {
+                customer: {
+                  companyName: {
+                    contains: customerSearch,
+                    mode: "insensitive",
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
+    },
+    include: {
+      customer: true,
+    },
+    orderBy: {
+      invoiceDate: "asc",
+    },
+  });
 
   const results = {
     found: invoices.length,
@@ -334,18 +329,6 @@ export async function batchCreateQuickBooksPaymentSyncJobs(
             qbRequestId: `RECEIVE_PAYMENT_${payment.paymentId}_${Date.now()}`,
             qbCustomerListId: invoice.customer!.qbListId!,
             qbInvoiceTxnId: invoice.qbTxnId!,
-          },
-        });
-
-        await tx.customerInvoice.update({
-          where: {
-            invoiceId: invoice.invoiceId,
-          },
-          data: {
-            amountPaid: invoice.totalAmount,
-            balanceRemaining: 0,
-            isPaid: true,
-            status: CustomerInvoiceStatus.PAID,
           },
         });
 

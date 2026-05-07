@@ -544,7 +544,7 @@ if (hresult || message) {
   return res.send(
     soapEnvelope(`
 <receiveResponseXMLResponse xmlns="http://developer.intuit.com/">
-  <receiveResponseXMLResult>50</receiveResponseXMLResult>
+  <receiveResponseXMLResult>10</receiveResponseXMLResult>
 </receiveResponseXMLResponse>`)
   );
 }
