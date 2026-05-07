@@ -50,3 +50,4 @@ export function escapeXml(value: string | number | null | undefined) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
 }
+

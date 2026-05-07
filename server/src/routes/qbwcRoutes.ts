@@ -23,6 +23,8 @@ import {
   updateLastModifiedSyncAt,
   type QuickBooksEntity,
 } from "../services/quickbooksSyncState"
+import { getNextPendingQuickBooksPaymentWriteXML } from "../services/quickbooksPendingPaymentWriteService";
+import { handleReceivePaymentAddResponse } from "../services/quickbooksPaymentWriteResponseService";
 
 const router = Router();
 
@@ -379,7 +381,7 @@ console.log("QBWC initial stage:", initialStage);
       );
     }
 
-    if (xml.includes("sendRequestXML")) {
+ if (xml.includes("sendRequestXML")) {
   const ticket = getTagValue(xml, "ticket");
   const session = getSession(ticket);
 
@@ -392,7 +394,23 @@ console.log("QBWC initial stage:", initialStage);
     );
   }
 
+  const paymentWriteXML = await getNextPendingQuickBooksPaymentWriteXML();
+
+  if (paymentWriteXML) {
+    console.log("========== QBWC WRITE REQUEST ==========");
+    console.log("QBXML WRITE SENT TO QUICKBOOKS:\n", paymentWriteXML);
+
+    return res.send(
+      soapEnvelope(`
+<sendRequestXMLResponse xmlns="http://developer.intuit.com/">
+  <sendRequestXMLResult>${xmlEscape(paymentWriteXML)}</sendRequestXMLResult>
+</sendRequestXMLResponse>`)
+    );
+  }
+
+
 const stage = session.stage as QuickBooksEntity;
+
 const iterator = session.iterators[stage];
 
 const syncState = await getSyncState(stage);
@@ -480,6 +498,19 @@ if (hresult || message) {
       try {
         const decodedResponseXml = xmlUnescape(responseXml);
         console.log("RAW RESPONSE FROM QUICKBOOKS:\n", decodedResponseXml);
+
+        const handledPaymentWrite = await handleReceivePaymentAddResponse(decodedResponseXml);
+
+        if (handledPaymentWrite) {
+          return res.send(
+            soapEnvelope(`
+        <receiveResponseXMLResponse xmlns="http://developer.intuit.com/">
+          <receiveResponseXMLResult>50</receiveResponseXMLResult>
+        </receiveResponseXMLResponse>`)
+          );
+        }
+
+
         const parsed = await parseQBResponse(decodedResponseXml);
         //console.log("PARSED QB RESPONSE:\n", parsed);
 

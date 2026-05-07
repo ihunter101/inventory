@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { useBatchMarkInvoicesPaidForQuickBooksMutation } from "@/app/state/api";
+import {
+  useBatchMarkInvoicesPaidForQuickBooksMutation,
+  useGetQuickBooksCustomersQuery,
+} from "@/app/state/api";
 
 type PaymentMethod =
   | "CASH"
@@ -12,20 +15,72 @@ type PaymentMethod =
   | "BANK_TRANSFER"
   | "OTHER";
 
+type QuickBooksCustomerOption = {
+  customerId: string;
+  name: string;
+  companyName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  qbListId?: string | null;
+  balance?: string | number | null;
+  totalBalance?: string | number | null;
+};
+
 export default function BatchMarkInvoicesPaidForm() {
   const [startDate, setStartDate] = useState("");
-  const [customerSearch, setCustomerSearch] = useState("");
   const [endDate, setEndDate] = useState("");
+
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [selectedCustomerLabel, setSelectedCustomerLabel] = useState("");
+
   const [paymentDate, setPaymentDate] = useState(
     new Date().toISOString().slice(0, 10)
   );
+
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CHEQUE");
   const [referencePrefix, setReferencePrefix] = useState("BATCH-PAY");
   const [memo, setMemo] = useState("Batch payment recorded from custom app");
   const [dryRun, setDryRun] = useState(true);
 
+  const shouldSearchCustomers =
+    customerSearch.trim().length >= 2 && !selectedCustomerId;
+
+  const { data: customersData, isFetching: isFetchingCustomers } =
+    useGetQuickBooksCustomersQuery(
+      {
+        page: 1,
+        limit: 10,
+        search: customerSearch.trim(),
+        balanceFilter: "withBalance",
+      },
+      {
+        skip: !shouldSearchCustomers,
+      }
+    );
+
+  const customers: QuickBooksCustomerOption[] = customersData?.data ?? [];
+
   const [batchMarkPaid, { isLoading, data }] =
     useBatchMarkInvoicesPaidForQuickBooksMutation();
+
+  function getCustomerLabel(customer: QuickBooksCustomerOption) {
+    return customer.companyName || customer.name || customer.customerId;
+  }
+
+  function handleSelectCustomer(customer: QuickBooksCustomerOption) {
+    const label = getCustomerLabel(customer);
+
+    setSelectedCustomerId(customer.customerId);
+    setSelectedCustomerLabel(label);
+    setCustomerSearch(label);
+  }
+
+  function clearSelectedCustomer() {
+    setSelectedCustomerId("");
+    setSelectedCustomerLabel("");
+    setCustomerSearch("");
+  }
 
   async function handleSubmit() {
     if (!startDate || !endDate) {
@@ -33,17 +88,22 @@ export default function BatchMarkInvoicesPaidForm() {
       return;
     }
 
+    if (!selectedCustomerId) {
+      toast.error("Please select a customer from the dropdown.");
+      return;
+    }
+
     try {
       const result = await batchMarkPaid({
-  startDate,
-  endDate,
-  paymentDate,
-  paymentMethod,
-  referencePrefix,
-  memo,
-  dryRun,
-  customerSearch: customerSearch.trim() || undefined,
-}).unwrap();
+        startDate,
+        endDate,
+        paymentDate,
+        paymentMethod,
+        referencePrefix,
+        memo,
+        dryRun,
+        customerId: selectedCustomerId,
+      }).unwrap();
 
       toast.success(result.message);
     } catch (error: any) {
@@ -56,8 +116,9 @@ export default function BatchMarkInvoicesPaidForm() {
       <div className="mb-5">
         <h2 className="text-lg font-semibold">Batch Mark Invoices Paid</h2>
         <p className="text-sm text-zinc-500">
-          Finds unpaid invoices by invoice date range, creates customer payments,
-          marks them paid locally, and queues QuickBooks ReceivePayment sync jobs.
+          Select a customer, choose an invoice date range, create customer
+          payments, mark invoices paid locally, and queue QuickBooks payment sync
+          jobs.
         </p>
       </div>
 
@@ -81,18 +142,87 @@ export default function BatchMarkInvoicesPaidForm() {
             className="w-full rounded-lg border px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
           />
         </div>
-        <div>
-  <label className="mb-1 block text-sm font-medium">Customer</label>
-  <input
-    value={customerSearch}
-    onChange={(e) => setCustomerSearch(e.target.value)}
-    placeholder="Search customer name or company"
-    className="w-full rounded-lg border px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
-  />
-  <p className="mt-1 text-xs text-zinc-500">
-    Leave blank to include all customers in the date range.
-  </p>
-</div>
+
+        <div className="relative md:col-span-2">
+          <label className="mb-1 block text-sm font-medium">Customer</label>
+
+          <div className="flex gap-2">
+            <input
+              value={customerSearch}
+              onChange={(e) => {
+                setCustomerSearch(e.target.value);
+                setSelectedCustomerId("");
+                setSelectedCustomerLabel("");
+              }}
+              placeholder="Search and select customer"
+              className="w-full rounded-lg border px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+            />
+
+            {selectedCustomerId && (
+              <button
+                type="button"
+                onClick={clearSelectedCustomer}
+                className="rounded-lg border px-3 py-2 text-sm hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          {selectedCustomerId && (
+            <p className="mt-1 text-xs text-emerald-600">
+              Selected: {selectedCustomerLabel}
+            </p>
+          )}
+
+          {shouldSearchCustomers && (
+            <div className="absolute z-30 mt-2 max-h-72 w-full overflow-auto rounded-xl border bg-white shadow-lg dark:border-zinc-800 dark:bg-zinc-950">
+              {isFetchingCustomers && (
+                <div className="p-3 text-sm text-zinc-500">
+                  Searching customers...
+                </div>
+              )}
+
+              {!isFetchingCustomers &&
+                customers.map((customer) => {
+                  const title = getCustomerLabel(customer);
+
+                  return (
+                    <button
+                      key={customer.customerId}
+                      type="button"
+                      onClick={() => handleSelectCustomer(customer)}
+                      className="block w-full border-b px-3 py-2 text-left hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900"
+                    >
+                      <div className="text-sm font-medium">{title}</div>
+
+                      <div className="text-xs text-zinc-500">
+                        {customer.name && customer.name !== title
+                          ? customer.name
+                          : ""}
+
+                        {customer.totalBalance !== undefined &&
+                          customer.totalBalance !== null &&
+                          ` Balance: $${Number(customer.totalBalance).toFixed(
+                            2
+                          )}`}
+                      </div>
+                    </button>
+                  );
+                })}
+
+              {!isFetchingCustomers && customers.length === 0 && (
+                <div className="p-3 text-sm text-zinc-500">
+                  No customers found.
+                </div>
+              )}
+            </div>
+          )}
+
+          <p className="mt-1 text-xs text-zinc-500">
+            Type at least 2 characters, then select the exact customer.
+          </p>
+        </div>
 
         <div>
           <label className="mb-1 block text-sm font-medium">Payment Date</label>
@@ -105,7 +235,9 @@ export default function BatchMarkInvoicesPaidForm() {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">Payment Method</label>
+          <label className="mb-1 block text-sm font-medium">
+            Payment Method
+          </label>
           <select
             value={paymentMethod}
             onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
@@ -121,7 +253,9 @@ export default function BatchMarkInvoicesPaidForm() {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">Reference Prefix</label>
+          <label className="mb-1 block text-sm font-medium">
+            Reference Prefix
+          </label>
           <input
             value={referencePrefix}
             onChange={(e) => setReferencePrefix(e.target.value)}
@@ -200,12 +334,21 @@ export default function BatchMarkInvoicesPaidForm() {
               </thead>
               <tbody>
                 {data.data.items.map((item) => (
-                  <tr key={item.invoiceId} className="border-t dark:border-zinc-800">
-                    <td className="p-2">{item.invoiceNumber || item.invoiceId}</td>
+                  <tr
+                    key={item.invoiceId}
+                    className="border-t dark:border-zinc-800"
+                  >
+                    <td className="p-2">
+                      {item.invoiceNumber || item.invoiceId}
+                    </td>
                     <td className="p-2">{item.customerName}</td>
-                    <td className="p-2">{Number(item.amount).toFixed(2)}</td>
+                    <td className="p-2">
+                      {Number(item.amount).toFixed(2)}
+                    </td>
                     <td className="p-2">{item.status}</td>
-                    <td className="p-2 text-zinc-500">{item.reason || "-"}</td>
+                    <td className="p-2 text-zinc-500">
+                      {item.reason || "-"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
