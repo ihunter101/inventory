@@ -2,8 +2,8 @@ import { QBPaymentSyncStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { buildReceivePaymentBatchAddRq } from "../quickbooks/quickbooksPaymentQbxmlBuilder";
 
-const DEFAULT_BATCH_SIZE = 25;
-const MAX_BATCH_SIZE = 50;
+const DEFAULT_BATCH_SIZE = 10;
+const MAX_BATCH_SIZE = 15;
 const MAX_ATTEMPTS = 3;
 
 function getBatchSize() {

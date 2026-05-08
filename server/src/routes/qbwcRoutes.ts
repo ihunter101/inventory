@@ -7,6 +7,7 @@ import {
   deleteSession,
   setIteratorState,
   resetIteratorState,
+  SyncStage,
 } from "../quickbooks/qbwcStore";
 import { queries } from "../quickbooks/qbxmlRequest";
 import { parseQBResponse } from "../quickbooks/qbxmlParser";
@@ -29,6 +30,8 @@ import {
 } from "../services/quickbooksPendingPaymentWriteService";
 import { reconcilePaymentSyncJobsFromReceivePayments } from "../services/quickbooksPaymentReconciliationService";
 import { handleReceivePaymentAddResponse } from "../services/quickbooksPaymentWriteResponseService";
+import { prisma } from "../lib/prisma";
+import { QBPaymentSyncStatus } from "@prisma/client";
 
 const router = Router();
 
@@ -353,6 +356,17 @@ router.post("/", async (req, res) => {
 
       const token = randomUUID();
 
+      // reset any stray request from sent to pending so they get a chance to update 
+      await prisma.quickBooksPaymentSyncJob.updateMany({
+        where: {
+          status: QBPaymentSyncStatus.SENT,
+          attempts: { lt: 3},
+        },
+        data: {
+          status: QBPaymentSyncStatus.PENDING,
+        },
+      });
+
 const customerState = await getSyncState("customers");
 const invoiceState = await getSyncState("invoices");
 const paymentState = await getSyncState("receivePayments");
@@ -361,10 +375,17 @@ const checkState = await getSyncState("checks");
 const pendingPaymentWriteCount =
   await countPendingQuickBooksPaymentSyncJobs();
 
-const initialStage =
-  !customerState.fullBackfillComplete
-    ? "customers"
-    : "invoices";
+  //if there are still peniding payment to be made then set stage to payment writes
+  //if payment writes is less than not greater than 0 move to chech to see if the backfill property om the csutomer obj is not true
+  // if it not true then set the state to customers so it can backfill customer into the app else backfill is done and go to invoices
+  
+  const initialStage: SyncStage = 
+      pendingPaymentWriteCount > 0
+        ? "paymentWrites" 
+        : !customerState.fullBackfillComplete
+          ? "customers"
+          : "invoices"
+
 
 createSession(token, initialStage);
 
@@ -422,7 +443,15 @@ if (session.stage === "paymentWrites") {
     );
   }
 
+  //no more pending payment - advance and tell QBWC were done
   advanceStage(ticket);
+  
+  return res.send(
+    soapEnvelope(`
+      <sendRequestXMLResponse xmlns="http://developer.intuit.com/">
+      <sendRequestXMLResult></sendRequestXMLResult>
+      </sendRequestXMLResponse>`)
+  );
 }
 
 const activeSession = getSession(ticket);
@@ -541,7 +570,7 @@ if (hresult || message) {
   return res.send(
     soapEnvelope(`
 <receiveResponseXMLResponse xmlns="http://developer.intuit.com/">
-  <receiveResponseXMLResult>50</receiveResponseXMLResult>
+  <receiveResponseXMLResult>${remainingPendingPaymentWrites > 0 ? 50 : 100}</receiveResponseXMLResult>
 </receiveResponseXMLResponse>`)
   );
 }
