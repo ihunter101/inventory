@@ -378,7 +378,7 @@ const pendingPaymentWriteCount =
   //if there are still peniding payment to be made then set stage to payment writes
   //if payment writes is less than not greater than 0 move to chech to see if the backfill property om the csutomer obj is not true
   // if it not true then set the state to customers so it can backfill customer into the app else backfill is done and go to invoices
-  
+
   const initialStage: SyncStage = 
       pendingPaymentWriteCount > 0
         ? "paymentWrites" 
@@ -445,14 +445,9 @@ if (session.stage === "paymentWrites") {
 
   //no more pending payment - advance and tell QBWC were done
   advanceStage(ticket);
-  
-  return res.send(
-    soapEnvelope(`
-      <sendRequestXMLResponse xmlns="http://developer.intuit.com/">
-      <sendRequestXMLResult></sendRequestXMLResult>
-      </sendRequestXMLResponse>`)
-  );
+
 }
+
 
 const activeSession = getSession(ticket);
 
@@ -464,6 +459,24 @@ if (!activeSession || activeSession.stage === "done") {
 </sendRequestXMLResponse>`)
   );
 }
+if (
+  activeSession.stage !== "customers" &&
+  activeSession.stage !== "invoices" &&
+  activeSession.stage !== "receivePayments" &&
+  activeSession.stage !== "checks"
+) {
+  console.error("Invalid read stage reached in sendRequestXML:", {
+    stage: activeSession.stage,
+    ticket,
+  });
+
+  return res.send(
+    soapEnvelope(`
+<sendRequestXMLResponse xmlns="http://developer.intuit.com/">
+  <sendRequestXMLResult></sendRequestXMLResult>
+</sendRequestXMLResponse>`)
+  );
+} 
 
 const stage = activeSession.stage as QuickBooksEntity;
 
@@ -559,7 +572,7 @@ if (hresult || message) {
 
         const handledPaymentWrite = await handleReceivePaymentAddResponse(decodedResponseXml);
 
-  if (handledPaymentWrite) {
+if (handledPaymentWrite) {
   const remainingPendingPaymentWrites =
     await countPendingQuickBooksPaymentSyncJobs();
 
@@ -567,10 +580,13 @@ if (hresult || message) {
     advanceStage(ticket);
   }
 
+  const updatedSession = getSession(ticket);
+  const percent = updatedSession?.stage === "done" ? 100 : 50;
+
   return res.send(
     soapEnvelope(`
 <receiveResponseXMLResponse xmlns="http://developer.intuit.com/">
-  <receiveResponseXMLResult>${remainingPendingPaymentWrites > 0 ? 50 : 100}</receiveResponseXMLResult>
+  <receiveResponseXMLResult>${percent}</receiveResponseXMLResult>
 </receiveResponseXMLResponse>`)
   );
 }
