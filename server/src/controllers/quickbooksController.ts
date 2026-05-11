@@ -187,14 +187,14 @@ export const getQuickBooksCustomerById = async (req: Request, res: Response) => 
 
     if (search) {
       invoiceWhere.invoiceNumber = {
-        constains: search,
+        contains: search,
         mode: "insensitive"
       }
     };
 
     if (status) {
       invoiceWhere.status = {
-        constains: status,
+        contains: status,
         mode: "insensitive"
       }
     }
