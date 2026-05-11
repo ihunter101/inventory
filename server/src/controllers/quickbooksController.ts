@@ -2,6 +2,14 @@ import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { getPagination, paginatedResponse } from "../utils/pagination";
 
+function toDate(value: unknown) {
+  if (!value) return null 
+
+  const date = new Date(String(value))
+
+  return Number.isNaN(date.getTime() ? date : null )
+}
+
 export async function getQuickBooksSummary(_req: Request, res: Response) {
   const [
     customerCount,
@@ -137,67 +145,178 @@ export async function getQuickBooksCustomers(req: Request, res: Response) {
   });
 }
 
-export async function getQuickBooksCustomerById(req: Request, res: Response) {
-  const { customerId } = req.params;
+
+export const getQuickBooksCustomerById = async (req: Request, res: Response) => {
+  try {
+  const { customerId } = req.params
+  const { page, limit, skip } = getPagination(req)
+
+  const search = String(req.query.search ?? "").trim()
+
+  const status = String(req.query.status ?? "").trim()
+
+  const startDate = toDate(req.query.startDate)
+  const endDate = toDate(req.query.endDate)
 
   const customer = await prisma.customer.findUnique({
-    where: {
-      customerId,
+    where: { customerId },
+    select: {
+      customerId: true,
+      qbListId: true,
+      name: true,
+      companyName: true,
+      email: true,
+      phone: true,
+      subClientName: true,
+      balance: true,
+      totalBalance: true,
+      qbTimeCreated: true,
+      lastSyncedAt: true,
     },
-    include: {
-      invoices: {
+  });
+
+     if (!customer) {
+      return res.status(404).json({
+        message: "Customer not found",
+      });
+    };
+
+     const invoiceWhere: any = {
+      customerId,
+    };
+
+    if (search) {
+      invoiceWhere.invoiceNumber = {
+        constains: search,
+        mode: "insensitive"
+      }
+    };
+
+    if (status) {
+      invoiceWhere.status = {
+        constains: status,
+        mode: "insensitive"
+      }
+    }
+
+    if (startDate || endDate ) {
+      invoiceWhere.invoiceDate = {
+        ...(startDate ?  {gte: startDate} : {}),
+        ...(endDate ? {lte: endDate} : {}),
+      }
+    }
+
+    const [
+        invoiceSummary,
+      unpaidInvoiceCount,
+      invoiceCount,
+      paymentSummary,
+      paymentCount,
+      invoices,
+    ] = await prisma.$transaction([
+      prisma.customerInvoice.aggregate({
+        where: {
+          customerId,
+        },
+        _sum: {
+          totalAmount: true,
+          amountPaid: true,
+          balanceRemaining: true,
+        },
+        _count: {
+          _all: true,
+        },
+      }),
+
+      prisma.customerInvoice.count({
+        where: {
+          customerId,
+          status: {
+            in: ["UNPAID", "PARTIALLY_PAID"],
+          },
+        },
+      }),
+
+      prisma.customerInvoice.count({
+        where: invoiceWhere,
+      }),
+
+      prisma.customerPayment.aggregate({
+        where: {
+          customerId,
+        },
+        _sum: {
+          amount: true,
+        },
+      }),
+
+      prisma.customerPayment.count({
+        where: {
+          customerId,
+        },
+      }),
+
+      prisma.customerInvoice.findMany({
+        where: invoiceWhere,
         orderBy: {
           invoiceDate: "desc",
         },
-        include: {
-          lines: true,
-          payments: true,
-        },
-      },
-      payments: {
-        orderBy: {
-          paymentDate: "desc",
-        },
-      },
-    },
-  });
+        skip,
+        take: limit,
+        select: {
+          invoiceId: true,
+          qbTxnId: true,
+          invoiceNumber: true,
+          invoiceDate: true,
+          dueDate: true,
+          totalAmount: true,
+          amountPaid: true,
+          balanceRemaining: true,
+          status: true,
+          isPaid: true,
 
-  if (!customer) {
-    return res.status(404).json({
-      message: "Customer not found",
+          _count: {
+            select: {
+              lines: true,
+              payments: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+const totalPages = Math.ceil(invoiceCount / limit);
+    return res.json({
+      customer,
+
+      summary: {
+        totalInvoiced: Number(invoiceSummary._sum.totalAmount ?? 0),
+        totalPaidFromInvoices: Number(invoiceSummary._sum.amountPaid ?? 0),
+        totalPaidFromPayments: Number(paymentSummary._sum.amount ?? 0),
+        totalBalance: Number(invoiceSummary._sum.balanceRemaining ?? 0),
+        invoiceCount: invoiceSummary._count._all,
+        paymentCount,
+        unpaidInvoiceCount,
+      },
+
+      invoices,
+
+      meta: {
+        page,
+        limit,
+        total: invoiceCount,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+    });
+   } catch (error) {
+    console.error("Failed to fetch QuickBooks customer:", error);
+
+    return res.status(500).json({
+      message: "Failed to fetch QuickBooks customer",
     });
   }
-
-  const totalInvoiced = customer.invoices.reduce(
-    (sum, invoice) => sum + Number(invoice.totalAmount ?? 0),
-    0
-  );
-
-  const totalPaid = customer.payments.reduce(
-    (sum, payment) => sum + Number(payment.amount ?? 0),
-    0
-  );
-
-  const totalBalance = customer.invoices.reduce(
-    (sum, invoice) => sum + Number(invoice.balanceRemaining ?? 0),
-    0
-  );
-
-  const unpaidInvoiceCount = customer.invoices.filter(
-    (invoice) => invoice.status === "UNPAID" || invoice.status === "PARTIALLY_PAID"
-  ).length;
-
-  res.json({
-    customer,
-    summary: {
-      totalInvoiced,
-      totalPaid,
-      totalBalance,
-      invoiceCount: customer.invoices.length,
-      paymentCount: customer.payments.length,
-      unpaidInvoiceCount,
-    },
-  });
 }
 
 export async function getQuickBooksInvoices(req: Request, res: Response) {

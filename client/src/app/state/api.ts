@@ -1007,6 +1007,33 @@ export type PaymentHistory = {
   supplierName?: string | null;
 };
 
+export type GetQuickBooksCustomerByIdArgs = PaginationArgs & {
+  customerId: string;
+  status?: string;
+};
+
+export interface QuickBooksCustomerDetailResponse {
+  customer: any;
+  summary: {
+    totalInvoiced: number;
+    totalPaidFromInvoices: number;
+    totalPaidFromPayments: number;
+    totalBalance: number;
+    invoiceCount: number;
+    paymentCount: number;
+    unpaidInvoiceCount: number;
+  };
+  invoices: any[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+}
+
 
 type PaginationArgs = {
   page?: number;
@@ -2072,8 +2099,21 @@ PaginatedResponse<any> & { summary?: any },
   }),
 }),
 
-getQuickBooksCustomerById: build.query<any, string>({
-  query: (customerId) => `/quickbooks/customers/${customerId}`,
+getQuickBooksCustomerById: build.query<
+  QuickBooksCustomerDetailResponse,
+  GetQuickBooksCustomerByIdArgs
+>({
+  query: ({ customerId, page = 1, limit = 25, search, startDate, endDate, status }) => ({
+    url: `/quickbooks/customers/${customerId}`,
+    params: {
+      page,
+      limit,
+      ...(search ? { search } : {}),
+      ...(startDate ? { startDate } : {}),
+      ...(endDate ? { endDate } : {}),
+      ...(status ? { status } : {}),
+    },
+  }),
 }),
 
 getQuickBooksInvoices: build.query<any, PaginationArgs>({

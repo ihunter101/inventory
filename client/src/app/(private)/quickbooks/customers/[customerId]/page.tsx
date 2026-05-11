@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useGetQuickBooksCustomerByIdQuery } from "@/app/state/api";
 
@@ -21,6 +22,8 @@ import {
 } from "@/components/ui/table";
 
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 function money(value: unknown) {
   return `$${Number(value ?? 0).toFixed(2)}`;
@@ -28,7 +31,9 @@ function money(value: unknown) {
 
 function date(value?: string | null) {
   if (!value) return "—";
+
   const d = new Date(value);
+
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString();
 }
 
@@ -36,8 +41,18 @@ export default function QuickBooksCustomerDetailPage() {
   const params = useParams();
   const customerId = String(params.customerId);
 
-  const { data, isLoading, isError } =
-    useGetQuickBooksCustomerByIdQuery(customerId);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+
+  const limit = 25;
+
+  const { data, isLoading, isFetching, isError } =
+    useGetQuickBooksCustomerByIdQuery({
+      customerId,
+      page,
+      limit,
+      search,
+    });
 
   if (isLoading) {
     return <main className="p-6">Loading customer...</main>;
@@ -49,6 +64,8 @@ export default function QuickBooksCustomerDetailPage() {
 
   const customer = data.customer;
   const summary = data.summary;
+  const invoices = data?.invoices ?? [];
+  const meta = data.meta;
 
   return (
     <main className="p-6 space-y-6">
@@ -56,8 +73,9 @@ export default function QuickBooksCustomerDetailPage() {
         <h1 className="text-3xl font-bold tracking-tight">
           {customer.name}
         </h1>
+
         <p className="text-sm text-muted-foreground">
-          QuickBooks customer profile and related transactions.
+          QuickBooks customer profile and related invoices.
         </p>
       </div>
 
@@ -72,7 +90,7 @@ export default function QuickBooksCustomerDetailPage() {
         <Card>
           <CardHeader>
             <CardDescription>Total Paid</CardDescription>
-            <CardTitle>{money(summary.totalPaid)}</CardTitle>
+            <CardTitle>{money(summary.totalPaidFromPayments)}</CardTitle>
           </CardHeader>
         </Card>
 
@@ -113,7 +131,9 @@ export default function QuickBooksCustomerDetailPage() {
           </div>
 
           <div>
-            <p className="text-sm text-muted-foreground">Created in QuickBooks</p>
+            <p className="text-sm text-muted-foreground">
+              Created in QuickBooks
+            </p>
             <p className="font-medium">{date(customer.qbTimeCreated)}</p>
           </div>
 
@@ -133,11 +153,27 @@ export default function QuickBooksCustomerDetailPage() {
         <CardHeader>
           <CardTitle>Invoices</CardTitle>
           <CardDescription>
-            Invoices linked to this QuickBooks customer.
+            Paginated invoices linked to this QuickBooks customer.
           </CardDescription>
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <Input
+              value={search}
+              placeholder="Search invoice number..."
+              className="max-w-sm"
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+            />
+
+            {isFetching && (
+              <p className="text-sm text-muted-foreground">Refreshing...</p>
+            )}
+          </div>
+
           <div className="rounded-xl border overflow-x-auto">
             <Table>
               <TableHeader>
@@ -153,7 +189,7 @@ export default function QuickBooksCustomerDetailPage() {
               </TableHeader>
 
               <TableBody>
-                {customer.invoices.map((invoice: any) => (
+                {invoices.map((invoice: any) => (
                   <TableRow key={invoice.invoiceId}>
                     <TableCell>{invoice.invoiceNumber ?? "—"}</TableCell>
                     <TableCell>{date(invoice.invoiceDate)}</TableCell>
@@ -173,9 +209,12 @@ export default function QuickBooksCustomerDetailPage() {
                   </TableRow>
                 ))}
 
-                {customer.invoices.length === 0 && (
+                {invoices.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell
+                      colSpan={7}
+                      className="text-center py-8 text-muted-foreground"
+                    >
                       No invoices found.
                     </TableCell>
                   </TableRow>
@@ -183,50 +222,29 @@ export default function QuickBooksCustomerDetailPage() {
               </TableBody>
             </Table>
           </div>
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Payments</CardTitle>
-          <CardDescription>
-            Payments linked to this QuickBooks customer.
-          </CardDescription>
-        </CardHeader>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Page {meta.page} of {meta.totalPages || 1} · {meta.total} invoices
+            </p>
 
-        <CardContent>
-          <div className="rounded-xl border overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Method</TableHead>
-                  <TableHead>Reference</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                </TableRow>
-              </TableHeader>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                disabled={!meta.hasPrevPage || isFetching}
+                onClick={() => setPage((current) => Math.max(current - 1, 1))}
+              >
+                Previous
+              </Button>
 
-              <TableBody>
-                {customer.payments.map((payment: any) => (
-                  <TableRow key={payment.paymentId}>
-                    <TableCell>{date(payment.paymentDate)}</TableCell>
-                    <TableCell>{payment.method ?? "—"}</TableCell>
-                    <TableCell>{payment.referenceNumber ?? "—"}</TableCell>
-                    <TableCell className="text-right">
-                      {money(payment.amount)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-
-                {customer.payments.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                      No payments found.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+              <Button
+                variant="outline"
+                disabled={!meta.hasNextPage || isFetching}
+                onClick={() => setPage((current) => current + 1)}
+              >
+                Next
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
