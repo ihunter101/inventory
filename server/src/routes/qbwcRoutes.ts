@@ -446,6 +446,13 @@ if (session.stage === "paymentWrites") {
   //no more pending payment - advance and tell QBWC were done
   advanceStage(ticket);
 
+  return res.send(
+  soapEnvelope(`
+<sendRequestXMLResponse xmlns="http://developer.intuit.com/">
+  <sendRequestXMLResult></sendRequestXMLResult>
+</sendRequestXMLResponse>`)
+);
+
 }
 
 
