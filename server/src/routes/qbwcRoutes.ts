@@ -631,19 +631,52 @@ if (parsed) {
   );
 
   if (parsed.remainingCount === 0) {
-    const syncState = await getSyncState(parsed.type);
+  const syncStateBeforeUpdate = await getSyncState(parsed.type);
 
-    if (!syncState.fullBackfillComplete) {
-      await markFullBackfillComplete(parsed.type);
-    } else {
-      const syncCheckpoint = session.syncStartedAt;
+  console.log("SYNC STATE BEFORE FINAL UPDATE:", {
+    type: parsed.type,
+    fullBackfillComplete: syncStateBeforeUpdate.fullBackfillComplete,
+    lastModifiedSyncAt: syncStateBeforeUpdate.lastModifiedSyncAt,
+    sessionSyncStartedAt: session.syncStartedAt,
+  });
 
-      await updateLastModifiedSyncAt(parsed.type, syncCheckpoint);
-    }
+  if (!syncStateBeforeUpdate.fullBackfillComplete) {
+    await markFullBackfillComplete(parsed.type);
 
-    resetIteratorState(ticket, parsed.type);
-    advanceStage(ticket);
+    console.log("SYNC STATE ACTION:", {
+      type: parsed.type,
+      action: "MARKED_FULL_BACKFILL_COMPLETE",
+    });
+  } else {
+    const syncCheckpoint = session.syncStartedAt;
+
+    await updateLastModifiedSyncAt(parsed.type, syncCheckpoint);
+
+    console.log("SYNC STATE ACTION:", {
+      type: parsed.type,
+      action: "UPDATED_LAST_MODIFIED_SYNC_AT",
+      newLastModifiedSyncAt: syncCheckpoint,
+    });
   }
+
+  const syncStateAfterUpdate = await getSyncState(parsed.type);
+
+  console.log("SYNC STATE AFTER FINAL UPDATE:", {
+    type: parsed.type,
+    fullBackfillComplete: syncStateAfterUpdate.fullBackfillComplete,
+    lastModifiedSyncAt: syncStateAfterUpdate.lastModifiedSyncAt,
+  });
+
+  resetIteratorState(ticket, parsed.type);
+  advanceStage(ticket);
+
+  const updatedSession = getSession(ticket);
+
+  console.log("QBWC STAGE AFTER ADVANCE:", {
+    previousType: parsed.type,
+    nextStage: updatedSession?.stage,
+  });
+}
 
   console.log(
     `Saved QuickBooks ${parsed.type}: ${parsed.data.length} rows, remaining=${parsed.remainingCount}`

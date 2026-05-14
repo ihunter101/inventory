@@ -160,6 +160,12 @@ export const queries = {
 
 
 invoices: (options: QueryOptions = {}) => {
+  /**
+   * Continue requests must reuse the iteratorID returned by QuickBooks.
+   *
+   * Do not resend the original date filters on Continue requests.
+   * QuickBooks already remembers the result set through the iteratorID.
+   */
   if (options.iterator === "Continue" && options.iteratorID) {
     return `${header}
     <InvoiceQueryRq requestID="invoices_001" iterator="Continue" iteratorID="${escapeXmlAttr(options.iteratorID)}">
@@ -169,7 +175,22 @@ invoices: (options: QueryOptions = {}) => {
 ${footer}`;
   }
 
-  const dateFilter = 
+  /**
+   * Date filter decision:
+   *
+   * 1. If fromTxnDate/toTxnDate exists:
+   *    Use TxnDateRangeFilter.
+   *
+   *    This is for the initial historical invoice pull:
+   *    "Give me invoices dated from 2025-06-01 onward."
+   *
+   * 2. Otherwise:
+   *    Use ModifiedDateRangeFilter.
+   *
+   *    This is for ongoing sync:
+   *    "Give me invoices created/edited since the last sync bookmark."
+   */
+  const dateFilter =
     options.fromTxnDate || options.toTxnDate
       ? buildTxnDateFilter(options)
       : buildModifiedDateFilter(options);

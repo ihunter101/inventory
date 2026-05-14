@@ -219,6 +219,18 @@ async function saveCustomerInvoices(invoices: any[]) {
       rawJson: stringifyRaw(invoice),
       lastSyncedAt: new Date(),
     };
+const existingInvoice = await prisma.customerInvoice.findUnique({
+  where: { qbTxnId },
+  select: {
+    invoiceId: true,
+    invoiceNumber: true,
+  },
+});
+    console.log(
+  existingInvoice
+    ? `Updating existing invoice ${invoice.RefNumber}`
+    : `Creating new invoice ${invoice.RefNumber}`
+); 
 
     const savedInvoice = await prisma.customerInvoice.upsert({
       where: {
