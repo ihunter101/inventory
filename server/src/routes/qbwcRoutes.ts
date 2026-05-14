@@ -375,16 +375,27 @@ const checkState = await getSyncState("checks");
 const pendingPaymentWriteCount =
   await countPendingQuickBooksPaymentSyncJobs();
 
-  //if there are still peniding payment to be made then set stage to payment writes
-  //if payment writes is less than not greater than 0 move to chech to see if the backfill property om the csutomer obj is not true
-  // if it not true then set the state to customers so it can backfill customer into the app else backfill is done and go to invoices
-
-  const initialStage: SyncStage = 
-      pendingPaymentWriteCount > 0
-        ? "paymentWrites" 
-        : !customerState.fullBackfillComplete
-          ? "customers"
-          : "invoices"
+  /**
+ * QBWC start-stage decision
+ *
+ * Priority:
+ * 1. If there are pending payment writes, process them first.
+ * 2. If customers have not been backfilled, backfill customers.
+ * 3. If invoice backfill is NOT complete, run invoice sync/backfill.
+ * 4. Otherwise, do nothing.
+ *
+ * Important:
+ * Invoices will NOT keep syncing repeatedly once fullBackfillComplete = true.
+ * To trigger invoice syncing again, manually set invoices.fullBackfillComplete = false.
+ */
+  const initialStage: SyncStage =
+  pendingPaymentWriteCount > 0
+    ? "paymentWrites"
+    : !customerState.fullBackfillComplete
+      ? "customers"
+      : !invoiceState.fullBackfillComplete
+        ? "invoices"
+        : "done";
 
 
 createSession(token, initialStage);
