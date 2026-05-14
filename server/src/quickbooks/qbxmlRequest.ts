@@ -51,6 +51,20 @@ function buildModifiedDateFilter(options: QueryOptions) {
       </ModifiedDateRangeFilter>`;
 }
 
+function buildTxnDateFilter(options: QueryOptions) {
+  const fromTxnDate = formatQBDateTime(options.fromTxnDate);
+  const toTxnDate = formatQBDateTime(options.toTxnDate);
+
+  if (!fromTxnDate && !toTxnDate) return "";
+
+  return `
+  <TxnDateRangeFilter>
+    ${fromTxnDate ? `<FromTxnDate>${fromTxnDate}</FromTxnDate>` : ""}
+    ${toTxnDate ? `<ToTxnDate>${toTxnDate}</ToTxnDate>` : ""}
+  </TxnDateRangeFilter>
+  `
+}
+
 
 function buildStartQuery(tag: string, requestID: string, innerBody: string) {
   return `${header}
@@ -99,11 +113,16 @@ invoices: (options: QueryOptions = {}) => {
 ${footer}`;
   }
 
+  const dateFilter = 
+    options.fromTxnDate || options.toTxnDate
+      ? buildTxnDateFilter(options)
+      : buildModifiedDateFilter(options);
+
   return buildStartQuery(
     "InvoiceQueryRq",
     "invoices_001",
     `
-      ${buildModifiedDateFilter(options)}
+      ${dateFilter}
       <IncludeLineItems>true</IncludeLineItems>
     `
   );

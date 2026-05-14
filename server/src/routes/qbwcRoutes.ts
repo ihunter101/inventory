@@ -491,18 +491,32 @@ const iterator = activeSession.iterators[stage];
 
 const syncState = await getSyncState(stage);
 
-const fromModifiedDate =
-  syncState.fullBackfillComplete && syncState.lastModifiedSyncAt
-    ? syncState.lastModifiedSyncAt.toISOString()
-    : stage === "customers"
-      ? null
-      : "2025-06-01T00:00:00";
+const INVOICE_TXN_BACKFILL_FROM ="2025-06-01";
 
-const queryOptions = {
-  fromModifiedDate,
-  fromTxnDate: null,
-  toTxnDate: null,
-};
+let queryOptions: {
+  fromModifiedDate: string | null;
+  fromTxnDate: string | null;
+  toTxnDate: string | null;
+}
+
+if (stage === "invoices" && !syncState.fullBackfillComplete) {
+  queryOptions = {
+    fromModifiedDate: null,
+    fromTxnDate: INVOICE_TXN_BACKFILL_FROM,
+    toTxnDate: null,
+  };
+} else {
+  const fromModifiedDate = 
+    syncState.fullBackfillComplete && syncState.lastModifiedSyncAt
+      ? syncState.lastModifiedSyncAt.toISOString()
+      : null;
+
+    queryOptions = {
+      fromModifiedDate,
+      fromTxnDate: null,
+      toTxnDate: null,
+    }
+}
 
 const qbxml =
   iterator.iteratorID && iterator.remainingCount > 0
