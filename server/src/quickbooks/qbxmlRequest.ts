@@ -25,24 +25,92 @@ function escapeXmlAttr(value: string) {
     .replace(/>/g, "&gt;");
 }
 
-function formatQBDateTime(value?: string | null) {
+/**
+ * Formats a value for QuickBooks TxnDate fields.
+ *
+ * IMPORTANT:
+ * QuickBooks TxnDate fields expect DATE ONLY:
+ *
+ *   Correct:   2025-06-01
+ *   Incorrect: 2025-06-01T00:00:00
+ *
+ * Use this for:
+ * - Invoice TxnDateRangeFilter
+ * - Check TxnDateRangeFilter
+ * - Payment TxnDateRangeFilter, if needed later
+ *
+ * Do NOT use this for ModifiedDateRangeFilter.
+ * ModifiedDateRangeFilter expects a datetime.
+ */
+function formatQBDate(value?: string | null) {
   if (!value) return null;
 
+  /**
+   * If the value is already in the correct QuickBooks date-only format,
+   * return it unchanged.
+   *
+   * Example:
+   * "2025-06-01" stays "2025-06-01"
+   */
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+
+  /**
+   * If the value came in as a JS/ISO datetime,
+   * convert it back down to YYYY-MM-DD.
+   *
+   * Example:
+   * "2025-06-01T00:00:00.000Z" becomes "2025-06-01"
+   */
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
 
   const yyyy = date.getFullYear();
   const mm = String(date.getMonth() + 1).padStart(2, "0");
   const dd = String(date.getDate()).padStart(2, "0");
-  const hh = String(date.getHours()).padStart(2, "0");
-  const mi = String(date.getMinutes()).padStart(2, "0");
-  const ss = String(date.getSeconds()).padStart(2, "0");
 
-  return `${yyyy}-${mm}-${dd}T${hh}:${mi}:${ss}`;
+  return `${yyyy}-${mm}-${dd}`;
 }
 
+/**
+ * Builds a QuickBooks TxnDateRangeFilter.
+ *
+ * TxnDate means the transaction date shown on the invoice.
+ *
+ * Example:
+ *
+ * Invoice Date: March 10, 2026
+ *
+ * That invoice's TxnDate is:
+ *
+ *   2026-03-10
+ *
+ * This filter is useful for historical invoice pulls, for example:
+ *
+ *   "Give me all invoices dated from 2025-06-01 onward."
+ *
+ * It is NOT the same as ModifiedDate.
+ */
+function buildTxnDateFilter(options: QueryOptions) {
+  const fromTxnDate = formatQBDate(options.fromTxnDate);
+  const toTxnDate = formatQBDate(options.toTxnDate);
+
+  if (!fromTxnDate && !toTxnDate) return "";
+
+  return `
+      <TxnDateRangeFilter>
+        ${fromTxnDate ? `<FromTxnDate>${fromTxnDate}</FromTxnDate>` : ""}
+        ${toTxnDate ? `<ToTxnDate>${toTxnDate}</ToTxnDate>` : ""}
+      </TxnDateRangeFilter>`;
+}
+
+
 function buildModifiedDateFilter(options: QueryOptions) {
-  const formatted = formatQBDateTime(options.fromModifiedDate);
+  const formatted = formatQBDate(options.fromModifiedDate);
   if (!formatted) return "";
 
   return `
@@ -51,19 +119,7 @@ function buildModifiedDateFilter(options: QueryOptions) {
       </ModifiedDateRangeFilter>`;
 }
 
-function buildTxnDateFilter(options: QueryOptions) {
-  const fromTxnDate = formatQBDateTime(options.fromTxnDate);
-  const toTxnDate = formatQBDateTime(options.toTxnDate);
 
-  if (!fromTxnDate && !toTxnDate) return "";
-
-  return `
-  <TxnDateRangeFilter>
-    ${fromTxnDate ? `<FromTxnDate>${fromTxnDate}</FromTxnDate>` : ""}
-    ${toTxnDate ? `<ToTxnDate>${toTxnDate}</ToTxnDate>` : ""}
-  </TxnDateRangeFilter>
-  `
-}
 
 
 function buildStartQuery(tag: string, requestID: string, innerBody: string) {
