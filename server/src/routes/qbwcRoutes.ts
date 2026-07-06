@@ -390,12 +390,18 @@ const pendingPaymentWriteCount =
  */
   const initialStage: SyncStage =
   pendingPaymentWriteCount > 0
+  ? "paymentWrites"
+  : pendingPaymentWriteCount > 0
     ? "paymentWrites"
     : !customerState.fullBackfillComplete
       ? "customers"
       : !invoiceState.fullBackfillComplete
         ? "invoices"
-        : "done";
+        : !paymentState.fullBackfillComplete
+          ? "receivePayments"
+          : !checkState.fullBackfillComplete
+            ? "checks"
+            : "done";
 
 
 createSession(token, initialStage);

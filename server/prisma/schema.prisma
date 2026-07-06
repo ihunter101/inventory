@@ -392,6 +392,37 @@ model CustomerInvoiceLine {
   @@index([className])
 }
 
+model QuickBooksInvoiceSyncJob {
+  id String @id @default(cuid())
+
+  localInvoiceId String
+  qbRequestId    String @unique
+
+  payloadJson Json
+
+  status QBInvoiceSyncStatus @default(PENDING)
+
+  qbInvoiceTxnId        String?
+  qbInvoiceEditSequence String?
+
+  attempts     Int @default(0)
+  errorMessage String?
+  requestXml   String?
+  responseJson Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([localInvoiceId])
+  @@index([createdAt])
+}
+
+enum QBInvoiceSyncStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
 model CustomerPayment {
   paymentId String @id @default(uuid())
 
