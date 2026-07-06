@@ -24,7 +24,10 @@ const ExpenseTrendChart = ({ expenses }: Props) => {
     const totals: Record<string, number> = {};
 
     expenses.forEach((expense) => {
-      const date = new Date(expense.createdAt);
+      if (!expense.expenseDate) return 
+
+      const date = new Date(expense.expenseDate);
+  
 
       if (isNaN(date.getTime())) return;
 
