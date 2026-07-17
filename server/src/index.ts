@@ -31,6 +31,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 import { ensureUser } from "./middleware/ensureUser"; 
+import tokenBucket from "./middleware/tokenBucket"
 
 // 2) Import your routers (use your actual filenames)
 import dashboardRoutes from "./routes/dashboardRoutes";
@@ -109,8 +110,11 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 // 5) Create protected router with BOTH ensureUser AND routes
 const protectedRouter = express.Router();
 
-// ✅ CRITICAL: ensureUser must run FIRST, before any routes
+// CRITICAL: ensureUser must run FIRST, before any routes
 // This creates the user in DB if they don't exist
+const apiRateLimiter = tokenBucket(2, 10, 2000);
+
+protectedRouter.use(apiRateLimiter);
 protectedRouter.use(...ensureUser());
 
 // 6) Mount protected routers (they can now use must() safely)

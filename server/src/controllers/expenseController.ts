@@ -111,6 +111,18 @@ export const createExpense = async (req: Request, res: Response) => {
   }
 
   try {
+
+    const existingInvoice = await prisma.expenses.findUnique({
+      where: {
+        companyName,
+        vendorName, 
+        invoiceNumber,
+      }
+    })
+
+    if (existingInvoice) {
+      return res.status
+    }
     const newExpense = await prisma.expenses.create({
       data: {
         companyName,
